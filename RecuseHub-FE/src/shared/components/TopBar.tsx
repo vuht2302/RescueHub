@@ -13,7 +13,7 @@ export const TopBar: React.FC = () => {
     >
       <div className="flex items-center gap-8">
         <Link
-          to="/"
+          to="/rescue-team"
           className="text-xl font-black text-white tracking-tighter cursor-pointer"
           style={{ fontFamily: "var(--font-primary)" }}
         >
@@ -21,8 +21,14 @@ export const TopBar: React.FC = () => {
         </Link>
         <div className="hidden md:flex items-center gap-8  tracking-tight">
           <NavLink
-            to="/"
-            end
+            to="/rescue-team"
+            className={getNavClassName}
+            style={{ fontFamily: "var(--font-primary)" }}
+          >
+            Đội cứu hộ
+          </NavLink>
+          <NavLink
+            to="/home"
             className={getNavClassName}
             style={{ fontFamily: "var(--font-primary)" }}
           >

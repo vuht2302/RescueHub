@@ -40,7 +40,7 @@ export const SupportConfirmed: React.FC = () => {
           </div>
 
           <h1 className="font-headline font-extrabold text-4xl text-on-surface mb-3 tracking-tight">
-            Da xac nhan ho tro
+            Đã xác nhận hỗ trợ
           </h1>
           <p className="text-on-surface-variant text-lg max-w-md mb-10 leading-relaxed">
             Trung tam dieu phoi da nhan tin hieu cua ban. Don vi gan nhat dang
@@ -78,7 +78,7 @@ export const SupportConfirmed: React.FC = () => {
               onClick={() => navigate("/")}
               className="w-full hero-gradient h-16 rounded-lg text-on-primary font-headline font-bold text-lg shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
             >
-              TOI DA AN TOAN
+              TÔI ĐÃ AN TOÀN
             </button>
             <button
               onClick={() => navigate("/")}

@@ -31,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: "current",
-      label: "Nhiệm vụ hiện tại",
+      label: "Nhiệm vụ hiện tạii",
       icon: AlertCircle,
     },
     {

@@ -1,5 +1,3 @@
-export type View = "home" | "alerts" | "track" | "request" | "confirmed";
-
 export interface Alert {
   id: string;
   title: string;

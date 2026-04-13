@@ -8,13 +8,9 @@ import {
   Radio,
   AlertCircle,
 } from "lucide-react";
-import { Alert, View } from "../../../shared/types";
+import { Alert } from "../../../shared/types";
 
-interface AlertCenterProps {
-  onViewChange: (view: View) => void;
-}
-
-export const AlertCenter: React.FC<AlertCenterProps> = ({ onViewChange }) => {
+export const AlertCenter: React.FC = () => {
   const alerts: Alert[] = [
     {
       id: "1",
@@ -88,7 +84,7 @@ export const AlertCenter: React.FC<AlertCenterProps> = ({ onViewChange }) => {
     <div className="max-w-4xl mx-auto">
       <header className="mb-12">
         <h1 className="text-5xl font-bold font-headline tracking-tighter text-on-surface mb-2">
-          Trung tâm cảnh báo
+          Trung tâm cảnh bá
         </h1>
         <p className="text-on-surface-variant font-medium text-lg">
           Cap nhat dieu phoi cuu ho va he thong theo thoi gian thuc.

@@ -15,13 +15,8 @@ import {
   ArrowRight,
   BriefcaseMedical as FirstAid,
 } from "lucide-react";
-import { View } from "../../../shared/types";
 
-interface RescueTrackProps {
-  onViewChange: (view: View) => void;
-}
-
-export const RescueTrack: React.FC<RescueTrackProps> = ({ onViewChange }) => {
+export const RescueTrack: React.FC = () => {
   const steps = [
     { label: "Tiep nhan", time: "10:04", icon: CheckCircle, completed: true },
     { label: "Xac minh", time: "10:12", icon: BadgeCheck, completed: true },

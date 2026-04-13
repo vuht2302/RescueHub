@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FileText,
   Stethoscope,
@@ -13,15 +14,9 @@ import {
   Minus,
   LayoutGrid,
 } from "lucide-react";
-import { View } from "../../../shared/types";
 
-interface CreateRequestProps {
-  onViewChange: (view: View) => void;
-}
-
-export const CreateRequest: React.FC<CreateRequestProps> = ({
-  onViewChange,
-}) => {
+export const CreateRequest: React.FC = () => {
+  const navigate = useNavigate();
   const [incidentType, setIncidentType] = useState<"medical" | "lost">(
     "medical",
   );
@@ -214,7 +209,7 @@ export const CreateRequest: React.FC<CreateRequestProps> = ({
               </p>
             </div>
             <button
-              onClick={() => onViewChange("confirmed")}
+              onClick={() => navigate("/confirmed")}
               className="h-16 px-10 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-xl font-bold text-lg shadow-xl hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-3"
             >
               Gui yeu cau
@@ -226,7 +221,7 @@ export const CreateRequest: React.FC<CreateRequestProps> = ({
 
       <div className="fixed top-24 left-6 z-50">
         <button
-          onClick={() => onViewChange("home")}
+          onClick={() => navigate("/")}
           className="group relative flex items-center justify-center w-14 h-14 bg-surface-container-lowest rounded-full shadow-2xl border border-outline-variant/10 hover:bg-primary transition-all"
         >
           <LayoutGrid

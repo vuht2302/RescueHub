@@ -1,4 +1,6 @@
-﻿import React, { useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+import vietmapgl from "@vietmap/vietmap-gl-js/dist/vietmap-gl";
+import "@vietmap/vietmap-gl-js/dist/vietmap-gl.css";
 import {
   Bell,
   BookText,
@@ -62,7 +64,7 @@ const missions: Mission[] = [
     summary:
       "Nạn nhân bị ngã vào khe nứt nông, có dấu hiệu hạ thân nhiệt. Tín hiệu định vị còn hoạt động.",
     assignedTeam: "Đội phản ứng nhanh Alpha-2",
-    coord: { lat: 46.5782, lng: 7.6541 },
+    coord: { lat: 10.7769, lng: 106.7009 },
   },
   {
     id: "rg-4510-b",
@@ -76,7 +78,7 @@ const missions: Mission[] = [
     summary:
       "Nhóm 3 người mắc kẹt do gió lớn, không thể tự di chuyển xuống trạm an toàn.",
     assignedTeam: "Đội cứu nạn Bravo-1",
-    coord: { lat: 46.592, lng: 7.688 },
+    coord: { lat: 16.0471, lng: 108.2068 },
   },
   {
     id: "rg-4522-a",
@@ -90,7 +92,7 @@ const missions: Mission[] = [
     summary:
       "Yêu cầu cấp phát thuốc chống lạnh và oxy cho nhóm cư dân đang trú ẩn.",
     assignedTeam: "Đội hậu cần Charlie",
-    coord: { lat: 46.545, lng: 7.621 },
+    coord: { lat: 21.0285, lng: 105.8542 },
   },
 ];
 
@@ -134,15 +136,93 @@ export const RescueTeamMission: React.FC = () => {
   ]);
   const [reportStatus, setReportStatus] = useState<MissionStatus>("Đang xử lý");
   const [reportText, setReportText] = useState("");
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<vietmapgl.Map | null>(null);
+  const markersRef = useRef<vietmapgl.Marker[]>([]);
+
+  const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
+  const hasVietmapKey = vietmapApiKey.length > 0;
+
+  const isWithinVietnamBounds = (lat: number, lng: number) =>
+    lat >= 8.0 && lat <= 24.5 && lng >= 102.0 && lng <= 110.0;
 
   const selectedMission =
     missions.find((mission) => mission.id === selectedMissionId) ?? missions[0];
+
+  const canUseVietmap =
+    hasVietmapKey &&
+    isWithinVietnamBounds(selectedMission.coord.lat, selectedMission.coord.lng);
 
   const mapSrc = useMemo(() => {
     const { lat, lng } = selectedMission.coord;
     const bbox = `${lng - 0.02}%2C${lat - 0.02}%2C${lng + 0.02}%2C${lat + 0.02}`;
     return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lng}`;
   }, [selectedMission]);
+
+  useEffect(() => {
+    if (!canUseVietmap || !mapContainerRef.current || mapRef.current) {
+      return;
+    }
+
+    const map = new vietmapgl.Map({
+      container: mapContainerRef.current,
+      style: `https://maps.vietmap.vn/maps/styles/tm/style.json?apikey=${vietmapApiKey}`,
+      center: [selectedMission.coord.lng, selectedMission.coord.lat],
+      zoom: 13,
+    });
+
+    map.addControl(new vietmapgl.NavigationControl(), "top-right");
+    mapRef.current = map;
+
+    return () => {
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [
+    canUseVietmap,
+    selectedMission.coord.lat,
+    selectedMission.coord.lng,
+    vietmapApiKey,
+  ]);
+
+  useEffect(() => {
+    if (!canUseVietmap || !mapRef.current) {
+      return;
+    }
+
+    const map = mapRef.current;
+
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current = missions.map((mission) => {
+      const isSelected = mission.id === selectedMission.id;
+      const marker = new vietmapgl.Marker({
+        color: isSelected ? "#ba1a1a" : "#001f3f",
+      })
+        .setLngLat([mission.coord.lng, mission.coord.lat])
+        .setPopup(
+          new vietmapgl.Popup({ offset: 12 }).setHTML(
+            `<strong>${mission.code}</strong><br/>${mission.title}`,
+          ),
+        )
+        .addTo(map);
+
+      marker.getElement().addEventListener("click", () => {
+        setSelectedMissionId(mission.id);
+        setReportStatus(statusMap[mission.id] ?? "Đang di chuyển");
+      });
+
+      return marker;
+    });
+
+    map.flyTo({
+      center: [selectedMission.coord.lng, selectedMission.coord.lat],
+      zoom: 14,
+      essential: true,
+      duration: 900,
+    });
+  }, [canUseVietmap, selectedMission, statusMap]);
 
   const currentLogs = logs
     .filter((item) => item.missionId === selectedMission.id)
@@ -253,12 +333,34 @@ export const RescueTeamMission: React.FC = () => {
             {activeMenu === "map" && (
               <>
                 <article className="relative rounded-2xl overflow-hidden bg-[#cfd4db] min-h-[520px] h-full">
-                  <iframe
-                    title="Bản đồ nhiệm vụ cứu hộ"
-                    src={mapSrc}
-                    className="w-full h-full"
-                    loading="lazy"
-                  />
+                  {canUseVietmap ? (
+                    <div
+                      ref={mapContainerRef}
+                      className="w-full h-full"
+                      aria-label="Bản đồ nhiệm vụ cứu hộ"
+                    />
+                  ) : (
+                    <iframe
+                      title="Bản đồ nhiệm vụ cứu hộ"
+                      src={mapSrc}
+                      className="w-full h-full"
+                      loading="lazy"
+                    />
+                  )}
+
+                  {!hasVietmapKey && (
+                    <div className="absolute top-5 right-5 bg-amber-100 text-amber-900 px-3 py-2 rounded-lg text-xs font-bold border border-amber-300">
+                      Chưa có VITE_VIETMAP_API_KEY, đang hiển thị bản đồ dự
+                      phòng.
+                    </div>
+                  )}
+
+                  {hasVietmapKey && !canUseVietmap && (
+                    <div className="absolute top-5 right-5 bg-amber-100 text-amber-900 px-3 py-2 rounded-lg text-xs font-bold border border-amber-300 max-w-[280px]">
+                      Tọa độ nhiệm vụ đang ngoài vùng phủ dữ liệu Việt Nam của
+                      Vietmap, đang hiển thị bản đồ dự phòng.
+                    </div>
+                  )}
 
                   <div className="absolute top-5 left-5 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 shadow-md border border-white/70">
                     <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">

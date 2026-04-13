@@ -47,7 +47,7 @@ export const RescueTrack: React.FC<RescueTrackProps> = ({ onViewChange }) => {
           <span className="text-primary font-bold text-sm tracking-widest uppercase">
             Ma theo doi: #RG-88241
           </span>
-          <h1 className="text-4xl md:text-5xl font-headline font-extrabold text-on-surface mt-2 tracking-tight">
+          <h1 className="text-4xl md:text-5xl font-headline font-bold text-on-surface mt-2 tracking-tight">
             Tien trinh cuu ho dang dien ra
           </h1>
         </div>

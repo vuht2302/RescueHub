@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { UserCircle, Settings } from "lucide-react";
-import { LoginModal } from "./LoginModal";
-import { SignupModal } from "./SignupModal";
+import { LoginModal } from "../../features/auth/components/LoginModal";
+import { SignupModal } from "../../features/auth/components/SignupModal";
 
 export const TopBar: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);

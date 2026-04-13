@@ -24,10 +24,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onViewChange }) => {
       >
         <div className="w-3 h-3 rounded-full bg-error ml-2 pulse-glow"></div>
         <span className="text-error font-bold text-sm tracking-tight font-headline">
-          CANH BAO NGHIEM TRONG: THOI TIET XAU TAI KHU VUC 4
+          CẢNH BÁO: Có 2 sự cố khẩn cấp gần bạn, hãy chuẩn bị sẵn sàng để hỗ trợ
+          nếu cần thiết!
         </span>
         <span className="ml-auto text-xs text-on-surface-variant font-bold uppercase tracking-widest">
-          Dang hoat dong
+          ĐANG HOẠT ĐỘNG
         </span>
       </motion.div>
 
@@ -44,11 +45,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onViewChange }) => {
             </div>
             <div className="relative z-10 max-w-lg">
               <h1 className="text-5xl font-headline font-extrabold text-on-surface leading-tight tracking-tighter mb-4">
-                Ban can ho tro ngay?
+                Bạn Cần Hỗ Trợ Ngay?
               </h1>
               <p className="text-on-surface-variant text-lg mb-12 font-medium">
-                Ket noi nhanh toi doi dieu phoi cuu nan va tinh nguyen vien gan
-                nhat.
+                Kết nối nhanh tới đội điều phối cứu nạn và tình nguyện viên gần
+                nhất.
               </p>
 
               <motion.button
@@ -60,10 +61,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ onViewChange }) => {
                 <div className="absolute inset-0 rounded-full border-4 border-error opacity-20 group-hover:scale-125 transition-transform duration-700"></div>
                 <AlertCircle className="text-white mb-2" size={64} />
                 <span className="text-white font-headline font-black text-2xl tracking-tighter uppercase">
-                  Yeu cau ho tro
+                  Yêu Cầu Hỗ Trợ
                 </span>
                 <span className="absolute -bottom-12 text-error font-bold text-sm animate-bounce">
-                  NHAN VA GIU
+                  NHẪN VÀ GIỮ
                 </span>
               </motion.button>
             </div>

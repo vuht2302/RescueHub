@@ -12,32 +12,39 @@ export const TopBar: React.FC<TopBarProps> = ({
   onViewChange,
 }) => {
   return (
-    <nav className="fixed top-0 w-full z-50 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-xl shadow-sm flex justify-between items-center px-8 py-4">
+    <nav
+      className="fixed top-0 w-full z-50 bg-blue-950 shadow-md flex justify-between items-center px-8 py-4"
+      style={{ fontFamily: "Arial, sans-serif" }}
+    >
       <div className="flex items-center gap-8">
         <div
-          className="text-2xl font-black text-primary tracking-tighter font-headline cursor-pointer"
+          className="text-xl font-black text-white tracking-tighter cursor-pointer"
           onClick={() => onViewChange("home")}
+          style={{ fontFamily: "SiemensSans , sans-serif" }}
         >
-          TrungTamCuuHo
+          RecuseHub
         </div>
-        <div className="hidden md:flex items-center gap-8 font-headline font-bold tracking-tight">
+        <div className="hidden md:flex items-center gap-8  tracking-tight">
           <button
             onClick={() => onViewChange("home")}
-            className={`pb-1 transition-colors ${currentView === "home" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-primary"}`}
+            className={`pb-1 transition-colors ${currentView === "home" ? "text-white border-b-2 border-white" : "text-gray-300 hover:text-white"}`}
+            style={{ fontFamily: "SiemensSans , sans-serif" }}
           >
-            Trang chu
+            Trang chủ
           </button>
           <button
             onClick={() => onViewChange("track")}
-            className={`pb-1 transition-colors ${currentView === "track" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-primary"}`}
+            className={`pb-1 transition-colors ${currentView === "track" ? "text-white border-b-2 border-white" : "text-gray-300 hover:text-white"}`}
+            style={{ fontFamily: "SiemensSans , sans-serif" }}
           >
-            Theo doi
+            Theo dõi
           </button>
           <button
             onClick={() => onViewChange("alerts")}
-            className={`pb-1 transition-colors ${currentView === "alerts" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-primary"}`}
+            className={`pb-1 transition-colors ${currentView === "alerts" ? "text-white border-b-2 border-white" : "text-gray-300 hover:text-white"}`}
+            style={{ fontFamily: "SiemensSans , sans-serif" }}
           >
-            Canh bao
+            Cảnh báo
           </button>
         </div>
       </div>
@@ -45,15 +52,16 @@ export const TopBar: React.FC<TopBarProps> = ({
       <div className="flex items-center gap-4">
         <button
           onClick={() => onViewChange("request")}
-          className="bg-primary hover:bg-primary-container text-on-primary px-6 py-2 rounded-lg font-bold transition-all active:scale-95 text-sm"
+          className="bg-cyan-500 hover:bg-cyan-600 text-white px-6 py-2 rounded-lg font-bold transition-all active:scale-95 text-sm"
+          style={{ fontFamily: "SiemensSans , sans-serif" }}
         >
-          Gui tin hieu khan cap
+          Gửi tín hiệu
         </button>
         <div className="flex gap-2">
-          <button className="p-2 text-slate-500 hover:bg-slate-100/50 rounded-full transition-colors">
+          <button className="p-2 text-gray-300 hover:text-white hover:bg-blue-900/50 rounded-full transition-colors">
             <UserCircle size={24} />
           </button>
-          <button className="p-2 text-slate-500 hover:bg-slate-100/50 rounded-full transition-colors">
+          <button className="p-2 text-gray-300 hover:text-white hover:bg-blue-900/50 rounded-full transition-colors">
             <Settings size={24} />
           </button>
         </div>

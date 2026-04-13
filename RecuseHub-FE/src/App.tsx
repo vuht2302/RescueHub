@@ -5,7 +5,6 @@
 
 import React, { useState } from "react";
 import { TopBar } from "./features/navigation/components/TopBar";
-import { Sidebar } from "./features/navigation/components/Sidebar";
 import { HomeView } from "./features/home/components/HomeView";
 import { AlertCenter } from "./features/alerts/components/AlertCenter";
 import { RescueTrack } from "./features/tracking/components/RescueTrack";
@@ -40,15 +39,7 @@ export default function App() {
       <TopBar currentView={currentView} onViewChange={setCurrentView} />
 
       <div className="flex pt-20">
-        {showSidebar && (
-          <Sidebar currentView={currentView} onViewChange={setCurrentView} />
-        )}
-
-        <main
-          className={`flex-1 p-8 transition-all duration-300 ${showSidebar ? "md:ml-64" : "ml-0"}`}
-        >
-          {renderView()}
-        </main>
+        <main className="flex-1 p-8">{renderView()}</main>
       </div>
     </div>
   );

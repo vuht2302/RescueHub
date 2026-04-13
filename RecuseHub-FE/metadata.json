@@ -1,5 +1,5 @@
 {
-  "name": "RescueGuardian",
-  "description": "A comprehensive emergency response and rescue coordination platform.",
+  "name": "TrungTamCuuHo",
+  "description": "Nen tang dieu phoi cuu nan va ung pho khan cap toan dien.",
   "requestFramePermissions": ["geolocation"]
 }

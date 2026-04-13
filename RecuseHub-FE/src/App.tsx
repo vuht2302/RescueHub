@@ -3,46 +3,50 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { TopBar } from './components/TopBar';
-import { Sidebar } from './components/Sidebar';
-import { HomeView } from './components/HomeView';
-import { AlertCenter } from './components/AlertCenter';
-import { RescueTrack } from './components/RescueTrack';
-import { CreateRequest } from './components/CreateRequest';
-import { SupportConfirmed } from './components/SupportConfirmed';
-import { View } from './types';
+import React, { useState } from "react";
+import { TopBar } from "./features/navigation/components/TopBar";
+import { Sidebar } from "./features/navigation/components/Sidebar";
+import { HomeView } from "./features/home/components/HomeView";
+import { AlertCenter } from "./features/alerts/components/AlertCenter";
+import { RescueTrack } from "./features/tracking/components/RescueTrack";
+import { CreateRequest } from "./features/request/components/CreateRequest";
+import { SupportConfirmed } from "./features/request/components/SupportConfirmed";
+import { View } from "./shared/types";
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<View>('home');
+  const [currentView, setCurrentView] = useState<View>("home");
 
   const renderView = () => {
     switch (currentView) {
-      case 'home':
+      case "home":
         return <HomeView onViewChange={setCurrentView} />;
-      case 'alerts':
+      case "alerts":
         return <AlertCenter onViewChange={setCurrentView} />;
-      case 'track':
+      case "track":
         return <RescueTrack onViewChange={setCurrentView} />;
-      case 'request':
+      case "request":
         return <CreateRequest onViewChange={setCurrentView} />;
-      case 'confirmed':
+      case "confirmed":
         return <SupportConfirmed onViewChange={setCurrentView} />;
       default:
         return <HomeView onViewChange={setCurrentView} />;
     }
   };
 
-  const showSidebar = currentView !== 'request' && currentView !== 'confirmed';
+  const showSidebar = currentView !== "request" && currentView !== "confirmed";
 
   return (
     <div className="min-h-screen bg-surface selection:bg-primary/20 selection:text-primary">
       <TopBar currentView={currentView} onViewChange={setCurrentView} />
-      
+
       <div className="flex pt-20">
-        {showSidebar && <Sidebar currentView={currentView} onViewChange={setCurrentView} />}
-        
-        <main className={`flex-1 p-8 transition-all duration-300 ${showSidebar ? 'md:ml-64' : 'ml-0'}`}>
+        {showSidebar && (
+          <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+        )}
+
+        <main
+          className={`flex-1 p-8 transition-all duration-300 ${showSidebar ? "md:ml-64" : "ml-0"}`}
+        >
           {renderView()}
         </main>
       </div>

@@ -87,8 +87,8 @@ export const AlertCenter: React.FC<AlertCenterProps> = ({ onViewChange }) => {
   return (
     <div className="max-w-4xl mx-auto">
       <header className="mb-12">
-        <h1 className="text-5xl font-black font-headline tracking-tighter text-on-surface mb-2">
-          Trung tam canh bao
+        <h1 className="text-5xl font-bold font-headline tracking-tighter text-on-surface mb-2">
+          Trung tâm cảnh báo
         </h1>
         <p className="text-on-surface-variant font-medium text-lg">
           Cap nhat dieu phoi cuu ho va he thong theo thoi gian thuc.

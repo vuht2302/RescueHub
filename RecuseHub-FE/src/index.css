@@ -1,12 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-headline: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-primary: "SiemensSans", ui-sans-serif, system-ui, sans-serif;
+  --font-headline: "SiemensSans", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  --color-primary: #006481;
-  --color-primary-container: #007ea3;
+  --color-blue-950: #001f3f;
+  --color-primary: #001f3f;
+  --color-primary-container: #003d5c;
   --color-on-primary: #ffffff;
   --color-surface: #f8f9fa;
   --color-surface-container: #edeeef;
@@ -32,10 +34,22 @@
   }
 }
 
+@layer components {
+  .font-primary {
+    @apply font-[family:var(--font-primary)];
+  }
+}
+
 @keyframes pulse-glow {
-  0% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.7); }
-  70% { box-shadow: 0 0 0 15px rgba(186, 26, 26, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(186, 26, 26, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(186, 26, 26, 0);
+  }
 }
 
 .pulse-glow {

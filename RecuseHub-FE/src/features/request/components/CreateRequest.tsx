@@ -97,10 +97,10 @@ export const CreateRequest: React.FC<CreateRequestProps> = ({
         <div className="px-12 pt-10 pb-32 max-w-2xl mx-auto w-full">
           <header className="mb-10">
             <h1 className="font-headline text-4xl font-extrabold text-on-surface tracking-tight leading-none mb-2">
-              Tao yeu cau cuu ho
+              Tạo yêu cầu cứu hộ
             </h1>
             <p className="text-on-surface-variant text-lg">
-              Cung cap thong tin chi tiet de doi dieu phoi xu ly nhanh hon.
+              Cung cấp thông tin chi tiết để đội điều phối xử lý nhanh hơn.
             </p>
           </header>
 
@@ -111,14 +111,14 @@ export const CreateRequest: React.FC<CreateRequestProps> = ({
                   <FileText className="text-primary" size={20} />
                 </div>
                 <h2 className="font-headline text-xl font-bold text-on-surface">
-                  Mo ta tinh huong
+                  Mô tả tình huống
                 </h2>
               </div>
 
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-on-surface-variant mb-2 ml-1 uppercase tracking-widest">
-                    Loai su co
+                    Loại sự cố
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
@@ -195,33 +195,6 @@ export const CreateRequest: React.FC<CreateRequestProps> = ({
                     GAN GPS
                   </div>
                 </div>
-              </div>
-            </section>
-
-            <section className="space-y-4">
-              <label className="block text-xs font-bold text-on-surface-variant ml-1 uppercase tracking-widest">
-                Muc do khan cap
-              </label>
-              <div className="flex gap-2">
-                {(["routine", "high", "critical"] as const).map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => setUrgency(level)}
-                    className={`flex-1 py-3 rounded-lg text-xs font-bold border transition-all ${
-                      urgency === level
-                        ? level === "critical"
-                          ? "bg-error-container text-error border-error ring-2 ring-error/20"
-                          : "bg-primary-container text-on-primary border-primary"
-                        : "bg-surface-container text-on-surface-variant border-outline-variant/20"
-                    }`}
-                  >
-                    {level === "routine"
-                      ? "BINH THUONG"
-                      : level === "high"
-                        ? "CAO"
-                        : "NGHIEM TRONG"}
-                  </button>
-                ))}
               </div>
             </section>
           </div>

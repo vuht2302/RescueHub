@@ -33,7 +33,7 @@ export const TopBar: React.FC = () => {
             className="text-xl font-black text-white tracking-tighter cursor-pointer"
             style={{ fontFamily: "var(--font-primary)" }}
           >
-            RecuseHub
+            RescueHub
           </Link>
           <div className="hidden md:flex items-center gap-8 tracking-tight">
             <NavLink

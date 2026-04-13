@@ -8,13 +8,9 @@ import {
   Radio,
   AlertCircle,
 } from "lucide-react";
-import { Alert, View } from "../../../shared/types";
+import { Alert } from "../../../shared/types";
 
-interface AlertCenterProps {
-  onViewChange: (view: View) => void;
-}
-
-export const AlertCenter: React.FC<AlertCenterProps> = ({ onViewChange }) => {
+export const AlertCenter: React.FC = () => {
   const alerts: Alert[] = [
     {
       id: "1",

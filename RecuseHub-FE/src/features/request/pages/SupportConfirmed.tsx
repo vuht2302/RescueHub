@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import {
   CheckCircle2,
@@ -7,15 +8,10 @@ import {
   ShieldCheck,
   SmartphoneNfc,
 } from "lucide-react";
-import { View } from "../../../shared/types";
 
-interface SupportConfirmedProps {
-  onViewChange: (view: View) => void;
-}
+export const SupportConfirmed: React.FC = () => {
+  const navigate = useNavigate();
 
-export const SupportConfirmed: React.FC<SupportConfirmedProps> = ({
-  onViewChange,
-}) => {
   return (
     <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center relative overflow-hidden">
       <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
@@ -79,13 +75,13 @@ export const SupportConfirmed: React.FC<SupportConfirmedProps> = ({
 
           <div className="w-full space-y-4">
             <button
-              onClick={() => onViewChange("home")}
+              onClick={() => navigate("/")}
               className="w-full hero-gradient h-16 rounded-lg text-on-primary font-headline font-bold text-lg shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
             >
               TOI DA AN TOAN
             </button>
             <button
-              onClick={() => onViewChange("home")}
+              onClick={() => navigate("/")}
               className="inline-flex items-center gap-2 text-primary font-headline font-bold hover:text-primary-container transition-colors py-2 px-4 group"
             >
               <ArrowLeft

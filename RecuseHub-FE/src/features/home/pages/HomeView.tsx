@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import {
   AlertCircle,
@@ -8,13 +9,10 @@ import {
   MessageSquare,
   BellPlus,
 } from "lucide-react";
-import { View } from "../../../shared/types";
 
-interface HomeViewProps {
-  onViewChange: (view: View) => void;
-}
+export const HomeView: React.FC = () => {
+  const navigate = useNavigate();
 
-export const HomeView: React.FC<HomeViewProps> = ({ onViewChange }) => {
   return (
     <div className="max-w-7xl mx-auto">
       <motion.div
@@ -55,7 +53,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onViewChange }) => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => onViewChange("confirmed")}
+                onClick={() => navigate("/confirmed")}
                 className="group relative w-72 h-72 rounded-full bg-gradient-to-br from-error to-red-700 flex flex-col items-center justify-center shadow-2xl transition-all duration-300"
               >
                 <div className="absolute inset-0 rounded-full border-4 border-error opacity-20 group-hover:scale-125 transition-transform duration-700"></div>

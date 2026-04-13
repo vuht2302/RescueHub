@@ -12,19 +12,34 @@ import { AlertCenter } from "../features/alerts/pages/AlertCenter";
 import { RescueTrack } from "../features/tracking/pages/RescueTrack";
 import { CreateRequest } from "../features/request/pages/CreateRequest";
 import { SupportConfirmed } from "../features/request/pages/SupportConfirmed";
-
 import { RescueTeamMission } from "../features/rescueTeam/pages/RescueTeamMission";
+import { RescueCoordinator } from "../features/rescue-coordinator/pages/RescueCoordinator";
 
 export default function App() {
   const location = useLocation();
   const isRescueTeamRoute = location.pathname === "/rescue-team";
-
+  const isCoordinatorRoute = location.pathname.startsWith(
+    "/rescue-coordinator",
+  );
   if (isRescueTeamRoute) {
     return (
       <div className="min-h-screen bg-surface selection:bg-blue-950/20 selection:text-blue-950">
         <Routes>
           <Route path="/rescue-team" element={<RescueTeamMission />} />
           <Route path="*" element={<Navigate to="/rescue-team" replace />} />
+        </Routes>
+      </div>
+    );
+  }
+  if (isCoordinatorRoute) {
+    return (
+      <div className="min-h-screen bg-yellow-50">
+        <Routes>
+          <Route path="/rescue-coordinator" element={<RescueCoordinator />} />
+          <Route
+            path="*"
+            element={<Navigate to="/rescue-coordinator" replace />}
+          />
         </Routes>
       </div>
     );

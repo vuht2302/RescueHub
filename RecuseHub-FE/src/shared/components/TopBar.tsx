@@ -22,15 +22,36 @@ export const TopBar: React.FC = () => {
   };
 
   return (
-    <>
-      <nav
-        className="fixed top-0 w-full z-50 bg-blue-950 shadow-md flex justify-between items-center px-8 py-4"
-        style={{ fontFamily: "var(--font-primary)" }}
-      >
-        <div className="flex items-center gap-8">
-          <Link
-            to="/"
-            className="text-xl font-black text-white tracking-tighter cursor-pointer"
+    <nav
+      className="fixed top-0 w-full z-50 bg-blue-950 shadow-md flex justify-between items-center px-8 py-4"
+      style={{ fontFamily: "var(--font-primary)" }}
+    >
+      <div className="flex items-center gap-8">
+        <Link
+          to="/rescue-team"
+          className="text-xl font-black text-white tracking-tighter cursor-pointer"
+          style={{ fontFamily: "var(--font-primary)" }}
+        >
+          RecuseHub
+        </Link>
+        <div className="hidden md:flex items-center gap-8  tracking-tight">
+          <NavLink
+            to="/rescue-team"
+            className={getNavClassName}
+            style={{ fontFamily: "var(--font-primary)" }}
+          >
+            Đội cứu hộ
+          </NavLink>
+          <NavLink
+            to="/home"
+            className={getNavClassName}
+            style={{ fontFamily: "var(--font-primary)" }}
+          >
+            Trang chủ
+          </NavLink>
+          <NavLink
+            to="/track"
+            className={getNavClassName}
             style={{ fontFamily: "var(--font-primary)" }}
           >
             RecuseHub

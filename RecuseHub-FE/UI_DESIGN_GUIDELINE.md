@@ -167,6 +167,7 @@ style={{ color: 'var(--color-blue-950)' }}
 - Tất cả component mới phải tuân thủ guideline này
 - Team lead sẽ review code theo guideline này
 - Nếu có ngoại lệ, phải có discussion với team lead trước
+- Luôn luôn là tiếng việt có dấu
 
 ---
 

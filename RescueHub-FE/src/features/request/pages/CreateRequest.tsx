@@ -14,6 +14,7 @@ import {
   Minus,
   LayoutGrid,
 } from "lucide-react";
+import { ConfirmationModal } from "../../../shared/components/ConfirmationModal";
 
 export const CreateRequest: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +24,11 @@ export const CreateRequest: React.FC = () => {
   const [urgency, setUrgency] = useState<"routine" | "high" | "critical">(
     "critical",
   );
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+
+  const handleConfirmSubmit = () => {
+    navigate("/confirmed");
+  };
 
   return (
     <div className="flex h-[calc(100vh-80px)] overflow-hidden">
@@ -209,7 +215,7 @@ export const CreateRequest: React.FC = () => {
               </p>
             </div>
             <button
-              onClick={() => navigate("/confirmed")}
+              onClick={() => setIsConfirmationOpen(true)}
               className="h-16 px-10 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-xl font-bold text-lg shadow-xl hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-3"
             >
               Gui yeu cau
@@ -233,6 +239,16 @@ export const CreateRequest: React.FC = () => {
           </span>
         </button>
       </div>
+
+      <ConfirmationModal
+        isOpen={isConfirmationOpen}
+        onClose={() => setIsConfirmationOpen(false)}
+        onConfirm={handleConfirmSubmit}
+        title="Xác nhận yêu cầu cứu hộ"
+        message="Bạn có chắc chắn cần hỗ trợ khẩn cấp không? Hành động này sẽ khiến đội cứu hộ được thông báo ngay lập tức."
+        confirmText="Có, tôi cần hỗ trợ"
+        cancelText="Quay lại"
+      />
     </div>
   );
 };

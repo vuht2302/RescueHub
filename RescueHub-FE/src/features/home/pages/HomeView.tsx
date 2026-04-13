@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import {
@@ -9,9 +9,15 @@ import {
   MessageSquare,
   BellPlus,
 } from "lucide-react";
+import { ConfirmationModal } from "../../../shared/components/ConfirmationModal";
 
 export const HomeView: React.FC = () => {
   const navigate = useNavigate();
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+
+  const handleConfirmSubmit = () => {
+    navigate("/confirmed");
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -53,7 +59,7 @@ export const HomeView: React.FC = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => navigate("/confirmed")}
+                onClick={() => setIsConfirmationOpen(true)}
                 className="group relative w-72 h-72 rounded-full bg-gradient-to-br from-error to-red-700 flex flex-col items-center justify-center shadow-2xl transition-all duration-300"
               >
                 <div className="absolute inset-0 rounded-full border-4 border-error opacity-20 group-hover:scale-125 transition-transform duration-700"></div>
@@ -80,7 +86,7 @@ export const HomeView: React.FC = () => {
                 />
               </div>
               <h3 className="text-2xl font-headline font-extrabold text-on-surface mb-2">
-                Huong dan so cuu
+                Hướng dẫn sơ cứu
               </h3>
               <p className="text-on-surface-variant leading-relaxed">
                 Huong dan tung buoc cho xu ly chan thuong va ho tro su song co
@@ -99,7 +105,7 @@ export const HomeView: React.FC = () => {
                 />
               </div>
               <h3 className="text-2xl font-headline font-extrabold text-on-surface mb-2">
-                Khu vuc an toan
+                Khu vực an toàn
               </h3>
               <p className="text-on-surface-variant leading-relaxed">
                 Ban do trung tam so tan va diem tiep te da duoc xac minh trong
@@ -111,8 +117,8 @@ export const HomeView: React.FC = () => {
 
         <aside className="lg:col-span-4 flex flex-col gap-6">
           <div className="bg-surface-container-lowest p-8 rounded-[2.5rem] shadow-sm flex-1">
-            <h2 className="text-3xl font-headline font-extrabold text-on-surface mb-8 tracking-tight">
-              Trang thai hien tai
+            <h2 className="text-2xl font-headline font-bold text-on-surface mb-8 tracking-tight">
+              Trạn thái hiện tại
             </h2>
 
             <div className="space-y-10">
@@ -120,17 +126,17 @@ export const HomeView: React.FC = () => {
                 <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary border-4 border-surface-container-lowest"></div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs font-bold uppercase tracking-widest text-primary">
-                    Vi tri cua ban
+                    Vị trí của bạn
                   </span>
                   <span className="text-xs text-on-surface-variant font-medium">
-                    Da xac minh 2 phut truoc
+                    Đã xác minh 2 phút trước
                   </span>
                 </div>
                 <p className="text-lg font-headline font-bold text-on-surface">
-                  Khu 4, quan trung tam
+                  Khu 4, quận trung tâm
                 </p>
                 <p className="text-sm text-on-surface-variant">
-                  4 doi dang truc trong ban kinh gan
+                  4 đội đang trực trong bán kính gần
                 </p>
               </div>
 
@@ -138,10 +144,10 @@ export const HomeView: React.FC = () => {
                 <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-error border-4 border-surface-container-lowest pulse-glow"></div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs font-bold uppercase tracking-widest text-error">
-                    Su co gan ban
+                    Sự cố gần bạn
                   </span>
                   <span className="text-xs text-on-surface-variant font-medium">
-                    Cach 400m
+                    Cách 400m
                   </span>
                 </div>
                 <p className="text-lg font-headline font-bold text-on-surface">
@@ -217,6 +223,16 @@ export const HomeView: React.FC = () => {
       <button className="fixed bottom-12 right-12 w-20 h-20 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50">
         <BellPlus size={32} />
       </button>
+
+      <ConfirmationModal
+        isOpen={isConfirmationOpen}
+        onClose={() => setIsConfirmationOpen(false)}
+        onConfirm={handleConfirmSubmit}
+        title="Xác nhận yêu cầu cứu hộ"
+        message="Bạn có chắc chắn cần hỗ trợ khẩn cấp không? Hành động này sẽ khiến đội cứu hộ được thông báo ngay lập tức."
+        confirmText="Có, tôi cần hỗ trợ"
+        cancelText="Quay lại"
+      />
     </div>
   );
 };

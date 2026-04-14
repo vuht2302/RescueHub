@@ -17,6 +17,8 @@ export type Mission = {
   priority: MissionPriority;
   summary: string;
   assignedTeam: string;
+  assignedMembers: string[];
+  assignedVehicles: string[];
   coord: {
     lat: number;
     lng: number;

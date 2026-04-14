@@ -263,7 +263,7 @@ export const Sidebar: React.FC = () => {
     } = useCoordinator();
 
     return (
-      <aside className="fixed left-0 top-0 w-64 bg-white shadow-lg h-screen overflow-y-auto border-r border-gray-200 flex flex-col">
+      <aside className="w-64 bg-white shadow-lg h-screen overflow-y-auto fixed left-0 top-0 pt-6">
         {/* Logo */}
         <div className="px-6 mb-8">
           <h1
@@ -327,14 +327,14 @@ export const Sidebar: React.FC = () => {
     const { activeMenu: activeTeam, setActiveMenu: setActiveTeam } =
       useRescueTeam();
     return (
-      <aside className="fixed left-0 top-0 w-64 h-screen bg-[#edf0f3] border-r border-[#d1d7df] flex flex-col overflow-y-auto">
+      <aside className="fixed left-0 top-0 w-64 h-screen bg-[#edf0f3] border-r border-[#d1d7df] overflow-y-auto flex flex-col">
         <div className="px-6 py-5 border-b border-[#d1d7df] flex-shrink-0">
           <h2 className="text-3xl tracking-tight font-black text-blue-950">
             RescueHub
           </h2>
         </div>
 
-        <nav className="px-4 py-5 space-y-1">
+        <nav className="flex-1 px-4 py-5 space-y-1 overflow-y-auto">
           {rescueTeamMenuItems.map((item) => (
             <button
               key={item.id}
@@ -352,7 +352,7 @@ export const Sidebar: React.FC = () => {
           ))}
         </nav>
 
-        <div className="mt-auto px-4 pb-6">
+        <div className="px-4 pb-6 flex-shrink-0">
           <button
             type="button"
             className="w-full rounded-2xl bg-blue-950 text-white px-4 py-3.5 font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-950/25"
@@ -369,6 +369,10 @@ export const Sidebar: React.FC = () => {
   return (
     <aside className="w-20 md:w-72 border-r border-outline-variant/20 bg-surface-container-low/40 min-h-[calc(100vh-5rem)] sticky top-20 font-primary">
       <div className="px-3 md:px-4 py-6">
+        <p className="hidden md:block text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-4">
+          Điều hướng
+        </p>
+
         <nav className="space-y-2">
           {generalItems.map((item) => (
             <NavLink

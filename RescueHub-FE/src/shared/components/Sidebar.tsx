@@ -48,8 +48,6 @@ interface ManagerMenuItem {
   id: string;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
-  color: string;
-}
 
 const managerMenuItems: ManagerMenuItem[] = [
   {
@@ -263,7 +261,7 @@ export const Sidebar: React.FC = () => {
     } = useCoordinator();
 
     return (
-      <aside className="fixed left-0 top-0 w-64 bg-white shadow-lg h-screen overflow-y-auto border-r border-gray-200 flex flex-col">
+      <aside className="w-64 bg-white shadow-lg h-screen overflow-y-auto fixed left-0 top-0 pt-6">
         {/* Logo */}
         <div className="px-6 mb-8">
           <h1
@@ -327,8 +325,8 @@ export const Sidebar: React.FC = () => {
     const { activeMenu: activeTeam, setActiveMenu: setActiveTeam } =
       useRescueTeam();
     return (
-      <aside className="fixed left-0 top-0 w-64 h-screen bg-[#edf0f3] border-r border-[#d1d7df] flex flex-col overflow-y-auto">
-        <div className="px-6 py-5 border-b border-[#d1d7df] flex-shrink-0">
+      <aside className="hidden lg:flex flex-col bg-[#edf0f3] border-r border-[#d1d7df] font-primary">
+        <div className="px-6 py-5 border-b border-[#d1d7df]">
           <h2 className="text-3xl tracking-tight font-black text-blue-950">
             RescueHub
           </h2>

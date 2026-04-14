@@ -1,0 +1,17 @@
+using Microsoft.Extensions.DependencyInjection;
+using RescueHub.Modules.Incidents.Application;
+using RescueHub.Modules.Incidents.Background;
+using RescueHub.Modules.Incidents.Infrastructure;
+
+namespace RescueHub.Modules.Incidents;
+
+public static class IncidentsModuleServiceCollectionExtensions
+{
+    public static IServiceCollection AddIncidentsModule(this IServiceCollection services)
+    {
+        services.AddSingleton<IIncidentRepository, InMemoryIncidentRepository>();
+        services.AddScoped<IIncidentService, IncidentService>();
+        services.AddHostedService<IncidentProjectionWorker>();
+        return services;
+    }
+}

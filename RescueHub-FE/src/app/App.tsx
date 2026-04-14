@@ -14,6 +14,7 @@ import { CreateRequest } from "../features/request/pages/CreateRequest";
 import { SupportConfirmed } from "../features/request/pages/SupportConfirmed";
 import { RescueTeamMission } from "../features/rescueTeam/pages/RescueTeamMission";
 import { RescueCoordinator } from "../features/rescue-coordinator/pages/RescueCoordinator";
+import ManagerDashboard from "../features/manager/pages/dashboard";
 
 export default function App() {
   const location = useLocation();
@@ -21,6 +22,7 @@ export default function App() {
   const isCoordinatorRoute = location.pathname.startsWith(
     "/rescue-coordinator",
   );
+  const isManagerRoute = location.pathname.startsWith("/manager");
   if (isRescueTeamRoute) {
     return (
       <div className="min-h-screen bg-surface selection:bg-blue-950/20 selection:text-blue-950">
@@ -40,6 +42,17 @@ export default function App() {
             path="*"
             element={<Navigate to="/rescue-coordinator" replace />}
           />
+        </Routes>
+      </div>
+    );
+  }
+
+  if (isManagerRoute) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa]">
+        <Routes>
+          <Route path="/manager" element={<ManagerDashboard />} />
+          <Route path="*" element={<Navigate to="/manager" replace />} />
         </Routes>
       </div>
     );

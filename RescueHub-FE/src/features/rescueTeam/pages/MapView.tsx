@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import vietmapgl from "@vietmap/vietmap-gl-js/dist/vietmap-gl";
 import "@vietmap/vietmap-gl-js/dist/vietmap-gl.css";
 import { MapPin, UserRound, Phone, Users } from "lucide-react";
 import { Mission, MissionStatus, MissionLog } from "../types/mission";
-
 interface MapViewProps {
   selectedMission: Mission;
   statusMap: Record<string, MissionStatus>;
@@ -18,7 +17,6 @@ interface MapViewProps {
 
 export const MapView: React.FC<MapViewProps> = ({
   selectedMission,
-  statusMap,
   priorityStyles,
   missions,
   onMissionSelect,
@@ -41,12 +39,6 @@ export const MapView: React.FC<MapViewProps> = ({
   const canUseVietmap =
     hasVietmapKey &&
     isWithinVietnamBounds(selectedMission.coord.lat, selectedMission.coord.lng);
-
-  const mapSrc = useMemo(() => {
-    const { lat, lng } = selectedMission.coord;
-    const bbox = `${lng - 0.02}%2C${lat - 0.02}%2C${lng + 0.02}%2C${lat + 0.02}`;
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lng}`;
-  }, [selectedMission]);
 
   useEffect(() => {
     if (!canUseVietmap || !mapContainerRef.current || mapRef.current) {
@@ -136,17 +128,10 @@ export const MapView: React.FC<MapViewProps> = ({
             aria-label="Bản đồ nhiệm vụ cứu hộ"
           />
         ) : (
-          <iframe
-            title="Bản đồ nhiệm vụ cứu hộ"
-            src={mapSrc}
-            className="w-full h-full"
-            loading="lazy"
-          />
-        )}
-
-        {!hasVietmapKey && (
-          <div className="absolute top-5 right-5 bg-amber-100 text-amber-900 px-3 py-2 rounded-lg text-xs font-bold border border-amber-300">
-            Chưa có VITE_VIETMAP_API_KEY, đang hiển thị bản đồ dự phòng.
+          <div className="w-full h-full flex items-center justify-center bg-slate-100">
+            <div className="rounded-xl bg-white/90 px-4 py-3 text-sm font-semibold text-slate-700 border border-slate-200 shadow-sm">
+              Tạm thời không hiển thị bản đồ.
+            </div>
           </div>
         )}
 

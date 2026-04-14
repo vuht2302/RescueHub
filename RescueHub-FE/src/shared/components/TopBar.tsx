@@ -59,13 +59,6 @@ export const TopBar: React.FC = () => {
               Cảnh báo
             </NavLink>
             <NavLink
-              to="/request"
-              className={getNavClassName}
-              style={{ fontFamily: "var(--font-primary)" }}
-            >
-              Yêu cầu
-            </NavLink>{" "}
-            <NavLink
               to="/confirmed"
               className={getNavClassName}
               style={{ fontFamily: "var(--font-primary)" }}

@@ -210,6 +210,16 @@ export const HomeView: React.FC = () => {
     };
   }, [location.lat, location.lng]);
 
+  const handleFocusCurrentLocation = () => {
+    if (!canUseVietmap || !mapRef.current) return;
+
+    mapRef.current.flyTo({
+      center: [location.lng, location.lat],
+      zoom: 15,
+      essential: true,
+      duration: 900,
+    });
+  };
   useEffect(() => {
     if (!canUseVietmap || !mapContainerRef.current || mapRef.current) {
       return;
@@ -341,10 +351,16 @@ export const HomeView: React.FC = () => {
         <div className="absolute top-5 right-5 z-20 space-y-3 w-[280px] max-w-[calc(100%-2.5rem)]">
           <div className="bg-surface-container-lowest/95 backdrop-blur-md rounded-2xl p-4 border border-outline-variant/30 shadow-lg">
             <div className="flex items-center gap-2 text-primary mb-1">
-              <LocateFixed size={16} />
-              <span className="text-[11px] font-bold uppercase tracking-[0.15em]">
-                Vị trí hiện tại
-              </span>
+              <button
+                type="button"
+                onClick={handleFocusCurrentLocation}
+                className="flex items-center gap-2 text-primary mb-1 cursor-pointer hover:opacity-80"
+              >
+                <LocateFixed size={16} />
+                <span className="text-[11px] font-bold uppercase tracking-[0.15em]">
+                  Vị trí hiện tại
+                </span>
+              </button>
             </div>
             <p className="text-sm font-bold text-on-surface">
               {location.lat.toFixed(5)}°, {location.lng.toFixed(5)}°

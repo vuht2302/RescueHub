@@ -28,6 +28,8 @@ const missions: Mission[] = [
     summary:
       "Nạn nhân bị ngã vào khe nứt nông, có dấu hiệu hạ thân nhiệt. Tín hiệu định vị còn hoạt động.",
     assignedTeam: "Đội phản ứng nhanh Alpha-2",
+    assignedMembers: ["Nguyễn Văn An", "Trần Minh Tuấn", "Phạm Thị Linh"],
+    assignedVehicles: ["Xe cứu hộ RH-21", "Mô tô tuyết ST-07"],
     coord: { lat: 10.7769, lng: 106.7009 },
   },
   {
@@ -42,6 +44,8 @@ const missions: Mission[] = [
     summary:
       "Nhóm 3 người mắc kẹt do gió lớn, không thể tự di chuyển xuống trạm an toàn.",
     assignedTeam: "Đội cứu nạn Bravo-1",
+    assignedMembers: ["Lý Trung Kiên", "Đỗ Quốc Huy"],
+    assignedVehicles: ["Xe địa hình BR-11"],
     coord: { lat: 16.0471, lng: 108.2068 },
   },
   {
@@ -56,6 +60,8 @@ const missions: Mission[] = [
     summary:
       "Yêu cầu cấp phát thuốc chống lạnh và oxy cho nhóm cư dân đang trú ẩn.",
     assignedTeam: "Đội hậu cần Charlie",
+    assignedMembers: ["Phạm Thị Linh", "Lý Trung Kiên"],
+    assignedVehicles: ["Xe tải y tế CL-03", "Xe bán tải CL-09"],
     coord: { lat: 21.0285, lng: 105.8542 },
   },
 ];
@@ -171,6 +177,31 @@ export const RescueTeamMission: React.FC = () => {
     setActiveMenu("map");
   };
 
+  const handleRequestMissionAction = (
+    missionId: string,
+    action: "Xin hủy" | "Xin chi viện",
+  ) => {
+    const mission = missions.find((item) => item.id === missionId);
+    if (!mission) {
+      return;
+    }
+
+    setLogs((prev) => [
+      ...prev,
+      {
+        id: `log-${Date.now()}`,
+        missionId,
+        time: new Date().toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        content: `Đội trưởng đã gửi yêu cầu ${action.toLowerCase()} cho nhiệm vụ ${mission.code}.`,
+      },
+    ]);
+    setSelectedMissionId(missionId);
+    setActiveMenu("map");
+  };
+
   return (
     <div className="h-screen bg-[#dfe3e8] overflow-hidden font-sans text-on-surface">
       <div className="grid grid-cols-1 lg:grid-cols-[270px_1fr] h-full">
@@ -239,6 +270,7 @@ export const RescueTeamMission: React.FC = () => {
                   setActiveMenu("map");
                 }}
                 onViewMission={handleViewMission}
+                onRequestMissionAction={handleRequestMissionAction}
               />
             )}
 

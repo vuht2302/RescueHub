@@ -5,7 +5,6 @@ import {
   ClipboardList,
   Crosshair,
   House,
-  LifeBuoy,
   Send,
   LayoutDashboard,
   Package,
@@ -24,6 +23,7 @@ import {
   UserRound,
   BookText,
   LayoutGrid,
+  SquareMenu,
 } from "lucide-react";
 import { useManager } from "../context/ManagerContext";
 import { useCoordinator } from "../context/CoordinatorContext";
@@ -62,6 +62,12 @@ const managerMenuItems: ManagerMenuItem[] = [
     id: "inventory",
     label: "Quản lý kho",
     icon: Package,
+    color: "text-black-600",
+  },
+  {
+    id: "event",
+    label: "Quản lý sự kiện",
+    icon: SquareMenu,
     color: "text-black-600",
   },
   {

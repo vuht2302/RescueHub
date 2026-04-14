@@ -56,6 +56,36 @@ type OrderItem = {
   initials: string;
 };
 
+type IncidentHotspot = {
+  id: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  incidents: number;
+  severity: "low" | "medium" | "high" | "critical";
+  lastIncident: string;
+};
+
+type RescueEvent = {
+  id: string;
+  name: string;
+  description: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  type: "relief" | "rescue" | "evacuation" | "medical" | "other";
+  priority: "low" | "medium" | "high" | "critical";
+  status: "planning" | "ongoing" | "completed" | "cancelled";
+  team: string;
+  requiredResources: string[];
+  budget: string;
+  createdAt: string;
+  createdBy: string;
+};
+
 const kpis: KPI[] = [
   {
     title: "Vụ việc đang xử lý",
@@ -250,6 +280,150 @@ function MapLibreHCMMap() {
           duration: 2000,
         });
       }
+    });
+
+    return () => {
+      if (map.current) {
+        map.current.remove();
+      }
+    };
+  }, []);
+
+  return <div ref={mapContainer} className="h-96 w-full rounded-lg" />;
+}
+
+// Sample incident hotspot data
+const incidentHotspots: IncidentHotspot[] = [
+  {
+    id: "HS001",
+    location: "Ngã tư Võ Văn Kiệt & Lê Lợi",
+    latitude: 10.7631,
+    longitude: 106.6977,
+    incidents: 24,
+    severity: "critical",
+    lastIncident: "2026-02-20 14:32",
+  },
+  {
+    id: "HS002",
+    location: "Cầu Sài Gòn - Khu công nghiệp",
+    latitude: 10.7469,
+    longitude: 106.5819,
+    incidents: 18,
+    severity: "high",
+    lastIncident: "2026-02-21 09:15",
+  },
+  {
+    id: "HS003",
+    location: "Đường Trần Hưng Đạo - Quận 1",
+    latitude: 10.7734,
+    longitude: 106.6879,
+    incidents: 15,
+    severity: "high",
+    lastIncident: "2026-02-19 16:45",
+  },
+  {
+    id: "HS004",
+    location: "Bến xe Miền Đông - Q. Bình Thạnh",
+    latitude: 10.8281,
+    longitude: 106.9084,
+    incidents: 12,
+    severity: "medium",
+    lastIncident: "2026-02-18 11:20",
+  },
+  {
+    id: "HS005",
+    location: "Khu dân cư Phúc Tân - Q. Gò Vấp",
+    latitude: 10.8256,
+    longitude: 106.6439,
+    incidents: 9,
+    severity: "medium",
+    lastIncident: "2026-02-20 13:00",
+  },
+  {
+    id: "HS006",
+    location: "Chợ Bến Thành - Quận 1",
+    latitude: 10.7716,
+    longitude: 106.6987,
+    incidents: 7,
+    severity: "low",
+    lastIncident: "2026-02-17 10:30",
+  },
+];
+
+function IncidentHotspotsMap() {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<maplibregl.Map | null>(null);
+
+  useEffect(() => {
+    if (!mapContainer.current) return;
+
+    // Khởi tạo map với OpenStreetMap
+    map.current = new maplibregl.Map({
+      container: mapContainer.current,
+      style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+      center: [106.6553, 10.8019], // HCM City coordinates
+      zoom: 11,
+      pitch: 0,
+      bearing: 0,
+    });
+
+    // Thêm markers cho các điểm sự cố
+    incidentHotspots.forEach((hotspot) => {
+      // Xác định màu dựa trên mức độ nghiêm trọng
+      let markerColor = "#3b82f6"; // blue - low
+      let markerSize = "35px";
+
+      if (hotspot.severity === "critical") {
+        markerColor = "#dc2626"; // red
+        markerSize = "40px";
+      } else if (hotspot.severity === "high") {
+        markerColor = "#f97316"; // orange
+        markerSize = "38px";
+      } else if (hotspot.severity === "medium") {
+        markerColor = "#eab308"; // yellow
+        markerSize = "36px";
+      }
+
+      const el = document.createElement("div");
+      el.style.width = markerSize;
+      el.style.height = markerSize;
+      el.style.backgroundColor = markerColor;
+      el.style.borderRadius = "50%";
+      el.style.border = "3px solid white";
+      el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)";
+      el.style.display = "flex";
+      el.style.alignItems = "center";
+      el.style.justifyContent = "center";
+      el.style.fontSize = "12px";
+      el.style.fontWeight = "bold";
+      el.style.color = "white";
+      el.style.cursor = "pointer";
+
+      el.innerHTML = hotspot.incidents.toString();
+
+      new maplibregl.Marker({ element: el })
+        .setLngLat([hotspot.longitude, hotspot.latitude])
+        .setPopup(
+          new maplibregl.Popup().setHTML(
+            `<div class="p-3 text-sm" style="font-family: var(--font-primary)">
+              <h4 class="font-bold text-slate-900">${hotspot.location}</h4>
+              <div class="mt-2 space-y-1 text-slate-600">
+                <p><span class="font-semibold">Sự cố:</span> ${hotspot.incidents} vụ</p>
+                <p><span class="font-semibold">Mức độ:</span> ${
+                  hotspot.severity === "critical"
+                    ? "🔴 Rất nghiêm trọng"
+                    : hotspot.severity === "high"
+                      ? "🟠 Nghiêm trọng"
+                      : hotspot.severity === "medium"
+                        ? "🟡 Trung bình"
+                        : "🟢 Thấp"
+                }</p>
+                <p><span class="font-semibold">Lần cuối:</span> ${hotspot.lastIncident}</p>
+              </div>
+            </div>`,
+          ),
+        )
+        .addTo(map.current!);
     });
 
     return () => {
@@ -752,6 +926,487 @@ function StatisticsChart() {
         </div>
       )}
     </div>
+  );
+}
+
+// Inventory Management Section Component
+function RescueEventSection() {
+  const [events] = useState<RescueEvent[]>([
+    {
+      id: "EV001",
+      name: "Cứu hộ lũ lụt khu vực Tây Nam",
+      description: "Cứu hộ công dân bị nước lũ cô lập ở các xã biên",
+      date: "2026-04-18",
+      startTime: "06:00",
+      endTime: "18:00",
+      location: "Xã An Phú, Huyện An Phu, An Giang",
+      latitude: 10.3031,
+      longitude: 104.7795,
+      type: "evacuation",
+      priority: "critical",
+      status: "ongoing",
+      team: "Đội cứu hộ miền Tây",
+      requiredResources: ["Thuyền cứu hộ", "Áo phao", "Dây cứu", "Y tế"],
+      budget: "₫450,000,000",
+      createdAt: "2026-04-17 14:30",
+      createdBy: "Manager",
+    },
+    {
+      id: "EV002",
+      name: "Triển khai cứu trợ vùng sạt lở đất",
+      description: "Cứu trợ nhân đạo và tái định cư sau thảm họa sạt lở",
+      date: "2026-04-20",
+      startTime: "08:00",
+      endTime: "17:00",
+      location: "Huyện Bắc Trà My, Quảng Nam",
+      latitude: 15.4333,
+      longitude: 108.5667,
+      type: "relief",
+      priority: "high",
+      status: "planning",
+      team: "Đội cứu trợ miền Trung",
+      requiredResources: ["Lương thực", "Nước sạch", "Y tế", "Nơi trú ẩn tạm"],
+      budget: "₫230,000,000",
+      createdAt: "2026-04-16 10:15",
+      createdBy: "Manager",
+    },
+    {
+      id: "EV003",
+      name: "Hỗ trợ y tế khẩn cấp sau tai nạn giao thông",
+      description: "Quản lý và hỗ trợ y tế cho nạn nhân tai nạn xe",
+      date: "2026-04-19",
+      startTime: "14:00",
+      endTime: "20:00",
+      location: "Đại lộ Thăng Long, Hà Nội",
+      latitude: 21.0285,
+      longitude: 105.8581,
+      type: "medical",
+      priority: "high",
+      status: "completed",
+      team: "Đội y tế khẩn cấp",
+      requiredResources: ["Xe cứu thương", "Thuốc", "Dụng cụ y tế"],
+      budget: "₫85,000,000",
+      createdAt: "2026-04-18 13:45",
+      createdBy: "Manager",
+    },
+  ]);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    date: "",
+    startTime: "08:00",
+    endTime: "17:00",
+    location: "",
+    type: "relief",
+    priority: "medium",
+    team: "",
+    budget: "",
+  });
+
+  const getEventTypeLabel = (type: string) => {
+    const labels: { [key: string]: string } = {
+      relief: "Cứu trợ",
+      rescue: "Cứu hộ",
+      evacuation: "Sơ tán",
+      medical: "Y tế",
+      other: "Khác",
+    };
+    return labels[type] || type;
+  };
+
+  const getEventTypeColor = (type: string) => {
+    switch (type) {
+      case "relief":
+        return "bg-green-50 text-green-600 border-green-200";
+      case "rescue":
+        return "bg-blue-50 text-blue-600 border-blue-200";
+      case "evacuation":
+        return "bg-orange-50 text-orange-600 border-orange-200";
+      case "medical":
+        return "bg-red-50 text-red-600 border-red-200";
+      default:
+        return "bg-slate-50 text-slate-600 border-slate-200";
+    }
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    const labels: { [key: string]: string } = {
+      low: "Thấp",
+      medium: "Trung bình",
+      high: "Cao",
+      critical: "Rất cao",
+    };
+    return labels[priority] || priority;
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "low":
+        return "bg-blue-50 text-blue-600";
+      case "medium":
+        return "bg-yellow-50 text-yellow-600";
+      case "high":
+        return "bg-orange-50 text-orange-600";
+      case "critical":
+        return "bg-red-50 text-red-600";
+      default:
+        return "bg-slate-50 text-slate-600";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels: { [key: string]: string } = {
+      planning: "Lên kế hoạch",
+      ongoing: "Đang triển khai",
+      completed: "Hoàn tất",
+      cancelled: "Hủy bỏ",
+    };
+    return labels[status] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "planning":
+        return "bg-slate-50 text-slate-600";
+      case "ongoing":
+        return "bg-blue-50 text-blue-600";
+      case "completed":
+        return "bg-emerald-50 text-emerald-600";
+      case "cancelled":
+        return "bg-red-50 text-red-600";
+      default:
+        return "bg-slate-50 text-slate-600";
+    }
+  };
+
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleCreateEvent = () => {
+    // Validation
+    if (
+      !formData.name ||
+      !formData.date ||
+      !formData.location ||
+      !formData.team
+    ) {
+      alert("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
+    // Reset form
+    setFormData({
+      name: "",
+      description: "",
+      date: "",
+      startTime: "08:00",
+      endTime: "17:00",
+      location: "",
+      type: "relief",
+      priority: "medium",
+      team: "",
+      budget: "",
+    });
+    setShowForm(false);
+    alert("Sự kiện đã được tạo thành công!");
+  };
+
+  return (
+    <section className="space-y-6">
+      {/* Create Event Button */}
+      {!showForm ? (
+        <button
+          onClick={() => setShowForm(true)}
+          className="rounded-lg px-6 py-3 text-sm font-medium text-white transition"
+          style={{ backgroundColor: "var(--color-blue-950)" }}
+        >
+          + Tạo sự kiện cứu trợ mới
+        </button>
+      ) : (
+        <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-6 flex items-center justify-between">
+            <h3
+              className="text-xl font-bold text-slate-900"
+              style={{ fontFamily: "var(--font-primary)" }}
+            >
+              Tạo sự kiện cứu trợ
+            </h3>
+            <button
+              onClick={() => setShowForm(false)}
+              className="text-slate-400 transition hover:text-slate-600"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* Event Name */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Tên sự kiện *
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Ví dụ: Cứu hộ lũ lụt khu vực..."
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Mô tả chi tiết
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Mô tả về sự kiện, mục đích, và kế hoạch"
+                rows={3}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Date */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Ngày tổ chức *
+              </label>
+              <input
+                type="date"
+                name="date"
+                value={formData.date}
+                onChange={handleInputChange}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Start Time */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Giờ bắt đầu
+              </label>
+              <input
+                type="time"
+                name="startTime"
+                value={formData.startTime}
+                onChange={handleInputChange}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* End Time */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Giờ kết thúc
+              </label>
+              <input
+                type="time"
+                name="endTime"
+                value={formData.endTime}
+                onChange={handleInputChange}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Location */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Địa điểm *
+              </label>
+              <input
+                type="text"
+                name="location"
+                value={formData.location}
+                onChange={handleInputChange}
+                placeholder="Địa chỉ chi tiết khu vực triển khai"
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Event Type */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Loại sự kiện
+              </label>
+              <select
+                name="type"
+                value={formData.type}
+                onChange={handleInputChange}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="relief">Cứu trợ</option>
+                <option value="rescue">Cứu hộ</option>
+                <option value="evacuation">Sơ tán</option>
+                <option value="medical">Y tế</option>
+                <option value="other">Khác</option>
+              </select>
+            </div>
+
+            {/* Priority */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Độ ưu tiên
+              </label>
+              <select
+                name="priority"
+                value={formData.priority}
+                onChange={handleInputChange}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="low">Thấp</option>
+                <option value="medium">Trung bình</option>
+                <option value="high">Cao</option>
+                <option value="critical">Rất cao</option>
+              </select>
+            </div>
+
+            {/* Team */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Đội phụ trách *
+              </label>
+              <input
+                type="text"
+                name="team"
+                value={formData.team}
+                onChange={handleInputChange}
+                placeholder="Ví dụ: Đội cứu hộ miền Tây"
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Budget */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Ngân sách dự kiến
+              </label>
+              <input
+                type="text"
+                name="budget"
+                value={formData.budget}
+                onChange={handleInputChange}
+                placeholder="Ví dụ: ₫450,000,000"
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Form Actions */}
+          <div className="mt-6 flex gap-3">
+            <button
+              onClick={handleCreateEvent}
+              className="rounded-lg px-6 py-2 text-sm font-medium text-white transition"
+              style={{ backgroundColor: "var(--color-blue-950)" }}
+            >
+              Tạo sự kiện
+            </button>
+            <button
+              onClick={() => setShowForm(false)}
+              className="rounded-lg border border-slate-200 bg-white px-6 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50"
+            >
+              Hủy
+            </button>
+          </div>
+        </article>
+      )}
+
+      {/* Events List */}
+      <article className="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-6">
+          <h3
+            className="text-xl font-bold text-slate-900"
+            style={{ fontFamily: "var(--font-primary)" }}
+          >
+            Danh sách sự kiện cứu trợ
+          </h3>
+          <p className="mt-1 text-sm text-slate-600">
+            Tổng {events.length} sự kiện đang quản lý
+          </p>
+        </div>
+
+        <div className="divide-y divide-slate-200">
+          {events.map((event) => (
+            <div key={event.id} className="p-6 hover:bg-slate-50 transition">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h4 className="font-bold text-slate-900">{event.name}</h4>
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold border ${getEventTypeColor(
+                        event.type,
+                      )}`}
+                    >
+                      {getEventTypeLabel(event.type)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-2">
+                    {event.description}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 md:grid-cols-4">
+                    <div>
+                      <span className="font-semibold">Ngày:</span> {event.date}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Giờ:</span>{" "}
+                      {event.startTime} - {event.endTime}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Địa điểm:</span>{" "}
+                      {event.location}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Đội:</span> {event.team}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 sm:items-end">
+                  <div className="flex gap-2">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getPriorityColor(
+                        event.priority,
+                      )}`}
+                    >
+                      {getPriorityLabel(event.priority)}
+                    </span>
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(
+                        event.status,
+                      )}`}
+                    >
+                      {getStatusLabel(event.status)}
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {event.budget}
+                  </p>
+                  <div className="flex gap-2">
+                    <button className="rounded-lg px-3 py-1.5 text-xs border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50">
+                      Chi tiết
+                    </button>
+                    <button className="rounded-lg px-3 py-1.5 text-xs border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50">
+                      Sửa
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
+    </section>
   );
 }
 
@@ -1432,6 +2087,96 @@ export default function ManagerDashboard() {
               </article>
             </section>
 
+            {/* Incident Hotspots Map */}
+            <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3
+                    className="text-xl font-bold text-slate-900"
+                    style={{ fontFamily: "var(--font-primary)" }}
+                  >
+                    Bản đồ điểm sự cố
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Những nơi hay gặp sự cố cần tập trung quản lý
+                  </p>
+                </div>
+                <button className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100">
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                {/* Map */}
+                <div className="lg:col-span-2">
+                  <IncidentHotspotsMap />
+                </div>
+
+                {/* Legend & Statistics */}
+                <div className="space-y-4">
+                  <div className="rounded-lg bg-red-50 p-4 border border-red-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-4 rounded-full bg-red-600" />
+                      <span className="font-semibold text-red-900">
+                        Rất nghiêm trọng
+                      </span>
+                    </div>
+                    <p className="text-xs text-red-700">24+ sự cố</p>
+                  </div>
+
+                  <div className="rounded-lg bg-orange-50 p-4 border border-orange-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-4 rounded-full bg-orange-500" />
+                      <span className="font-semibold text-orange-900">
+                        Nghiêm trọng
+                      </span>
+                    </div>
+                    <p className="text-xs text-orange-700">15-23 sự cố</p>
+                  </div>
+
+                  <div className="rounded-lg bg-yellow-50 p-4 border border-yellow-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-4 rounded-full bg-yellow-500" />
+                      <span className="font-semibold text-yellow-900">
+                        Trung bình
+                      </span>
+                    </div>
+                    <p className="text-xs text-yellow-700">8-14 sự cố</p>
+                  </div>
+
+                  <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-4 rounded-full bg-blue-500" />
+                      <span className="font-semibold text-blue-900">Thấp</span>
+                    </div>
+                    <p className="text-xs text-blue-700">&lt; 8 sự cố</p>
+                  </div>
+
+                  {/* Top Hotspots */}
+                  <div className="border-t pt-4">
+                    <p className="font-semibold text-slate-900 text-sm mb-3">
+                      Điểm sự cố hàng đầu
+                    </p>
+                    <div className="space-y-2">
+                      {incidentHotspots.slice(0, 3).map((hotspot) => (
+                        <div
+                          key={hotspot.id}
+                          className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 cursor-pointer transition"
+                        >
+                          <p className="text-xs font-medium text-slate-900 truncate">
+                            {hotspot.location}
+                          </p>
+                          <p className="text-xs text-slate-600">
+                            {hotspot.incidents} vụ
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             {/* Recent Orders */}
             <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-col items-start justify-between gap-4 border-b border-slate-200 p-6 sm:flex-row sm:items-center">
@@ -1524,6 +2269,9 @@ export default function ManagerDashboard() {
 
         {/* Inventory Management Section */}
         {activeMenu === "inventory" && <InventorySection />}
+
+        {/* Event Management Section */}
+        {activeMenu === "event" && <RescueEventSection />}
 
         {/* Import/Export Section */}
         {activeMenu === "import-export" && <ImportExportSection />}

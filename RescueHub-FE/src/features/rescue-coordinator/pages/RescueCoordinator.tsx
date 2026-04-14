@@ -11,6 +11,8 @@ import {
   X,
 } from "lucide-react";
 import { Sidebar } from "../components/Sidebar";
+import { DispatchModal } from "../components/DispatchModal";
+import { VerificationModal } from "../components/VerificationModal";
 
 interface RescueRequest {
   id: string;
@@ -44,6 +46,8 @@ const RescueCoordinatorPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [showMapModal, setShowMapModal] = useState(false);
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
 
   const [requests] = useState<RescueRequest[]>([
     {
@@ -495,12 +499,17 @@ const RescueCoordinatorPage: React.FC = () => {
 
                 <div className="flex gap-2">
                   <button
+                    onClick={() => setShowVerificationModal(true)}
                     className="flex-1 text-white font-bold py-2 rounded text-sm transition-colors hover:opacity-90"
                     style={{ backgroundColor: "var(--color-blue-950)" }}
                   >
                     Xác minh thông tin
                   </button>
-                  <button className="flex-1 bg-blue-900 hover:bg-blue-950 text-white font-bold py-2 rounded text-sm transition-colors">
+                  <button
+                    onClick={() => setShowDispatchModal(true)}
+                    className="flex-1 text-white font-bold py-2 rounded text-sm transition-colors hover:opacity-90"
+                    style={{ backgroundColor: "var(--color-blue-950)" }}
+                  >
                     Điều phối ngay
                   </button>
                 </div>
@@ -541,6 +550,48 @@ const RescueCoordinatorPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Verification Modal */}
+      {selectedRequest && (
+        <VerificationModal
+          isOpen={showVerificationModal}
+          onClose={() => setShowVerificationModal(false)}
+          requestId={selectedRequest.id}
+          requesterName={selectedRequest.requesterName}
+          requesterPhone={selectedRequest.requesterPhone}
+          requestTitle={selectedRequest.title}
+          location={selectedRequest.location}
+          description={selectedRequest.description}
+          onConfirm={() => {
+            console.log(
+              `Confirmed request ${selectedRequest.id} as legitimate`,
+            );
+            // TODO: Gọi API để cập nhật trạng thái xác minh
+          }}
+          onReject={() => {
+            console.log(`Rejected request ${selectedRequest.id} as fake`);
+            // TODO: Gọi API để đánh dấu tin giả
+          }}
+        />
+      )}
+
+      {/* Dispatch Modal */}
+      {selectedRequest && (
+        <DispatchModal
+          isOpen={showDispatchModal}
+          onClose={() => setShowDispatchModal(false)}
+          requestId={selectedRequest.id}
+          requestTitle={selectedRequest.title}
+          location={selectedRequest.location}
+          victimCount={selectedRequest.victimCount}
+          onDispatch={(teamId) => {
+            console.log(
+              `Dispatching team ${teamId} to request ${selectedRequest.id}`,
+            );
+            // TODO: Gọi API để lưu thông tin điều phối
+          }}
+        />
       )}
     </div>
   );

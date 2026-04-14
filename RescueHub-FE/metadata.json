@@ -1,0 +1,5 @@
+{
+  "name": "TrungTamCuuHo",
+  "description": "Nen tang dieu phoi cuu nan va ung pho khan cap toan dien.",
+  "requestFramePermissions": ["geolocation"]
+}

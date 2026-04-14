@@ -1,0 +1,66 @@
+# ---------------------------------------------
+# OS / Editor
+# ---------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# VS Code / IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# ---------------------------------------------
+# Build / package artifacts
+# ---------------------------------------------
+node_modules/
+build/
+dist/
+coverage/
+**/bin/
+**/obj/
+**/out/
+artifacts/
+
+# .NET user-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Test / coverage outputs
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+# ---------------------------------------------
+# Logs / temp
+# ---------------------------------------------
+*.log
+logs/
+*.tmp
+*.temp
+
+# ---------------------------------------------
+# Environment / secrets
+# ---------------------------------------------
+.env*
+!.env.example
+secrets.json
+
+# ---------------------------------------------
+# Project-specific ignored files
+# ---------------------------------------------
+RescueHub-BE/api_contract_cloudinary_architecture_v1.md
+RescueHub-BE/flood_rescue_relief_postgresql_schema_v1.sql

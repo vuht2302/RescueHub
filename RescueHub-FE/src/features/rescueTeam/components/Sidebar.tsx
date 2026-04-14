@@ -58,16 +58,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         ))}
       </nav>
-
-      <div className="mt-auto px-4 pb-6">
-        <button
-          type="button"
-          className="w-full rounded-2xl bg-blue-950 text-white px-4 py-3.5 font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-950/25"
-        >
-          <Rocket size={16} />
-          Triển khai đơn vị
-        </button>
-      </div>
     </aside>
   );
 };

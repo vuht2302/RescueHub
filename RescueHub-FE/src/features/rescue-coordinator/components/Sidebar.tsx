@@ -44,11 +44,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: "Báo cáo",
       icon: BarChart3,
     },
-    {
-      id: "dispatch",
-      label: "Triển khai đơn vị",
-      icon: Rocket,
-    },
   ];
 
   return (
@@ -67,8 +62,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           Guardian
         </h2>
-        <p className="text-xs text-gray-500 mt-1">BỘ CHỈ HUY QUẢN LÝ</p>
-        <p className="text-xs text-gray-500">Khu vực 7 Delta</p>
       </div>
 
       {/* Menu */}
@@ -93,20 +86,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
       </nav>
-
-      {/* Action Button */}
-      <div className="absolute bottom-6 left-4 right-4">
-        <button
-          className="w-full bg-blue-950 hover:bg-blue-900 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-          style={{
-            backgroundColor: "var(--color-blue-950)",
-            fontFamily: "var(--font-primary)",
-          }}
-        >
-          <Rocket size={18} />
-          Triển khai đơn vị
-        </button>
-      </div>
     </aside>
   );
 };

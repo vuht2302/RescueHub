@@ -16,22 +16,17 @@ type SidebarItem = {
 };
 
 const items: SidebarItem[] = [
-  { to: "/rescue-team", label: "Rescue Team", icon: LifeBuoy },
+  { to: "/home", label: "Trang chủ", icon: House },
   { to: "/track", label: "Theo dõi", icon: Crosshair },
   { to: "/alerts", label: "Cảnh báo", icon: Bell },
   { to: "/request", label: "Yêu cầu", icon: Send },
   { to: "/confirmed", label: "Báo cáo", icon: ClipboardList },
-  { to: "/home", label: "Trang chủ", icon: House },
 ];
 
 export const Sidebar: React.FC = () => {
   return (
     <aside className="w-20 md:w-72 border-r border-outline-variant/20 bg-surface-container-low/40 min-h-[calc(100vh-5rem)] sticky top-20 font-primary">
       <div className="px-3 md:px-4 py-6">
-        <p className="hidden md:block text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-4">
-          Điều hướng
-        </p>
-
         <nav className="space-y-2">
           {items.map((item) => (
             <NavLink

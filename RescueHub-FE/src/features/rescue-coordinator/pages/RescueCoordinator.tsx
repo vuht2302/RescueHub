@@ -10,7 +10,7 @@ import {
   Map,
   X,
 } from "lucide-react";
-import { Sidebar } from "../components/Sidebar";
+import { useCoordinator } from "../../../shared/context/CoordinatorContext";
 import { DispatchModal } from "../components/DispatchModal";
 import { VerificationModal } from "../components/VerificationModal";
 
@@ -42,8 +42,7 @@ interface RescueTeam {
 }
 
 const RescueCoordinatorPage: React.FC = () => {
-  const [activeMenu, setActiveMenu] = useState("overview");
-  const [activeTab, setActiveTab] = useState("overview");
+  const { activeMenu, setActiveMenu } = useCoordinator();
   const [searchQuery, setSearchQuery] = useState("");
   const [showMapModal, setShowMapModal] = useState(false);
   const [showDispatchModal, setShowDispatchModal] = useState(false);
@@ -164,12 +163,11 @@ const RescueCoordinatorPage: React.FC = () => {
   );
 
   return (
-    <div className="flex" style={{ fontFamily: "var(--font-primary)" }}>
-      {/* Sidebar */}
-      <Sidebar activeMenu={activeMenu} onMenuChange={setActiveMenu} />
-
-      {/* Main Content */}
-      <main className="flex-1 ml-64 p-6 bg-gray-50 min-h-screen">
+    <>
+      <main
+        className="p-6 bg-gray-50 min-h-screen"
+        style={{ fontFamily: "var(--font-primary)" }}
+      >
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -207,40 +205,42 @@ const RescueCoordinatorPage: React.FC = () => {
         {/* Tabs */}
         <div className="flex gap-8 border-b border-gray-300 mb-6">
           <button
-            onClick={() => setActiveTab("overview")}
+            onClick={() => setActiveMenu("overview")}
             className={`pb-4 px-2 font-bold transition-colors ${
-              activeTab === "overview"
+              activeMenu === "overview"
                 ? "text-blue-950 border-b-2 border-blue-950"
                 : "text-gray-600 hover:text-gray-900"
             }`}
             style={
-              activeTab === "overview" ? { color: "var(--color-blue-950)" } : {}
+              activeMenu === "overview"
+                ? { color: "var(--color-blue-950)" }
+                : {}
             }
           >
             Tổng quan
           </button>
           <button
-            onClick={() => setActiveTab("tasks")}
+            onClick={() => setActiveMenu("tasks")}
             className={`pb-4 px-2 font-bold transition-colors ${
-              activeTab === "tasks"
+              activeMenu === "tasks"
                 ? "text-blue-950 border-b-2 border-blue-950"
                 : "text-gray-600 hover:text-gray-900"
             }`}
             style={
-              activeTab === "tasks" ? { color: "var(--color-blue-950)" } : {}
+              activeMenu === "tasks" ? { color: "var(--color-blue-950)" } : {}
             }
           >
             Nhiệm vụ
           </button>
           <button
-            onClick={() => setActiveTab("assets")}
+            onClick={() => setActiveMenu("assets")}
             className={`pb-4 px-2 font-bold transition-colors ${
-              activeTab === "assets"
+              activeMenu === "assets"
                 ? "text-blue-950 border-b-2 border-blue-950"
                 : "text-gray-600 hover:text-gray-900"
             }`}
             style={
-              activeTab === "assets" ? { color: "var(--color-blue-950)" } : {}
+              activeMenu === "assets" ? { color: "var(--color-blue-950)" } : {}
             }
           >
             Tài sản
@@ -251,7 +251,7 @@ const RescueCoordinatorPage: React.FC = () => {
         <div className="grid grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="col-span-2 space-y-6">
-            {activeTab === "overview" && (
+            {activeMenu === "overview" && (
               <>
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-4">
@@ -317,7 +317,7 @@ const RescueCoordinatorPage: React.FC = () => {
               </>
             )}
 
-            {activeTab === "tasks" && (
+            {activeMenu === "tasks" && (
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">
                   Danh sách nhiệm vụ
@@ -348,7 +348,7 @@ const RescueCoordinatorPage: React.FC = () => {
               </div>
             )}
 
-            {activeTab === "assets" && (
+            {activeMenu === "assets" && (
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">
                   Tài sản & phương tiện
@@ -593,7 +593,7 @@ const RescueCoordinatorPage: React.FC = () => {
           }}
         />
       )}
-    </div>
+    </>
   );
 };
 

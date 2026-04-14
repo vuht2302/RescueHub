@@ -7,6 +7,9 @@ import React from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { TopBar } from "../shared/components/TopBar";
 import { Sidebar } from "../shared/components/Sidebar";
+import { ManagerProvider } from "../shared/context/ManagerContext";
+import { CoordinatorProvider } from "../shared/context/CoordinatorContext";
+import { RescueTeamProvider } from "../shared/context/RescueTeamContext";
 import { HomeView } from "../features/home/pages/HomeView";
 import { AlertCenter } from "../features/alerts/pages/AlertCenter";
 import { RescueTrack } from "../features/tracking/pages/RescueTrack";
@@ -26,23 +29,39 @@ export default function App() {
   if (isRescueTeamRoute) {
     return (
       <div className="min-h-screen bg-surface selection:bg-blue-950/20 selection:text-blue-950">
-        <Routes>
-          <Route path="/rescue-team" element={<RescueTeamMission />} />
-          <Route path="*" element={<Navigate to="/rescue-team" replace />} />
-        </Routes>
+        <RescueTeamProvider>
+          <Sidebar />
+          <div className="ml-64">
+            <Routes>
+              <Route path="/rescue-team" element={<RescueTeamMission />} />
+              <Route
+                path="*"
+                element={<Navigate to="/rescue-team" replace />}
+              />
+            </Routes>
+          </div>
+        </RescueTeamProvider>
       </div>
     );
   }
   if (isCoordinatorRoute) {
     return (
       <div className="min-h-screen bg-yellow-50">
-        <Routes>
-          <Route path="/rescue-coordinator" element={<RescueCoordinator />} />
-          <Route
-            path="*"
-            element={<Navigate to="/rescue-coordinator" replace />}
-          />
-        </Routes>
+        <CoordinatorProvider>
+          <Sidebar />
+          <div className="ml-64">
+            <Routes>
+              <Route
+                path="/rescue-coordinator"
+                element={<RescueCoordinator />}
+              />
+              <Route
+                path="*"
+                element={<Navigate to="/rescue-coordinator" replace />}
+              />
+            </Routes>
+          </div>
+        </CoordinatorProvider>
       </div>
     );
   }
@@ -50,10 +69,15 @@ export default function App() {
   if (isManagerRoute) {
     return (
       <div className="min-h-screen bg-[#f8f9fa]">
-        <Routes>
-          <Route path="/manager" element={<ManagerDashboard />} />
-          <Route path="*" element={<Navigate to="/manager" replace />} />
-        </Routes>
+        <ManagerProvider>
+          <Sidebar />
+          <div className="ml-64">
+            <Routes>
+              <Route path="/manager" element={<ManagerDashboard />} />
+              <Route path="*" element={<Navigate to="/manager" replace />} />
+            </Routes>
+          </div>
+        </ManagerProvider>
       </div>
     );
   }

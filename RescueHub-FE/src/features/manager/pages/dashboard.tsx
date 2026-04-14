@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
@@ -23,7 +23,12 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  Package,
+  AlertTriangle,
+  TrendingDown,
+  Eye,
 } from "lucide-react";
+import { useManager } from "../../../shared/context/ManagerContext";
 
 type KPI = {
   title: string;
@@ -750,320 +755,813 @@ function StatisticsChart() {
   );
 }
 
-export default function ManagerDashboard() {
+// Inventory Management Section Component
+function InventorySection() {
+  const [inventoryItems] = useState([
+    {
+      id: "SKU001",
+      name: "Dây an toàn cứu hộ",
+      quantity: 45,
+      location: "A-1-3",
+      status: "In Stock",
+      lastRestocked: "2026-01-15",
+    },
+    {
+      id: "SKU002",
+      name: "Mũ bảo hiểm chuyên dụng",
+      quantity: 12,
+      location: "B-2-1",
+      status: "Low Stock",
+      lastRestocked: "2026-01-20",
+    },
+    {
+      id: "SKU003",
+      name: "Áo phao cứu sinh",
+      quantity: 0,
+      location: "C-1-2",
+      status: "Out of Stock",
+      lastRestocked: "2025-12-10",
+    },
+    {
+      id: "SKU004",
+      name: "Bộ cứu hộ di động",
+      quantity: 28,
+      location: "A-3-4",
+      status: "In Stock",
+      lastRestocked: "2026-01-18",
+    },
+    {
+      id: "SKU005",
+      name: "Dụng cụ cắt cứu hộ",
+      quantity: 8,
+      location: "B-1-5",
+      status: "Low Stock",
+      lastRestocked: "2026-01-22",
+    },
+    {
+      id: "SKU006",
+      name: "Đèn chiếu sáng chuyên dụng",
+      quantity: 35,
+      location: "D-2-3",
+      status: "In Stock",
+      lastRestocked: "2026-01-19",
+    },
+  ]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "In Stock":
+        return "bg-emerald-50 text-emerald-600";
+      case "Low Stock":
+        return "bg-orange-50 text-orange-600";
+      case "Out of Stock":
+        return "bg-red-50 text-red-600";
+      default:
+        return "bg-slate-50 text-slate-600";
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "In Stock":
+        return <div className="h-2 w-2 rounded-full bg-emerald-600" />;
+      case "Low Stock":
+        return <AlertTriangle className="h-4 w-4 text-orange-600" />;
+      case "Out of Stock":
+        return <AlertTriangle className="h-4 w-4 text-red-600" />;
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white p-6 md:p-8">
-      <div className="mx-auto max-w-[1400px] space-y-6">
-        {/* Header */}
-        <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-[280px] flex-1 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-                placeholder="Tìm kiếm lệnh, mã vụ việc..."
-                style={{ fontFamily: "var(--font-sans)" }}
-              />
-              <kbd className="rounded border border-slate-200 bg-slate-100 px-2 py-1 text-xs text-slate-500">
-                ⌘ K
-              </kbd>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button className="relative rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100">
-                <Bell className="h-4 w-4" />
-                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-orange-400" />
-              </button>
-              <button className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 transition hover:bg-slate-50">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
-                  MG
-                </span>
-                <span
-                  className="hidden text-sm font-semibold text-slate-700 md:block"
-                  style={{ fontFamily: "var(--font-primary)" }}
-                >
-                  Manager
-                </span>
-                <ChevronDown className="h-4 w-4 text-slate-400" />
-              </button>
-            </div>
+    <section className="space-y-6">
+      <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-[280px] flex-1 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+              placeholder="Tìm kiếm sản phẩm, mã SKU..."
+              style={{ fontFamily: "var(--font-sans)" }}
+            />
           </div>
-        </header>
+          <button
+            className="rounded-lg px-4 py-2 text-sm font-medium text-white transition"
+            style={{ backgroundColor: "var(--color-blue-950)" }}
+          >
+            + Thêm sản phẩm
+          </button>
+        </div>
+      </header>
 
-        {/* KPI Cards */}
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {kpis.map((item) => (
-            <article
-              key={item.title}
-              className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+      <article className="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-6">
+          <h3
+            className="text-xl font-bold text-slate-900"
+            style={{ fontFamily: "var(--font-primary)" }}
+          >
+            Danh sách hàng hóa
+          </h3>
+          <p className="mt-1 text-sm text-slate-600">
+            Quản lý kho hàng hóa cứu hộ - tổng {inventoryItems.length} sản phẩm
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                <th className="px-4 py-3">
+                  <input type="checkbox" className="rounded" />
+                </th>
+                <th className="px-4 py-3">Mã SKU</th>
+                <th className="px-4 py-3">Tên sản phẩm</th>
+                <th className="px-4 py-3">Số lượng</th>
+                <th className="px-4 py-3">Vị trí kho</th>
+                <th className="px-4 py-3">Trạng thái</th>
+                <th className="px-4 py-3">Cập nhật gần đây</th>
+                <th className="px-4 py-3">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inventoryItems.map((item) => (
+                <tr
+                  key={item.id}
+                  className="border-b border-slate-100 transition hover:bg-slate-50"
+                >
+                  <td className="px-4 py-3">
+                    <input type="checkbox" className="rounded" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="font-semibold text-slate-900">{item.id}</p>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-900">
+                    {item.name}
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {item.quantity} {item.quantity === 1 ? "cái" : "cái"}
+                    </p>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600">
+                    {item.location}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(
+                        item.status,
+                      )}`}
+                    >
+                      {getStatusIcon(item.status)}
+                      {item.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600">
+                    {item.lastRestocked}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100">
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  );
+}
+
+// Import/Export Management Section
+function ImportExportSection() {
+  const [transactions] = useState([
+    {
+      id: "TRX001",
+      date: "2026-01-25",
+      type: "import",
+      supplier: "Công ty TNHH An Toàn Plus",
+      items: 15,
+      quantity: 120,
+      status: "Hoàn tất",
+    },
+    {
+      id: "TRX002",
+      date: "2026-01-23",
+      type: "import",
+      supplier: "Công ty Cứu Hộ Việt",
+      items: 8,
+      quantity: 85,
+      status: "Đang xử lý",
+    },
+    {
+      id: "TRX003",
+      date: "2026-01-20",
+      type: "export",
+      supplier: "Chi nhánh Quận 1",
+      items: 12,
+      quantity: 95,
+      status: "Hoàn tất",
+    },
+    {
+      id: "TRX004",
+      date: "2026-01-18",
+      type: "import",
+      supplier: "Công ty Thiết bị Cứu hộ Toàn Cầu",
+      items: 20,
+      quantity: 150,
+      status: "Chờ xác nhận",
+    },
+  ]);
+
+  return (
+    <section className="space-y-6">
+      <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-[280px] flex-1 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+              placeholder="Tìm kiếm mã vụ, nhà cung cấp..."
+              style={{ fontFamily: "var(--font-sans)" }}
+            />
+          </div>
+          <button
+            className="rounded-lg px-4 py-2 text-sm font-medium text-white transition"
+            style={{ backgroundColor: "var(--color-blue-950)" }}
+          >
+            + Yêu cầu mới
+          </button>
+        </div>
+      </header>
+
+      <article className="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-6">
+          <h3
+            className="text-xl font-bold text-slate-900"
+            style={{ fontFamily: "var(--font-primary)" }}
+          >
+            Lịch sử giao dịch
+          </h3>
+          <p className="mt-1 text-sm text-slate-600">
+            Nhập/xuất kho - {transactions.length} giao dịch gần đây
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                <th className="px-4 py-3">Mã giao dịch</th>
+                <th className="px-4 py-3">Ngày</th>
+                <th className="px-4 py-3">Loại</th>
+                <th className="px-4 py-3">Đối tác</th>
+                <th className="px-4 py-3">Số mục</th>
+                <th className="px-4 py-3">Số lượng</th>
+                <th className="px-4 py-3">Trạng thái</th>
+                <th className="px-4 py-3">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((txn) => (
+                <tr
+                  key={txn.id}
+                  className="border-b border-slate-100 transition hover:bg-slate-50"
+                >
+                  <td className="px-4 py-3">
+                    <p className="font-semibold text-slate-900">{txn.id}</p>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600">
+                    {txn.date}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                        txn.type === "import"
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-blue-50 text-blue-600"
+                      }`}
+                    >
+                      {txn.type === "import" ? "Nhập kho" : "Xuất kho"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-900">
+                    {txn.supplier}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600">
+                    {txn.items}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-slate-900">
+                    {txn.quantity}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                        txn.status === "Hoàn tất"
+                          ? "bg-emerald-50 text-emerald-600"
+                          : txn.status === "Đang xử lý"
+                            ? "bg-blue-50 text-blue-600"
+                            : "bg-orange-50 text-orange-600"
+                      }`}
+                    >
+                      {txn.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  );
+}
+
+// Expiry Management Section
+function ExpirySection() {
+  const [expiryItems] = useState([
+    {
+      id: "EXP001",
+      name: "Dây an toàn cứu hộ - Batch A2024",
+      sku: "SKU001",
+      quantity: 12,
+      expiryDate: "2026-03-15",
+      daysToExpiry: 50,
+      status: "upcoming",
+    },
+    {
+      id: "EXP002",
+      name: "Mũ bảo hiểm chuyên dụng - Batch B2024",
+      sku: "SKU002",
+      quantity: 8,
+      expiryDate: "2026-02-10",
+      daysToExpiry: 16,
+      status: "warning",
+    },
+    {
+      id: "EXP003",
+      name: "Bộ cứu hộ di động - Batch C2023",
+      sku: "SKU004",
+      quantity: 5,
+      expiryDate: "2026-01-30",
+      daysToExpiry: -5,
+      status: "expired",
+    },
+  ]);
+
+  const getExpiryBadge = (status: string) => {
+    switch (status) {
+      case "expired":
+        return "bg-red-100 text-red-700 border border-red-200";
+      case "warning":
+        return "bg-orange-100 text-orange-700 border border-orange-200";
+      case "upcoming":
+        return "bg-yellow-100 text-yellow-700 border border-yellow-200";
+      default:
+        return "bg-slate-100 text-slate-700";
+    }
+  };
+
+  return (
+    <section className="space-y-6">
+      <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-[280px] flex-1 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+              placeholder="Tìm kiếm sản phẩm, batch..."
+              style={{ fontFamily: "var(--font-sans)" }}
+            />
+          </div>
+          <button
+            className="rounded-lg px-4 py-2 text-sm font-medium text-white transition"
+            style={{ backgroundColor: "var(--color-blue-950)" }}
+          >
+            Xuất báo cáo
+          </button>
+        </div>
+      </header>
+
+      <article className="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-6">
+          <h3
+            className="text-xl font-bold text-slate-900"
+            style={{ fontFamily: "var(--font-primary)" }}
+          >
+            Sản phẩm sắp/đã hết hạn
+          </h3>
+          <p className="mt-1 text-sm text-slate-600">
+            Giám sát ngày hết hạn sử dụng - {expiryItems.length} mục
+          </p>
+        </div>
+
+        <div className="space-y-3 p-6">
+          {expiryItems.map((item) => (
+            <div
+              key={item.id}
+              className={`rounded-lg border p-4 ${getExpiryBadge(item.status)}`}
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                    {item.title}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h4 className="font-semibold">{item.name}</h4>
+                  <p className="mt-1 text-sm opacity-75">
+                    {item.sku} • {item.quantity} cái
                   </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold">{item.expiryDate}</p>
+                  <p className="mt-1 text-sm font-medium">
+                    {item.daysToExpiry > 0
+                      ? `Còn ${item.daysToExpiry} ngày`
+                      : `Đã hết ${Math.abs(item.daysToExpiry)} ngày`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+export default function ManagerDashboard() {
+  const { activeMenu } = useManager();
+
+  return (
+    <div className="p-6 md:p-8 bg-gradient-to-b from-slate-50 to-white min-h-screen">
+      <div className="mx-auto max-w-[1400px] space-y-6">
+        {/* Overview Section */}
+        {activeMenu === "overview" && (
+          <>
+            <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex min-w-[280px] flex-1 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
+                  <Search className="h-4 w-4 text-slate-400" />
+                  <input
+                    className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                    placeholder="Tìm kiếm lệnh, mã vụ việc..."
+                    style={{ fontFamily: "var(--font-sans)" }}
+                  />
+                  <kbd className="rounded border border-slate-200 bg-slate-100 px-2 py-1 text-xs text-slate-500">
+                    ⌘ K
+                  </kbd>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button className="relative rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100">
+                    <Bell className="h-4 w-4" />
+                    <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-orange-400" />
+                  </button>
+                  <button className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 transition hover:bg-slate-50">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                      MG
+                    </span>
+                    <span
+                      className="hidden text-sm font-semibold text-slate-700 md:block"
+                      style={{ fontFamily: "var(--font-primary)" }}
+                    >
+                      Manager
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-slate-400" />
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            {/* KPI Cards */}
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              {kpis.map((item) => (
+                <article
+                  key={item.title}
+                  className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                        {item.title}
+                      </p>
+                      <h3
+                        className="mt-2 text-3xl font-bold text-slate-900"
+                        style={{ fontFamily: "var(--font-primary)" }}
+                      >
+                        {item.value}
+                      </h3>
+                    </div>
+                    <div className="text-slate-300">{item.icon}</div>
+                  </div>
+                  <div className="mt-4 flex items-center gap-2">
+                    {changeBadge(item.change, item.positive)}
+                    <span className="text-xs text-slate-500">tháng này</span>
+                  </div>
+                </article>
+              ))}
+            </section>
+
+            {/* Statistics - Full Width */}
+            <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
                   <h3
-                    className="mt-2 text-3xl font-bold text-slate-900"
+                    className="text-xl font-bold text-slate-900"
                     style={{ fontFamily: "var(--font-primary)" }}
                   >
-                    {item.value}
+                    Statistics
                   </h3>
-                </div>
-                <div className="text-slate-300">{item.icon}</div>
-              </div>
-              <div className="mt-4 flex items-center gap-2">
-                {changeBadge(item.change, item.positive)}
-                <span className="text-xs text-slate-500">tháng này</span>
-              </div>
-            </article>
-          ))}
-        </section>
-
-        {/* Statistics - Full Width */}
-        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div>
-              <h3
-                className="text-xl font-bold text-slate-900"
-                style={{ fontFamily: "var(--font-primary)" }}
-              >
-                Statistics
-              </h3>
-              <p className="mt-1 text-sm text-slate-600">
-                Chỉ tiêu theo dõi hiệu quả vận hành theo tháng
-              </p>
-            </div>
-
-            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
-              {["Monthly", "Quarterly", "Annually"].map((tab, idx) => (
-                <button
-                  key={tab}
-                  className={`rounded-md px-4 py-2 text-sm font-medium transition ${
-                    idx === 0
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                  style={{ fontFamily: "var(--font-primary)" }}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 p-4">
-              <p className="text-xs font-medium text-slate-600 uppercase">
-                Avg. chi phí điều phối / tháng
-              </p>
-              <div className="mt-2 flex items-end gap-3">
-                <p className="text-2xl font-bold text-slate-900">₫212.1M</p>
-                {changeBadge("+23.2%", true)}
-              </div>
-            </div>
-            <div className="rounded-lg bg-gradient-to-br from-red-50 to-red-100 p-4">
-              <p className="text-xs font-medium text-slate-600 uppercase">
-                Avg. chi phí phát sinh
-              </p>
-              <div className="mt-2 flex items-end gap-3">
-                <p className="text-2xl font-bold text-slate-900">₫30.3M</p>
-                {changeBadge("-12.3%", false)}
-              </div>
-            </div>
-          </div>
-
-          <StatisticsChart />
-        </section>
-
-        {/* HCM Map & June Goals */}
-        <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3
-                  className="text-xl font-bold text-slate-900"
-                  style={{ fontFamily: "var(--font-primary)" }}
-                >
-                  Service Coverage
-                </h3>
-                <p className="mt-1 text-sm text-slate-600">
-                  HCM city distribution with MapLibre GL
-                </p>
-              </div>
-              <button className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100">
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="mt-6">
-              <MapLibreHCMMap />
-            </div>
-          </article>
-
-          <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3
-                  className="text-xl font-bold text-slate-900"
-                  style={{ fontFamily: "var(--font-primary)" }}
-                >
-                  June Goals
-                </h3>
-                <p className="mt-1 text-sm text-slate-600">
-                  Mục tiêu ngân sách
-                </p>
-              </div>
-              <button className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100">
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-8">
-              <svg viewBox="0 0 360 180" className="w-full">
-                <path
-                  d="M 30 150 A 120 120 0 0 1 330 150"
-                  fill="none"
-                  stroke="#e2e8f0"
-                  strokeWidth="12"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M 30 150 A 120 120 0 0 1 290 120"
-                  fill="none"
-                  stroke="#3b82f6"
-                  strokeWidth="12"
-                  strokeLinecap="round"
-                />
-                <text
-                  x="180"
-                  y="85"
-                  textAnchor="middle"
-                  className="fill-slate-600 text-sm"
-                  style={{ fontFamily: "var(--font-primary)" }}
-                >
-                  June Goals
-                </text>
-                <text
-                  x="180"
-                  y="125"
-                  textAnchor="middle"
-                  className="fill-slate-900 text-4xl font-bold"
-                  style={{ fontFamily: "var(--font-primary)" }}
-                >
-                  $90K
-                </text>
-              </svg>
-            </div>
-
-            <div className="mt-8 space-y-4 border-t border-slate-200 pt-6">
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-900">
-                    Marketing
+                  <p className="mt-1 text-sm text-slate-600">
+                    Chỉ tiêu theo dõi hiệu quả vận hành theo tháng
                   </p>
-                  <p className="text-sm font-semibold text-slate-900">85%</p>
                 </div>
-                <div className="h-2 rounded-full bg-slate-200">
-                  <div className="h-2 w-[85%] rounded-full bg-blue-500" />
+
+                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+                  {["Monthly", "Quarterly", "Annually"].map((tab, idx) => (
+                    <button
+                      key={tab}
+                      className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                        idx === 0
+                          ? "bg-white text-slate-900 shadow-sm"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      style={{ fontFamily: "var(--font-primary)" }}
+                    >
+                      {tab}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-900">
-                    Operations
+
+              <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 p-4">
+                  <p className="text-xs font-medium text-slate-600 uppercase">
+                    Avg. chi phí điều phối / tháng
                   </p>
-                  <p className="text-sm font-semibold text-slate-900">55%</p>
+                  <div className="mt-2 flex items-end gap-3">
+                    <p className="text-2xl font-bold text-slate-900">₫212.1M</p>
+                    {changeBadge("+23.2%", true)}
+                  </div>
                 </div>
-                <div className="h-2 rounded-full bg-slate-200">
-                  <div className="h-2 w-[55%] rounded-full bg-blue-500" />
+                <div className="rounded-lg bg-gradient-to-br from-red-50 to-red-100 p-4">
+                  <p className="text-xs font-medium text-slate-600 uppercase">
+                    Avg. chi phí phát sinh
+                  </p>
+                  <div className="mt-2 flex items-end gap-3">
+                    <p className="text-2xl font-bold text-slate-900">₫30.3M</p>
+                    {changeBadge("-12.3%", false)}
+                  </div>
                 </div>
               </div>
-            </div>
-          </article>
-        </section>
 
-        {/* Recent Orders */}
-        <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col items-start justify-between gap-4 border-b border-slate-200 p-6 sm:flex-row sm:items-center">
-            <div>
-              <h3
-                className="text-xl font-bold text-slate-900"
-                style={{ fontFamily: "var(--font-primary)" }}
-              >
-                Recent Orders
-              </h3>
-              <p className="mt-1 text-sm text-slate-600">
-                Danh sách yêu cầu gần đây
-              </p>
-            </div>
-            <button className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50">
-              Xem tất cả
-            </button>
-          </div>
+              <StatisticsChart />
+            </section>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  <th className="px-4 py-3">
-                    <input type="checkbox" className="rounded" />
-                  </th>
-                  <th className="px-4 py-3">Mã vụ việc</th>
-                  <th className="px-4 py-3">Người yêu cầu</th>
-                  <th className="px-4 py-3">Dịch vụ</th>
-                  <th className="px-4 py-3">Giá trị</th>
-                  <th className="px-4 py-3">Hạn xử lý</th>
-                  <th className="px-4 py-3">Trạng thái</th>
-                  <th className="px-4 py-3">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="border-b border-slate-100 transition hover:bg-slate-50"
+            {/* HCM Map & June Goals */}
+            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3
+                      className="text-xl font-bold text-slate-900"
+                      style={{ fontFamily: "var(--font-primary)" }}
+                    >
+                      Service Coverage
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      HCM city distribution with MapLibre GL
+                    </p>
+                  </div>
+                  <button className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100">
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="mt-6">
+                  <MapLibreHCMMap />
+                </div>
+              </article>
+
+              <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3
+                      className="text-xl font-bold text-slate-900"
+                      style={{ fontFamily: "var(--font-primary)" }}
+                    >
+                      June Goals
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Mục tiêu ngân sách
+                    </p>
+                  </div>
+                  <button className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100">
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="mt-8">
+                  <svg viewBox="0 0 360 180" className="w-full">
+                    <path
+                      d="M 30 150 A 120 120 0 0 1 330 150"
+                      fill="none"
+                      stroke="#e2e8f0"
+                      strokeWidth="12"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M 30 150 A 120 120 0 0 1 290 120"
+                      fill="none"
+                      stroke="#3b82f6"
+                      strokeWidth="12"
+                      strokeLinecap="round"
+                    />
+                    <text
+                      x="180"
+                      y="85"
+                      textAnchor="middle"
+                      className="fill-slate-600 text-sm"
+                      style={{ fontFamily: "var(--font-primary)" }}
+                    >
+                      June Goals
+                    </text>
+                    <text
+                      x="180"
+                      y="125"
+                      textAnchor="middle"
+                      className="fill-slate-900 text-4xl font-bold"
+                      style={{ fontFamily: "var(--font-primary)" }}
+                    >
+                      $90K
+                    </text>
+                  </svg>
+                </div>
+
+                <div className="mt-8 space-y-4 border-t border-slate-200 pt-6">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-900">
+                        Marketing
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        85%
+                      </p>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-200">
+                      <div className="h-2 w-[85%] rounded-full bg-blue-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-900">
+                        Operations
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        55%
+                      </p>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-200">
+                      <div className="h-2 w-[55%] rounded-full bg-blue-500" />
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </section>
+
+            {/* Recent Orders */}
+            <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-col items-start justify-between gap-4 border-b border-slate-200 p-6 sm:flex-row sm:items-center">
+                <div>
+                  <h3
+                    className="text-xl font-bold text-slate-900"
+                    style={{ fontFamily: "var(--font-primary)" }}
                   >
-                    <td className="px-4 py-3">
-                      <input type="checkbox" className="rounded" />
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-slate-900">{order.id}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-600">
-                          {order.initials}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-900">
-                            {order.customer}
+                    Recent Orders
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Danh sách yêu cầu gần đây
+                  </p>
+                </div>
+                <button className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50">
+                  Xem tất cả
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="px-4 py-3">
+                        <input type="checkbox" className="rounded" />
+                      </th>
+                      <th className="px-4 py-3">Mã vụ việc</th>
+                      <th className="px-4 py-3">Người yêu cầu</th>
+                      <th className="px-4 py-3">Dịch vụ</th>
+                      <th className="px-4 py-3">Giá trị</th>
+                      <th className="px-4 py-3">Hạn xử lý</th>
+                      <th className="px-4 py-3">Trạng thái</th>
+                      <th className="px-4 py-3">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="border-b border-slate-100 transition hover:bg-slate-50"
+                      >
+                        <td className="px-4 py-3">
+                          <input type="checkbox" className="rounded" />
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-slate-900">
+                            {order.id}
                           </p>
-                          <p className="text-xs text-slate-500">
-                            {order.email}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-900">
-                      {order.product}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-slate-900">
-                      {order.dealValue}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">
-                      {order.closeDate}
-                    </td>
-                    <td className="px-4 py-3">{statusBadge(order.status)}</td>
-                    <td className="px-4 py-3">
-                      <button className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-600">
+                              {order.initials}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">
+                                {order.customer}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {order.email}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-900">
+                          {order.product}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-semibold text-slate-900">
+                          {order.dealValue}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">
+                          {order.closeDate}
+                        </td>
+                        <td className="px-4 py-3">
+                          {statusBadge(order.status)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
+        )}
+
+        {/* Inventory Management Section */}
+        {activeMenu === "inventory" && <InventorySection />}
+
+        {/* Import/Export Section */}
+        {activeMenu === "import-export" && <ImportExportSection />}
+
+        {/* Expiry Management Section */}
+        {activeMenu === "expiry" && <ExpirySection />}
+
+        {/* Reports Section - Placeholder */}
+        {activeMenu === "reports" && (
+          <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <h3
+              className="text-xl font-bold text-slate-900"
+              style={{ fontFamily: "var(--font-primary)" }}
+            >
+              Báo cáo & thống kê
+            </h3>
+            <p className="mt-2 text-slate-600">
+              Phần báo cáo đang được phát triển. Sẽ hiển thị các biểu đồ thống
+              kê, phân tích tồn kho, và xu hướng tiêu thụ.
+            </p>
+          </article>
+        )}
+
+        {/* Settings Section - Placeholder */}
+        {activeMenu === "settings" && (
+          <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <h3
+              className="text-xl font-bold text-slate-900"
+              style={{ fontFamily: "var(--font-primary)" }}
+            >
+              Cài đặt
+            </h3>
+            <p className="mt-2 text-slate-600">
+              Phần cài đặt đang được phát triển. Sẽ có các tùy chọn cấu hình
+              kho, ngưỡng cảnh báo, và quản lý quyền.
+            </p>
+          </article>
+        )}
       </div>
     </div>
   );

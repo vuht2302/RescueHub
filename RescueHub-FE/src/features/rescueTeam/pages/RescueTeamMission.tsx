@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Bell, Crosshair, Settings } from "lucide-react";
-import { Sidebar } from "../components/Sidebar";
+import { useRescueTeam } from "../../../shared/context/RescueTeamContext";
 import { DashboardView } from "./DashboardView";
 import { MapView } from "./MapView";
 import { MissionsView } from "./MissionsView";
@@ -12,8 +12,6 @@ import {
   MissionStatus,
   TeamMember,
 } from "../types/mission";
-
-type MenuItemType = "dashboard" | "map" | "missions" | "team" | "reports";
 
 const missions: Mission[] = [
   {
@@ -119,7 +117,7 @@ const priorityStyles: Record<string, string> = {
 };
 
 export const RescueTeamMission: React.FC = () => {
-  const [activeMenu, setActiveMenu] = useState<MenuItemType>("map");
+  const { activeMenu, setActiveMenu } = useRescueTeam();
   const [selectedMissionId, setSelectedMissionId] = useState(missions[0].id);
   const [statusMap, setStatusMap] = useState<Record<string, MissionStatus>>({
     "rg-4492-d": "Chờ nhận",
@@ -204,82 +202,78 @@ export const RescueTeamMission: React.FC = () => {
 
   return (
     <div className="h-screen bg-[#dfe3e8] overflow-hidden font-sans text-on-surface">
-      <div className="grid grid-cols-1 lg:grid-cols-[270px_1fr] h-full">
-        <Sidebar activeMenu={activeMenu} onMenuClick={setActiveMenu} />
-
-        <section className="min-w-0 flex flex-col">
-          <header className="h-16 bg-[#f0f2f5] border-b border-[#d1d7df] px-4 md:px-8 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-6 h-6 rounded-md bg-blue-950 lg:hidden" />
-              <div className="hidden md:flex items-center bg-white border border-[#d4dbe3] rounded-lg px-3 py-2 min-w-[260px]">
-                <Crosshair size={14} className="text-on-surface-variant" />
-                <input
-                  className="ml-2 text-sm bg-transparent outline-none w-full"
-                  placeholder="Tìm kiếm mã nhiệm vụ..."
-                />
-              </div>
+      <section className="h-full flex flex-col">
+        <header className="h-16 bg-[#f0f2f5] border-b border-[#d1d7df] px-4 md:px-8 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-6 h-6 rounded-md bg-blue-950 lg:hidden" />
+            <div className="hidden md:flex items-center bg-white border border-[#d4dbe3] rounded-lg px-3 py-2 min-w-[260px]">
+              <Crosshair size={14} className="text-on-surface-variant" />
+              <input
+                className="ml-2 text-sm bg-transparent outline-none w-full"
+                placeholder="Tìm kiếm mã nhiệm vụ..."
+              />
             </div>
-
-            <div className="flex items-center gap-4 text-on-surface-variant">
-              <Bell size={18} />
-              <Settings size={18} />
-              <div className="w-8 h-8 rounded-full bg-blue-950 text-white grid place-items-center text-xs font-bold">
-                AG
-              </div>
-            </div>
-          </header>
-
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_430px] gap-4 p-4 md:p-6 h-[calc(100vh-4rem)]">
-            {activeMenu === "dashboard" && (
-              <DashboardView
-                missions={missions}
-                statusMap={statusMap}
-                priorityStyles={priorityStyles}
-                statusStyles={statusStyles}
-                onMissionClick={(missionId) => {
-                  setSelectedMissionId(missionId);
-                  setActiveMenu("map");
-                }}
-              />
-            )}
-
-            {activeMenu === "map" && (
-              <MapView
-                selectedMission={selectedMission}
-                statusMap={statusMap}
-                logs={logs}
-                priorityStyles={priorityStyles}
-                missions={missions}
-                onMissionSelect={setSelectedMissionId}
-                reportStatus={reportStatus}
-                onStatusChange={setReportStatus}
-                onSubmitReport={handleSubmitReport}
-              />
-            )}
-
-            {activeMenu === "missions" && (
-              <MissionsView
-                missions={missions}
-                statusMap={statusMap}
-                priorityStyles={priorityStyles}
-                statusStyles={statusStyles}
-                onAcceptMission={(missionId) => {
-                  handleAcceptMission(missionId);
-                  setSelectedMissionId(missionId);
-                  setReportStatus("Đang di chuyển");
-                  setActiveMenu("map");
-                }}
-                onViewMission={handleViewMission}
-                onRequestMissionAction={handleRequestMissionAction}
-              />
-            )}
-
-            {activeMenu === "team" && <TeamView teamMembers={teamMembers} />}
-
-            {activeMenu === "reports" && <ReportsView />}
           </div>
-        </section>
-      </div>
+
+          <div className="flex items-center gap-4 text-on-surface-variant">
+            <Bell size={18} />
+            <Settings size={18} />
+            <div className="w-8 h-8 rounded-full bg-blue-950 text-white grid place-items-center text-xs font-bold">
+              AG
+            </div>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_430px] gap-4 p-4 md:p-6 h-[calc(100vh-4rem)]">
+          {activeMenu === "dashboard" && (
+            <DashboardView
+              missions={missions}
+              statusMap={statusMap}
+              priorityStyles={priorityStyles}
+              statusStyles={statusStyles}
+              onMissionClick={(missionId) => {
+                setSelectedMissionId(missionId);
+                setActiveMenu("map");
+              }}
+            />
+          )}
+
+          {activeMenu === "map" && (
+            <MapView
+              selectedMission={selectedMission}
+              statusMap={statusMap}
+              logs={logs}
+              priorityStyles={priorityStyles}
+              missions={missions}
+              onMissionSelect={setSelectedMissionId}
+              reportStatus={reportStatus}
+              onStatusChange={setReportStatus}
+              onSubmitReport={handleSubmitReport}
+            />
+          )}
+
+          {activeMenu === "missions" && (
+            <MissionsView
+              missions={missions}
+              statusMap={statusMap}
+              priorityStyles={priorityStyles}
+              statusStyles={statusStyles}
+              onAcceptMission={(missionId) => {
+                handleAcceptMission(missionId);
+                setSelectedMissionId(missionId);
+                setReportStatus("Đang di chuyển");
+                setActiveMenu("map");
+              }}
+              onViewMission={handleViewMission}
+              onRequestMissionAction={handleRequestMissionAction}
+            />
+          )}
+
+          {activeMenu === "team" && <TeamView teamMembers={teamMembers} />}
+
+          {activeMenu === "reports" && <ReportsView />}
+        </div>
+      </section>
     </div>
   );
 };

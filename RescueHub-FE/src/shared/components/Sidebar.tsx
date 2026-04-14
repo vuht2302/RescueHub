@@ -56,37 +56,37 @@ const managerMenuItems: ManagerMenuItem[] = [
     id: "overview",
     label: "Tổng quan",
     icon: LayoutDashboard,
-    color: "text-blue-600",
+    color: "text-black-600",
   },
   {
     id: "inventory",
     label: "Quản lý kho",
     icon: Package,
-    color: "text-orange-600",
+    color: "text-black-600",
   },
   {
     id: "import-export",
     label: "Xuất nhập kho",
     icon: Truck,
-    color: "text-green-600",
+    color: "text-black-600",
   },
   {
     id: "expiry",
     label: "Hạn sử dụng",
     icon: Calendar,
-    color: "text-red-600",
+    color: "text-black-600",
   },
   {
     id: "reports",
     label: "Báo cáo & thống kê",
     icon: BarChart3,
-    color: "text-purple-600",
+    color: "text-black-600",
   },
   {
     id: "settings",
     label: "Cài đặt",
     icon: Settings,
-    color: "text-gray-600",
+    color: "text-black-600",
   },
 ];
 
@@ -196,14 +196,6 @@ export const Sidebar: React.FC = () => {
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                   isActive ? "bg-blue-50 shadow-sm" : "hover:bg-gray-50"
                 }`}
-                style={
-                  isActive
-                    ? {
-                        borderLeft: `4px solid var(--color-blue-950)`,
-                        paddingLeft: "12px",
-                      }
-                    : {}
-                }
               >
                 <Icon
                   size={20}
@@ -263,52 +255,63 @@ export const Sidebar: React.FC = () => {
     } = useCoordinator();
 
     return (
-      <aside className="w-64 bg-white shadow-lg h-screen overflow-y-auto fixed left-0 top-0 pt-6">
-        {/* Logo */}
-        <div className="px-6 mb-8">
+      <aside
+        className="fixed left-0 top-0 w-64 h-screen bg-white shadow-lg flex flex-col border-r border-gray-200"
+        style={{ fontFamily: "var(--font-primary)" }}
+      >
+        {/* Logo Section */}
+        <div className="p-6 border-b border-gray-200">
           <h1
-            className="text-2xl font-black text-gray-900"
-            style={{ fontFamily: "var(--font-primary)" }}
+            className="text-2xl font-black"
+            style={{ color: "var(--color-blue-950)" }}
           >
-            Rescue
+            RescueHub
           </h1>
-          <h2
-            className="text-2xl font-black text-blue-950"
-            style={{ fontFamily: "var(--font-primary)" }}
-          >
-            Guardian
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">BỘ CHỈ HUY QUẢN LÝ</p>
-          <p className="text-xs text-gray-500">Khu vực 7 Delta</p>
+          <p className="text-xs text-gray-600 mt-1">Quản lý cứu hộ</p>
         </div>
 
-        {/* Menu */}
-        <nav className="space-y-2 px-4">
+        {/* Menu Items */}
+        <nav className="flex-1 p-4 space-y-2">
           {coordinatorMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeCoordinator === item.id;
-
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveCoordinator(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  isActive
-                    ? "bg-blue-50 text-blue-950 font-semibold"
-                    : "text-gray-700 hover:bg-gray-50"
+                  isActive ? "bg-blue-50 shadow-sm" : "hover:bg-gray-50"
                 }`}
               >
-                <Icon size={20} />
-                <span>{item.label}</span>
+                <Icon
+                  size={20}
+                  className={isActive ? "text-blue-600" : "text-gray-600"}
+                />
+                <span
+                  className={`text-sm font-semibold flex-1 text-left ${
+                    isActive
+                      ? "text-blue-950"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                  style={isActive ? { color: "var(--color-blue-950)" } : {}}
+                >
+                  {item.label}
+                </span>
+                {isActive && (
+                  <ChevronRight
+                    size={16}
+                    style={{ color: "var(--color-blue-950)" }}
+                  />
+                )}
               </button>
             );
           })}
         </nav>
 
-        {/* Action Button */}
-        <div className="absolute bottom-6 left-4 right-4">
+        {/* Bottom Action */}
+        <div className="p-4 border-t border-gray-200">
           <button
-            className="w-full bg-blue-950 hover:bg-blue-900 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"
             style={{
               backgroundColor: "var(--color-blue-950)",
               fontFamily: "var(--font-primary)",
@@ -327,37 +330,69 @@ export const Sidebar: React.FC = () => {
     const { activeMenu: activeTeam, setActiveMenu: setActiveTeam } =
       useRescueTeam();
     return (
-      <aside className="fixed left-0 top-0 w-64 h-screen bg-[#edf0f3] border-r border-[#d1d7df] overflow-y-auto flex flex-col">
-        <div className="px-6 py-5 border-b border-[#d1d7df] flex-shrink-0">
-          <h2 className="text-3xl tracking-tight font-black text-blue-950">
+      <aside
+        className="fixed left-0 top-0 w-64 h-screen bg-white shadow-lg flex flex-col border-r border-gray-200"
+        style={{ fontFamily: "var(--font-primary)" }}
+      >
+        {/* Logo Section */}
+        <div className="p-6 border-b border-gray-200">
+          <h1
+            className="text-2xl font-black"
+            style={{ color: "var(--color-blue-950)" }}
+          >
             RescueHub
-          </h2>
+          </h1>
+          <p className="text-xs text-gray-600 mt-1">Quản lý nhiệm vụ cứu hộ</p>
         </div>
 
-        <nav className="flex-1 px-4 py-5 space-y-1 overflow-y-auto">
-          {rescueTeamMenuItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setActiveTeam(item.id)}
-              className={`w-full flex items-center gap-3 text-left px-4 py-3 rounded-xl transition-colors ${
-                activeTeam === item.id
-                  ? "bg-blue-950/10 text-blue-950"
-                  : "text-on-surface-variant hover:bg-surface-container-high"
-              }`}
-            >
-              <item.icon size={18} />
-              <span className="font-semibold text-sm">{item.label}</span>
-            </button>
-          ))}
+        {/* Menu Items */}
+        <nav className="flex-1 p-4 space-y-2">
+          {rescueTeamMenuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTeam === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTeam(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                  isActive ? "bg-blue-50 shadow-sm" : "hover:bg-gray-50"
+                }`}
+              >
+                <Icon
+                  size={20}
+                  className={isActive ? "text-blue-600" : "text-gray-600"}
+                />
+                <span
+                  className={`text-sm font-semibold flex-1 text-left ${
+                    isActive
+                      ? "text-blue-950"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                  style={isActive ? { color: "var(--color-blue-950)" } : {}}
+                >
+                  {item.label}
+                </span>
+                {isActive && (
+                  <ChevronRight
+                    size={16}
+                    style={{ color: "var(--color-blue-950)" }}
+                  />
+                )}
+              </button>
+            );
+          })}
         </nav>
 
-        <div className="px-4 pb-6 flex-shrink-0">
+        {/* Bottom Action */}
+        <div className="p-4 border-t border-gray-200">
           <button
-            type="button"
-            className="w-full rounded-2xl bg-blue-950 text-white px-4 py-3.5 font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-950/25"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"
+            style={{
+              backgroundColor: "var(--color-blue-950)",
+              fontFamily: "var(--font-primary)",
+            }}
           >
-            <Rocket size={16} />
+            <Rocket size={18} />
             Triển khai đơn vị
           </button>
         </div>

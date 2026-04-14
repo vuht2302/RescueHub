@@ -2,14 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import vietmapgl from "@vietmap/vietmap-gl-js/dist/vietmap-gl";
 import "@vietmap/vietmap-gl-js/dist/vietmap-gl.css";
-import {
-  HandHeart,
-  LifeBuoy,
-  LocateFixed,
-  MapPin,
-  Phone,
-  Siren,
-} from "lucide-react";
+import { LifeBuoy, LocateFixed, MapPin, Phone, Siren } from "lucide-react";
 import { ConfirmationModal } from "../../../shared/components/ConfirmationModal";
 
 type Coordinate = {
@@ -308,6 +301,15 @@ export const HomeView: React.FC = () => {
     })();
   };
 
+  const handleSosClick = () => {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([120, 60, 120, 60, 220]);
+    }
+
+    setSosStatus("idle");
+    setIsConfirmationOpen(true);
+  };
+
   return (
     <div className="w-full h-full">
       <section className="relative h-full overflow-hidden">
@@ -393,40 +395,34 @@ export const HomeView: React.FC = () => {
           </div>
         </div>
 
-        <div className="absolute bottom-5 left-5 right-5 z-20 grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="absolute bottom-5 right-5 z-30 flex flex-col items-end gap-3">
           <button
-            onClick={() => {
-              setSosStatus("idle");
-              setIsConfirmationOpen(true);
-            }}
-            className="md:col-span-1 h-14 rounded-xl bg-gradient-to-r from-error to-red-700 text-white font-black text-lg shadow-xl flex items-center justify-center gap-2 hover:opacity-95 active:scale-[0.99] transition-all"
+            onClick={handleSosClick}
+            className="w-16 h-16 cursor-pointer rounded-full bg-gradient-to-br from-error to-red-700 text-white shadow-2xl flex items-center justify-center hover:opacity-95 active:scale-95 transition-all sos-shake"
+            aria-label="Gửi SOS khẩn cấp"
+            title="SOS khẩn cấp"
           >
-            <Siren size={20} />
-            SOS
+            <span className="absolute inset-0 rounded-full bg-red-500/35 animate-ping" />
+            <span className="absolute inset-0 rounded-full border-2 border-white/70 sos-ring" />
+            <span className="relative z-10 font-black text-sm">SOS</span>
           </button>
 
           <button
             onClick={() => navigate("/request")}
-            className="h-14 rounded-xl bg-primary text-on-primary font-bold shadow-lg flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.99] transition-all"
+            className="w-14 h-14 rounded-full cursor-pointer bg-primary text-on-primary shadow-2xl flex items-center justify-center hover:opacity-90 active:scale-95 transition-all "
+            aria-label="Gửi cứu hộ"
+            title="Gửi cứu hộ"
           >
-            <LifeBuoy size={18} />
-            Gửi cứu hộ
-          </button>
-
-          <button
-            onClick={() => navigate("/request")}
-            className="h-14 rounded-xl bg-tertiary text-on-tertiary font-bold shadow-lg flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.99] transition-all"
-          >
-            <HandHeart size={18} />
-            Gửi cứu trợ
+            <LifeBuoy size={20} />
           </button>
 
           <a
             href={`tel:${hotline.replace(/\s+/g, "")}`}
-            className="h-14 rounded-xl bg-surface-container-lowest border border-outline-variant/40 font-bold shadow-lg flex items-center justify-center gap-2 hover:bg-surface-container-low transition-colors"
+            className="w-14 h-14 rounded-full cursor-pointer bg-surface-container-lowest border border-outline-variant/40 text-primary shadow-2xl flex items-center justify-center hover:bg-surface-container-low transition-colors"
+            aria-label={`Hotline ${hotline}`}
+            title={`Hotline: ${hotline}`}
           >
-            <Phone size={18} className="text-primary" />
-            Hotline: {hotline}
+            <Phone size={20} />
           </a>
         </div>
 

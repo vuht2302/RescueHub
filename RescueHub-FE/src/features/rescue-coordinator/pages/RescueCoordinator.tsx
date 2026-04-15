@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
   AlertTriangle,
@@ -11,8 +11,15 @@ import {
   X,
 } from "lucide-react";
 import { useCoordinator } from "../../../shared/context/CoordinatorContext";
+import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { DispatchModal } from "../components/DispatchModal";
 import { VerificationModal } from "../components/VerificationModal";
+import {
+  getIncidents,
+  getIncidentDetail,
+  type IncidentItem,
+  type IncidentDetail,
+} from "../services/incidentServices";
 
 interface RescueRequest {
   id: string;
@@ -30,6 +37,7 @@ interface RescueRequest {
   victimCount: number;
   latitude: number;
   longitude: number;
+  incidentDetail?: IncidentDetail | null;
 }
 
 interface RescueTeam {
@@ -48,60 +56,93 @@ const RescueCoordinatorPage: React.FC = () => {
   const [showDispatchModal, setShowDispatchModal] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
 
-  const [requests] = useState<RescueRequest[]>([
-    {
-      id: "RG-4492-D",
-      title: "Cứu hộ - Người bị thương",
-      location: "North-West Ridge, Delta 7",
-      requesterPhone: "0987654321",
-      requesterName: "Nguyễn Văn An",
-      signalChannel: "hotline",
-      receivedAt: "10:12",
-      time: "10:15",
-      urgency: "critical",
-      status: "pending",
-      description: "Người bị nứt xương, cần sơ cấp cứu ngay lập tức",
-      verificationNote:
-        "Đã liên hệ lại 1 lần, chờ xác minh vị trí GPS chính xác.",
-      victimCount: 1,
-      latitude: 46.5782,
-      longitude: 7.6541,
-    },
-    {
-      id: "RG-4510-B",
-      title: "Sơ tán nhóm leo núi mắc kẹt",
-      location: "Suon Dong Glacier Pass, Delta",
-      requesterPhone: "0912345678",
-      requesterName: "Lê Khánh Hà",
+  const [requests, setRequests] = useState<RescueRequest[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
+
+  const [selectedIncidentDetail, setSelectedIncidentDetail] =
+    useState<IncidentDetail | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const mapIncidentToRescueRequest = (
+    incident: IncidentItem,
+  ): RescueRequest => {
+    const statusCode = incident.status?.code ?? "PENDING";
+    const normalizedStatus: RescueRequest["status"] =
+      statusCode === "NEW"
+        ? "pending"
+        : statusCode === "VERIFIED"
+          ? "verified"
+          : statusCode === "ASSIGNED"
+            ? "dispatched"
+            : statusCode === "IN_PROGRESS"
+              ? "in-progress"
+              : statusCode === "COMPLETED"
+                ? "completed"
+                : "pending";
+
+    const reportedDate = new Date(incident.reportedAt);
+    const timeLabel = Number.isNaN(reportedDate.getTime())
+      ? "--:--"
+      : reportedDate.toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+    return {
+      id: incident.id,
+      title: `Sự cố ${incident.incidentCode}`,
+      location: "Chưa có thông tin vị trí",
+      requesterPhone: "Chưa cập nhật",
+      requesterName: "Chưa cập nhật",
       signalChannel: "app",
-      receivedAt: "08:40",
-      time: "08:45",
+      receivedAt: timeLabel,
+      time: timeLabel,
       urgency: "high",
-      status: "verified",
-      description: "Nhóm 8 người mắc kẹt trong bão tuyết, cần sơ tán khẩn cấp",
-      verificationNote: "Đã xác minh qua ảnh/video hiện trường từ ứng dụng.",
-      victimCount: 8,
-      latitude: 46.45,
-      longitude: 7.5,
-    },
-    {
-      id: "RG-4522-A",
-      title: "Tiếp tế y tế khẩn cấp",
-      location: "Khu nhà tạm tuyến 3, Delta 2",
-      requesterPhone: "0999999999",
-      requesterName: "Trạm y tế Delta",
-      signalChannel: "radio",
-      receivedAt: "07:15",
-      time: "07:20",
-      urgency: "medium",
-      status: "dispatched",
-      description: "Cung cấp đồn y tế cho khu lều trại khẩn cấp",
-      verificationNote: "Đã xác minh bởi đội trực đài khu vực Delta 2.",
-      victimCount: 23,
-      latitude: 46.3,
-      longitude: 7.4,
-    },
-  ]);
+      status: normalizedStatus,
+      description:
+        "Dữ liệu mô tả chi tiết chưa được cung cấp từ endpoint incidents.",
+      verificationNote: "Đang chờ cập nhật ghi chú xác minh từ hệ thống.",
+      victimCount: 0,
+      latitude: 0,
+      longitude: 0,
+      incidentDetail: null,
+    };
+  };
+
+  useEffect(() => {
+    const loadIncidents = async () => {
+      setIsLoadingRequests(true);
+      setRequestsError(null);
+
+      try {
+        const authSession = getAuthSession();
+        if (!authSession?.accessToken) {
+          throw new Error("Không có token xác thực. Vui lòng đăng nhập lại.");
+        }
+        const incidents = await getIncidents(authSession.accessToken);
+        const mappedRequests = incidents.map(mapIncidentToRescueRequest);
+        console.log("Raw incidents:", incidents);
+        console.log("Mapped requests:", mappedRequests);
+        console.log(
+          "Pending requests:",
+          mappedRequests.filter((r) => r.status === "pending"),
+        );
+        setRequests(mappedRequests);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Không thể tải dữ liệu sự cố từ hệ thống";
+        setRequestsError(message);
+      } finally {
+        setIsLoadingRequests(false);
+      }
+    };
+
+    void loadIncidents();
+  }, []);
 
   const [teams] = useState<RescueTeam[]>([
     {
@@ -123,8 +164,62 @@ const RescueCoordinatorPage: React.FC = () => {
   ]);
 
   const [selectedRequest, setSelectedRequest] = useState<RescueRequest | null>(
-    requests[0],
+    null,
   );
+
+  // Fetch incident details when selectedRequest changes
+  useEffect(() => {
+    const fetchIncidentDetail = async () => {
+      if (!selectedRequest?.id) {
+        setSelectedIncidentDetail(null);
+        setDetailError(null);
+        return;
+      }
+
+      setIsLoadingDetail(true);
+      setDetailError(null);
+
+      try {
+        const authSession = getAuthSession();
+        if (!authSession?.accessToken) {
+          throw new Error("Không có token xác thực");
+        }
+
+        const detail = await getIncidentDetail(
+          selectedRequest.id,
+          authSession.accessToken,
+        );
+        setSelectedIncidentDetail(detail);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Không thể tải chi tiết sự cố";
+        setDetailError(message);
+        setSelectedIncidentDetail(null);
+      } finally {
+        setIsLoadingDetail(false);
+      }
+    };
+
+    void fetchIncidentDetail();
+  }, [selectedRequest?.id]);
+
+  useEffect(() => {
+    if (!selectedRequest && requests.length > 0) {
+      setSelectedRequest(requests[0]);
+      return;
+    }
+
+    if (selectedRequest) {
+      const exists = requests.some(
+        (request) => request.id === selectedRequest.id,
+      );
+      if (!exists) {
+        setSelectedRequest(requests[0] ?? null);
+      }
+    }
+  }, [requests, selectedRequest]);
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
@@ -142,13 +237,13 @@ const RescueCoordinatorPage: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return "🔵 Chờ xác minh";
+        return " Chờ xác minh";
       case "verified":
-        return "✅ Đã xác minh";
+        return " Đã xác minh";
       case "dispatched":
-        return "🚗 Đã điều phối";
+        return " Đã điều phối";
       case "in-progress":
-        return "⚙️ Đang xử lý";
+        return " Đang xử lý";
       case "completed":
         return "✓ Hoàn thành";
       default:
@@ -156,10 +251,30 @@ const RescueCoordinatorPage: React.FC = () => {
     }
   };
 
-  const filteredRequests = requests.filter(
-    (req) =>
-      req.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.location.toLowerCase().includes(searchQuery.toLowerCase()),
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "bg-gray-100 text-gray-700";
+      case "verified":
+        return "bg-green-100 text-green-800";
+      case "dispatched":
+        return "bg-blue-100 text-blue-800";
+      case "in-progress":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const filteredRequests = useMemo(
+    () =>
+      requests.filter(
+        (req) =>
+          req.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          req.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          req.id.toLowerCase().includes(searchQuery.toLowerCase()),
+      ),
+    [requests, searchQuery],
   );
 
   return (
@@ -254,23 +369,32 @@ const RescueCoordinatorPage: React.FC = () => {
             {activeMenu === "overview" && (
               <>
                 {/* Stats */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                   <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-red-500">
-                    <p className="text-gray-600 text-sm">Khẩn cấp</p>
-                    <p className="text-3xl font-bold text-gray-900">
-                      {requests.filter((r) => r.urgency === "critical").length}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500">
                     <p className="text-gray-600 text-sm">Chờ xác minh</p>
                     <p className="text-3xl font-bold text-gray-900">
                       {requests.filter((r) => r.status === "pending").length}
                     </p>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
-                    <p className="text-gray-600 text-sm">Đội sẵn sàng</p>
+                    <p className="text-gray-600 text-sm">Đã xác minh</p>
                     <p className="text-3xl font-bold text-gray-900">
-                      {teams.filter((t) => t.status === "available").length}
+                      {requests.filter((r) => r.status === "verified").length}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500">
+                    <p className="text-gray-600 text-sm">Đã phân công</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {requests.filter((r) => r.status === "dispatched").length}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-yellow-500">
+                    <p className="text-gray-600 text-sm">Đang thực hiện</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {
+                        requests.filter((r) => r.status === "in-progress")
+                          .length
+                      }
                     </p>
                   </div>
                 </div>
@@ -280,38 +404,57 @@ const RescueCoordinatorPage: React.FC = () => {
                   <h2 className="text-xl font-bold text-gray-900 mb-4">
                     Yêu cầu chờ xác minh
                   </h2>
+
+                  {isLoadingRequests && (
+                    <p className="text-sm text-gray-600">
+                      Đang tải dữ liệu sự cố...
+                    </p>
+                  )}
+
+                  {requestsError && (
+                    <div className="border border-red-200 bg-red-50 rounded-lg p-3 mb-4">
+                      <p className="text-sm text-red-700">{requestsError}</p>
+                    </div>
+                  )}
+
+                  {!isLoadingRequests &&
+                    !requestsError &&
+                    requests.length === 0 && (
+                      <p className="text-sm text-gray-600">
+                        Chưa có sự cố nào từ hệ thống.
+                      </p>
+                    )}
+
                   <div className="space-y-3">
-                    {requests
-                      .filter((r) => r.status === "pending")
-                      .map((request) => (
-                        <div
-                          key={request.id}
-                          onClick={() => setSelectedRequest(request)}
-                          className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-950 cursor-pointer transition-colors"
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h3 className="font-bold text-gray-900">
-                                {request.title}
-                              </h3>
-                              <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
-                                <span className="flex items-center gap-1">
-                                  <MapPin size={14} /> {request.location}
-                                </span>
-                                <span>{request.time}</span>
-                              </div>
+                    {requests.map((request) => (
+                      <div
+                        key={request.id}
+                        onClick={() => setSelectedRequest(request)}
+                        className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-950 cursor-pointer transition-colors"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="font-bold text-gray-900">
+                              {request.title}
+                            </h3>
+                            <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
+                              <span className="flex items-center gap-1">
+                                <MapPin size={14} /> {request.location}
+                              </span>
+                              <span>{request.time}</span>
                             </div>
-                            <span
-                              className={`px-3 py-1 rounded text-xs font-bold ${getUrgencyColor(request.urgency)}`}
-                            >
-                              {request.urgency.toUpperCase()}
-                            </span>
                           </div>
-                          <button className="text-cyan-500 hover:text-cyan-600 font-semibold text-sm mt-3">
-                            Xác minh & phân loại →
-                          </button>
+                          <span
+                            className={`px-3 py-1 rounded text-xs font-bold ${getStatusColor(request.status)}`}
+                          >
+                            {getStatusBadge(request.status)}
+                          </span>
                         </div>
-                      ))}
+                        <button className="text-cyan-500 hover:text-cyan-600 font-semibold text-sm mt-3">
+                          Xác minh & phân loại →
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </>
@@ -338,7 +481,9 @@ const RescueCoordinatorPage: React.FC = () => {
                             {request.title}
                           </p>
                         </div>
-                        <span className="text-xs font-semibold text-gray-600">
+                        <span
+                          className={`text-xs font-semibold px-2 py-1 rounded ${getStatusColor(request.status)}`}
+                        >
                           {getStatusBadge(request.status)}
                         </span>
                       </div>
@@ -398,104 +543,140 @@ const RescueCoordinatorPage: React.FC = () => {
 
             {selectedRequest ? (
               <div className="space-y-4">
-                <div>
-                  <span className="text-xs text-gray-600 font-semibold">
-                    Mã
-                  </span>
-                  <p className="text-lg font-bold text-gray-900">
-                    {selectedRequest.id}
+                {isLoadingDetail && (
+                  <p className="text-sm text-gray-600">
+                    Đang tải chi tiết sự cố...
                   </p>
-                </div>
+                )}
 
-                <div className="bg-red-50 border border-red-200 rounded p-3">
-                  <p className="text-sm font-bold text-red-900">
-                    {selectedRequest.title}
-                  </p>
-                  <span className="text-xs text-red-700 font-semibold">
-                    KHẨN CẤP
-                  </span>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="text-xs text-gray-600 block">
-                      📍 Vị trí
-                    </span>
-                    <p className="text-gray-900">{selectedRequest.location}</p>
+                {detailError && (
+                  <div className="border border-red-200 bg-red-50 rounded-lg p-3">
+                    <p className="text-sm text-red-700">{detailError}</p>
                   </div>
-                  <div>
-                    <span className="text-xs text-gray-600 block">
-                      👤 Người gửi tín hiệu
-                    </span>
-                    <p className="text-gray-900">
-                      {selectedRequest.requesterName} -{" "}
-                      {selectedRequest.requesterPhone}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-600 block">
-                      ⏰ Thời gian tạo yêu cầu
-                    </span>
-                    <p className="text-gray-900">{selectedRequest.time}</p>
-                  </div>
-                </div>
+                )}
 
-                <div className="border border-blue-100 bg-blue-50 rounded-lg p-3">
-                  <h4
-                    className="text-sm font-bold mb-2 text-blue-950"
-                    style={{ color: "var(--color-blue-950)" }}
-                  >
-                    Thông tin tín hiệu nhận được
-                  </h4>
-                  <div className="space-y-1 text-sm">
-                    <p className="text-gray-700">
-                      Kênh tiếp nhận:{" "}
-                      <span className="font-semibold text-gray-900">
-                        {selectedRequest.signalChannel === "app"
-                          ? "Ứng dụng"
-                          : selectedRequest.signalChannel === "hotline"
-                            ? "Hotline"
-                            : "Bộ đàm"}
+                {!isLoadingDetail && selectedIncidentDetail ? (
+                  <>
+                    <div>
+                      <span className="text-xs text-gray-600 font-semibold">
+                        Mã
                       </span>
-                    </p>
-                    <p className="text-gray-700">
-                      Thời điểm nhận tín hiệu:{" "}
-                      <span className="font-semibold text-gray-900">
-                        {selectedRequest.receivedAt}
-                      </span>
-                    </p>
-                    <p className="text-gray-700">
-                      Số người cần hỗ trợ:{" "}
-                      <span className="font-semibold text-gray-900">
-                        {selectedRequest.victimCount}
-                      </span>
-                    </p>
-                    <p className="text-gray-700">
-                      Trạng thái xác minh:{" "}
-                      <span className="font-semibold text-gray-900">
-                        {getStatusBadge(selectedRequest.status)}
-                      </span>
-                    </p>
-                  </div>
-                </div>
+                      <p className="text-lg font-bold text-gray-900">
+                        {selectedIncidentDetail.incidentCode}
+                      </p>
+                    </div>
 
-                <div className="border-t pt-4">
-                  <span className="text-xs text-gray-600 block mb-2">
-                    Mô tả chi tiết
-                  </span>
-                  <p className="text-sm text-gray-700 leading-relaxed">
-                    {selectedRequest.description}
-                  </p>
-                </div>
+                    <div className="bg-red-50 border border-red-200 rounded p-3">
+                      <p className="text-sm font-bold text-red-900">
+                        Sự cố {selectedIncidentDetail.incidentCode}
+                      </p>
+                      <span className="text-xs text-red-700 font-semibold">
+                        {selectedIncidentDetail.priority?.name || "KHẨN CẤP"}
+                      </span>
+                    </div>
 
-                <div className="border-t pt-4">
-                  <span className="text-xs text-gray-600 block mb-2">
-                    Ghi chú xác minh
-                  </span>
-                  <p className="text-sm text-gray-700 leading-relaxed">
-                    {selectedRequest.verificationNote}
-                  </p>
-                </div>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-xs text-gray-600 block">
+                          📍 Vị trí
+                        </span>
+                        <p className="text-gray-900">
+                          {selectedIncidentDetail.location?.addressText ||
+                            "Chưa có thông tin vị trí"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-gray-600 block">
+                          👤 Người gửi tín hiệu
+                        </span>
+                        <p className="text-gray-900">
+                          {selectedIncidentDetail.reporter?.name ||
+                            "Chưa cập nhật"}{" "}
+                          -{" "}
+                          {selectedIncidentDetail.reporter?.phone ||
+                            "Chưa cập nhật"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-gray-600 block">
+                          ⏰ Thời gian tạo yêu cầu
+                        </span>
+                        <p className="text-gray-900">
+                          {new Date(
+                            selectedIncidentDetail.reportedAt,
+                          ).toLocaleTimeString("vi-VN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="border border-blue-100 bg-blue-50 rounded-lg p-3">
+                      <h4
+                        className="text-sm font-bold mb-2 text-blue-950"
+                        style={{ color: "var(--color-blue-950)" }}
+                      >
+                        Thông tin tín hiệu nhận được
+                      </h4>
+                      <div className="space-y-1 text-sm">
+                        <p className="text-gray-700">
+                          Kênh tiếp nhận:{" "}
+                          <span className="font-semibold text-gray-900">
+                            {selectedIncidentDetail.channel?.name ||
+                              "Chưa cập nhật"}
+                          </span>
+                        </p>
+                        <p className="text-gray-700">
+                          Thời điểm nhận tín hiệu:{" "}
+                          <span className="font-semibold text-gray-900">
+                            {new Date(
+                              selectedIncidentDetail.reportedAt,
+                            ).toLocaleTimeString("vi-VN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </p>
+                        <p className="text-gray-700">
+                          Số người cần hỗ trợ:{" "}
+                          <span className="font-semibold text-gray-900">
+                            {selectedIncidentDetail.victimCountEstimate ?? 0}
+                          </span>
+                        </p>
+                        <p className="text-gray-700">
+                          Trạng thái xác minh:{" "}
+                          <span
+                            className={`inline-block mt-1 font-semibold px-3 py-1 rounded text-xs ${getStatusColor(selectedRequest.status)}`}
+                          >
+                            {selectedIncidentDetail.status?.name ||
+                              getStatusBadge(selectedRequest.status)}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <span className="text-xs text-gray-600 block mb-2">
+                        Mô tả chi tiết
+                      </span>
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {selectedIncidentDetail.description || "Chưa có mô tả"}
+                      </p>
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <span className="text-xs text-gray-600 block mb-2">
+                        Ghi chú xác minh
+                      </span>
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {selectedIncidentDetail.latestAssessment
+                          ? "Đã có thông tin đánh giá mới nhất."
+                          : "Đang chờ cập nhật ghi chú xác minh từ hệ thống."}
+                      </p>
+                    </div>
+                  </>
+                ) : null}
 
                 <div className="flex gap-2">
                   <button

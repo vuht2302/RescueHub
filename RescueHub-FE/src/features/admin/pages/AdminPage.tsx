@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { AdminSidebar } from "../components/AdminSidebar";
 import Dashboard from "../components/Dashboard";
+import UserManagement from "../components/UserManagement";
 
 
 export const AdminPage = () => {
@@ -10,7 +11,9 @@ export const AdminPage = () => {
     switch (activeMenu) {
       case "dashboard":
         return <Dashboard />;
-        default: return<></>;
+      case "users":
+        return <UserManagement />;
+        default: return <Dashboard />;
     }
   };
 

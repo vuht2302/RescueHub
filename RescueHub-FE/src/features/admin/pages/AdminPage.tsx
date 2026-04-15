@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { AdminSidebar } from "../components/AdminSidebar";
-import Dashboard from "../../manager/pages/dashboard";
+import Dashboard from "../components/Dashboard";
 
 
 export const AdminPage = () => {
@@ -9,7 +9,7 @@ export const AdminPage = () => {
   const renderContent = () => {
     switch (activeMenu) {
       case "dashboard":
-        return <></>;
+        return <Dashboard />;
         default: return<></>;
     }
   };
@@ -19,7 +19,7 @@ export const AdminPage = () => {
       <AdminSidebar active={activeMenu} setActive={setActiveMenu} />
 
       {/* Content */}
-      <div className="ml-64 p-6">{renderContent()}</div>
+      <div className="ml-12 p-6">{renderContent()}</div>
     </div>
   );
 };

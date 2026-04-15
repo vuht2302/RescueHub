@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Bell, Crosshair, Settings } from "lucide-react";
 import { useRescueTeam } from "../../../shared/context/RescueTeamContext";
 import { DashboardView } from "./DashboardView";
@@ -6,6 +6,14 @@ import { MapView } from "./MapView";
 import { MissionsView } from "./MissionsView";
 import { TeamView } from "./TeamView";
 import { ReportsView } from "./ReportsView";
+import {
+  getTeamDashboard,
+  TeamDashboardData,
+} from "../services/teamDashboardService";
+import {
+  getTeamMissions,
+  TeamMissionListItem,
+} from "../services/teamMissionService";
 import {
   Mission,
   MissionLog,
@@ -118,6 +126,14 @@ const priorityStyles: Record<string, string> = {
 
 export const RescueTeamMission: React.FC = () => {
   const { activeMenu, setActiveMenu } = useRescueTeam();
+  const [dashboard, setDashboard] = useState<TeamDashboardData | null>(null);
+  const [isDashboardLoading, setIsDashboardLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [teamMissions, setTeamMissions] = useState<TeamMissionListItem[]>([]);
+  const [isTeamMissionsLoading, setIsTeamMissionsLoading] = useState(false);
+  const [teamMissionsError, setTeamMissionsError] = useState<string | null>(
+    null,
+  );
   const [selectedMissionId, setSelectedMissionId] = useState(missions[0].id);
   const [statusMap, setStatusMap] = useState<Record<string, MissionStatus>>({
     "rg-4492-d": "Chờ nhận",
@@ -134,8 +150,96 @@ export const RescueTeamMission: React.FC = () => {
   ]);
   const [reportStatus, setReportStatus] = useState<MissionStatus>("Đang xử lý");
 
+  const loadTeamMissions = async () => {
+    setIsTeamMissionsLoading(true);
+    setTeamMissionsError(null);
+
+    try {
+      const response = await getTeamMissions();
+      setTeamMissions(response.items);
+    } catch (error) {
+      setTeamMissionsError(
+        error instanceof Error
+          ? error.message
+          : "Khong tai duoc danh sach nhiem vu doi",
+      );
+    } finally {
+      setIsTeamMissionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadTeamMissions();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDashboard = async () => {
+      setIsDashboardLoading(true);
+      setDashboardError(null);
+
+      try {
+        const response = await getTeamDashboard();
+        if (!isMounted) {
+          return;
+        }
+
+        setDashboard(response);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setDashboardError(
+          error instanceof Error
+            ? error.message
+            : "Khong tai duoc dashboard doi",
+        );
+      } finally {
+        if (isMounted) {
+          setIsDashboardLoading(false);
+        }
+      }
+    };
+
+    void loadDashboard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const mappedApiMissions: Mission[] = teamMissions.map((mission, index) => ({
+    id: mission.missionId,
+    code: mission.missionCode,
+    type: "Cứu hộ",
+    title: mission.objective,
+    requester: "Chưa cập nhật",
+    phone: "--",
+    address: mission.incidentCode,
+    priority:
+      mission.etaMinutes <= 10
+        ? "Khẩn cấp"
+        : mission.etaMinutes <= 20
+          ? "Cao"
+          : "Trung bình",
+    summary: mission.objective,
+    assignedTeam:
+      mission.teams.find((team) => team.isPrimary)?.teamName ??
+      mission.teams[0]?.teamName ??
+      "Chưa có đội",
+    assignedMembers: [],
+    assignedVehicles: [],
+    coord: missions[index % missions.length].coord,
+  }));
+
+  const sourceMissions =
+    mappedApiMissions.length > 0 ? mappedApiMissions : missions;
+
   const selectedMission =
-    missions.find((mission) => mission.id === selectedMissionId) ?? missions[0];
+    sourceMissions.find((mission) => mission.id === selectedMissionId) ??
+    sourceMissions[0];
 
   const handleAcceptMission = (missionId: string) => {
     setStatusMap((prev) => ({ ...prev, [missionId]: "Đang di chuyển" }));
@@ -227,13 +331,27 @@ export const RescueTeamMission: React.FC = () => {
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_430px] gap-4 p-4 md:p-6 h-[calc(100vh-4rem)]">
           {activeMenu === "dashboard" && (
             <DashboardView
-              missions={missions}
-              statusMap={statusMap}
-              priorityStyles={priorityStyles}
-              statusStyles={statusStyles}
-              onMissionClick={(missionId) => {
-                setSelectedMissionId(missionId);
-                setActiveMenu("map");
+              dashboard={dashboard}
+              isLoading={isDashboardLoading}
+              error={dashboardError}
+              onRetry={() => {
+                void (async () => {
+                  setIsDashboardLoading(true);
+                  setDashboardError(null);
+
+                  try {
+                    const response = await getTeamDashboard();
+                    setDashboard(response);
+                  } catch (error) {
+                    setDashboardError(
+                      error instanceof Error
+                        ? error.message
+                        : "Khong tai duoc dashboard doi",
+                    );
+                  } finally {
+                    setIsDashboardLoading(false);
+                  }
+                })();
               }}
             />
           )}
@@ -244,7 +362,7 @@ export const RescueTeamMission: React.FC = () => {
               statusMap={statusMap}
               logs={logs}
               priorityStyles={priorityStyles}
-              missions={missions}
+              missions={sourceMissions}
               onMissionSelect={setSelectedMissionId}
               reportStatus={reportStatus}
               onStatusChange={setReportStatus}
@@ -254,7 +372,7 @@ export const RescueTeamMission: React.FC = () => {
 
           {activeMenu === "missions" && (
             <MissionsView
-              missions={missions}
+              missions={sourceMissions}
               statusMap={statusMap}
               priorityStyles={priorityStyles}
               statusStyles={statusStyles}

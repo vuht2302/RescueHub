@@ -60,6 +60,31 @@ export interface PublicIncidentRequest {
   fileIds: string[];
 }
 
+export interface PublicReliefRequestItem {
+  supportTypeCode: string;
+  requestedQty: number;
+  unitCode: string;
+}
+
+export interface PublicReliefRequest {
+  requesterName: string;
+  requesterPhone: string;
+  householdCount: number;
+  note: string;
+  items: PublicReliefRequestItem[];
+}
+
+export interface PublicReliefResponse {
+  reliefRequestId: string;
+  requestCode: string;
+  status: {
+    code: string;
+    name: string;
+    color: string;
+  };
+  requestedAt: string;
+}
+
 type UploadedMedia = {
   fileId?: string;
   FileId?: string;
@@ -112,6 +137,21 @@ export const createPublicIncident = async (
     },
     body: JSON.stringify(payload),
   });
+};
+
+export const createPublicReliefRequest = async (
+  payload: PublicReliefRequest,
+): Promise<PublicReliefResponse> => {
+  return requestPublicApi<PublicReliefResponse>(
+    "/api/v1/public/relief-requests",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
 };
 
 export const uploadIncidentMedia = async (file: File): Promise<string> => {

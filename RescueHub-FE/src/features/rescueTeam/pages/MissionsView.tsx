@@ -279,16 +279,6 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               >
                 Xin hủy
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onRequestMissionAction(selectedMission.id, "Xin chi viện");
-                  setIsDetailOpen(false);
-                }}
-                className="rounded-xl bg-blue-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-900"
-              >
-                Xin chi viện
-              </button>
             </div>
           </div>
         </div>

@@ -12,6 +12,7 @@ export const TopBar: React.FC = () => {
   const navigate = useNavigate();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [authSession, setAuthSession] = useState(getAuthSession());
 
   useEffect(() => {
@@ -40,12 +41,18 @@ export const TopBar: React.FC = () => {
   };
 
   const handleLogout = async () => {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
     try {
       await performLogout();
     } finally {
       setShowLoginModal(false);
       setShowSignupModal(false);
       navigate("/home", { replace: true });
+      setIsLoggingOut(false);
     }
   };
 
@@ -97,13 +104,24 @@ export const TopBar: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <Link
-            to="/home?request=1"
-            className="bg-cyan-500 hover:bg-cyan-600 text-white px-6 py-2 rounded-lg font-bold transition-all active:scale-95 text-sm"
-            style={{ fontFamily: "var(--font-primary)" }}
-          >
-            Gửi tín hiệu
-          </Link>
+          {authSession && (
+            <>
+              <Link
+                to="/home?relief=1"
+                className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-bold transition-all active:scale-95 text-sm"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                Yêu cầu cứu trợ
+              </Link>
+              <Link
+                to="/home?request=1"
+                className="bg-cyan-500 hover:bg-cyan-600 text-white px-6 py-2 rounded-lg font-bold transition-all active:scale-95 text-sm"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                Gửi tín hiệu
+              </Link>
+            </>
+          )}
           {!authSession ? (
             <div className="flex gap-2">
               <button
@@ -133,10 +151,12 @@ export const TopBar: React.FC = () => {
               </div>
               <button
                 onClick={handleLogout}
-                className="p-2 text-gray-300 hover:text-white hover:bg-blue-900/50 rounded-full transition-colors"
+                disabled={isLoggingOut}
+                className="inline-flex items-center gap-2 rounded-lg border border-blue-800/80 bg-blue-900/40 px-3 py-2 text-sm font-bold text-white hover:bg-blue-800/70 transition-colors"
                 title="Đăng xuất"
               >
-                <LogOut size={22} />
+                <LogOut size={18} />
+                <span>{isLoggingOut ? "Đang đăng xuất..." : "Đăng xuất"}</span>
               </button>
             </div>
           )}

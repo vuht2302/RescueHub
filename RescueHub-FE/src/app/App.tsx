@@ -46,7 +46,7 @@ export default function App() {
     return <Navigate to={fallbackRoute} replace />;
   }
 
-  if (isCoordinatorRoute && !hasAnyRole(authSession, ["RELIEF_OPERATOR"])) {
+  if (isCoordinatorRoute && !hasAnyRole(authSession, ["COORDINATOR"])) {
     return <Navigate to={fallbackRoute} replace />;
   }
 

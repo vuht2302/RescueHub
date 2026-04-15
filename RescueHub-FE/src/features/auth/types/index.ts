@@ -3,7 +3,7 @@ export type InternalRole =
   | "ADMIN"
   | "MANAGER"
   | "TEAM_MEMBER"
-  | "RELIEF_OPERATOR";
+  | "COORDINATOR";
 
 export interface LoginRequest {
   username: string;

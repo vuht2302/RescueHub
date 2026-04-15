@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import { X, Mail, Lock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { getDefaultRouteForRoles, login } from "../services/authService";
+import { setAuthSession } from "../services/authStorage";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -12,20 +15,36 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onClose,
   onSwitchToSignup,
 }) => {
-  const [email, setEmail] = useState("");
+  const navigate = useNavigate();
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate login
-    setTimeout(() => {
-      setIsLoading(false);
+    setErrorMessage("");
+
+    try {
+      const session = await login({
+        username: username.trim(),
+        password,
+      });
+
+      setAuthSession(session);
       onClose();
-    }, 1500);
+
+      navigate(getDefaultRouteForRoles(session.user.roles), { replace: true });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Dang nhap that bai",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -55,13 +74,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Email Field */}
+          {/* Username Field */}
           <div>
             <label
               className="block text-sm font-bold text-gray-700 mb-2"
               style={{ fontFamily: "var(--font-primary)" }}
             >
-              Email
+              Username
             </label>
             <div className="relative">
               <Mail
@@ -69,10 +88,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 size={20}
               />
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Nhap username"
                 className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-950 focus:outline-none transition-colors"
                 style={{ borderColor: "var(--color-blue-950)" }}
                 required
@@ -120,6 +139,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </button>
           </div>
 
+          {errorMessage && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {errorMessage}
+            </div>
+          )}
+
           {/* Submit Button */}
           <button
             type="submit"
@@ -135,22 +160,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <div className="flex-1 h-[1px] bg-gray-300"></div>
             <span className="text-sm text-gray-500">hoặc</span>
             <div className="flex-1 h-[1px] bg-gray-300"></div>
-          </div>
-
-          {/* Social Login */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              className="border-2 border-gray-300 hover:border-blue-950 text-gray-700 font-semibold py-2 rounded-lg transition-colors"
-            >
-              Google
-            </button>
-            <button
-              type="button"
-              className="border-2 border-gray-300 hover:border-blue-950 text-gray-700 font-semibold py-2 rounded-lg transition-colors"
-            >
-              Facebook
-            </button>
           </div>
 
           {/* Switch to Signup */}

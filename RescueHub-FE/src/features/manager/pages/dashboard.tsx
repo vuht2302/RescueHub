@@ -1122,6 +1122,306 @@ function RescueEventSection() {
 
   return (
     <section className="space-y-6">
+      {/* Relief Requests Statistics */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3
+                className="text-xl font-bold text-slate-900"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                Yêu cầu cứu trợ từ công dân
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Các yêu cầu cứu trợ được tạo bởi công dân
+              </p>
+            </div>
+            <button className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100">
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-6 space-y-3">
+            <div className="rounded-lg border border-slate-200 p-4 hover:bg-slate-50 transition">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    Lũ lụt khu vực Tây Nam - Cần Thơ
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Yêu cầu từ: Nguyễn Văn A
+                  </p>
+                </div>
+                <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold bg-red-50 text-red-600">
+                  Nguy hiểm
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">Ngày: 2026-04-15 14:30</p>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 p-4 hover:bg-slate-50 transition">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    Sạt lở đất Huyện Bắc Trà My
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Yêu cầu từ: Trần Thị B
+                  </p>
+                </div>
+                <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold bg-orange-50 text-orange-600">
+                  Cao
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">Ngày: 2026-04-14 09:45</p>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 p-4 hover:bg-slate-50 transition">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    Hỗ trợ nhân đạo sau bão - Hải Phòng
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Yêu cầu từ: Lê Văn C
+                  </p>
+                </div>
+                <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold bg-yellow-50 text-yellow-600">
+                  Trung bình
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">Ngày: 2026-04-13 16:20</p>
+            </div>
+          </div>
+        </article>
+
+        <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3
+                className="text-xl font-bold text-slate-900"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                Khu vực có nhiều yêu cầu nhất
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Thống kê số lượng yêu cầu cứu trợ theo khu vực
+              </p>
+            </div>
+            <button className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100">
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-6">
+            <svg viewBox="0 0 400 280" className="w-full">
+              {/* Bar Chart - Relief Requests by Region */}
+              {/* Cần Thơ */}
+              <rect
+                x="30"
+                y="40"
+                width="40"
+                height="160"
+                fill="#ef4444"
+                rx="4"
+              />
+              <text
+                x="50"
+                y="220"
+                textAnchor="middle"
+                className="text-sm fill-slate-600"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                Q1
+              </text>
+              <text
+                x="50"
+                y="30"
+                textAnchor="middle"
+                className="text-sm fill-slate-900 font-bold"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                78
+              </text>
+
+              {/* Quảng Nam */}
+              <rect
+                x="95"
+                y="60"
+                width="40"
+                height="140"
+                fill="#f97316"
+                rx="4"
+              />
+              <text
+                x="115"
+                y="220"
+                textAnchor="middle"
+                className="text-sm fill-slate-600"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                Q10
+              </text>
+              <text
+                x="115"
+                y="50"
+                textAnchor="middle"
+                className="text-sm fill-slate-900 font-bold"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                64
+              </text>
+
+              {/* Hải Phòng */}
+              <rect
+                x="160"
+                y="80"
+                width="40"
+                height="120"
+                fill="#eab308"
+                rx="4"
+              />
+              <text
+                x="180"
+                y="220"
+                textAnchor="middle"
+                className="text-sm fill-slate-600"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                Thủ Đức
+              </text>
+              <text
+                x="180"
+                y="70"
+                textAnchor="middle"
+                className="text-sm fill-slate-900 font-bold"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                52
+              </text>
+
+              {/* Hà Nội */}
+              <rect
+                x="225"
+                y="100"
+                width="40"
+                height="100"
+                fill="#14b8a6"
+                rx="4"
+              />
+              <text
+                x="245"
+                y="220"
+                textAnchor="middle"
+                className="text-sm fill-slate-600"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                Hóc Môn
+              </text>
+              <text
+                x="245"
+                y="90"
+                textAnchor="middle"
+                className="text-sm fill-slate-900 font-bold"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                38
+              </text>
+
+              {/* Đà Nẵng */}
+              <rect
+                x="290"
+                y="120"
+                width="40"
+                height="80"
+                fill="#06b6d4"
+                rx="4"
+              />
+              <text
+                x="310"
+                y="220"
+                textAnchor="middle"
+                className="text-sm fill-slate-600"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                Nhà Bè
+              </text>
+              <text
+                x="310"
+                y="110"
+                textAnchor="middle"
+                className="text-sm fill-slate-900 font-bold"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                28
+              </text>
+
+              {/* Axis */}
+              <line
+                x1="20"
+                y1="200"
+                x2="350"
+                y2="200"
+                stroke="#e2e8f0"
+                strokeWidth="1"
+              />
+              <line
+                x1="20"
+                y1="20"
+                x2="20"
+                y2="200"
+                stroke="#e2e8f0"
+                strokeWidth="1"
+              />
+
+              {/* Grid lines */}
+              <line
+                x1="20"
+                y1="120"
+                x2="350"
+                y2="120"
+                stroke="#f1f5f9"
+                strokeWidth="1"
+                strokeDasharray="2,2"
+              />
+            </svg>
+          </div>
+
+          <div className="mt-6 border-t border-slate-200 pt-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded bg-red-500" />
+                  <span className="text-sm text-slate-600">Cần Thơ</span>
+                </div>
+                <span className="text-sm font-semibold text-slate-900">
+                  78 yêu cầu
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded bg-orange-500" />
+                  <span className="text-sm text-slate-600">Quảng Nam</span>
+                </div>
+                <span className="text-sm font-semibold text-slate-900">
+                  64 yêu cầu
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded bg-yellow-500" />
+                  <span className="text-sm text-slate-600">Hải Phòng</span>
+                </div>
+                <span className="text-sm font-semibold text-slate-900">
+                  52 yêu cầu
+                </span>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
       {/* Create Event Button */}
       {!showForm ? (
         <button
@@ -2008,7 +2308,7 @@ export default function ManagerDashboard() {
                       className="text-xl font-bold text-slate-900"
                       style={{ fontFamily: "var(--font-primary)" }}
                     >
-                      Top khu vực có nhiều request nhất
+                      Top khu vực có nhiều sự cố nhất
                     </h3>
                     <p className="mt-1 text-sm text-slate-600">
                       Thống kê số yêu cầu theo khu vực

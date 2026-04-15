@@ -4,21 +4,47 @@ namespace RescueHub.Modules.Incidents.Application;
 
 public sealed class IncidentService(IIncidentRepository repository) : IIncidentService
 {
-    public object List() => repository.List();
+    public Task<object> List() => repository.List();
 
-    public object Get(Guid incidentId) => repository.Get(incidentId);
+    public Task<object> Get(Guid incidentId) => repository.Get(incidentId);
 
-    public object Verify(Guid incidentId) => new
-    {
-        incidentId,
-        verified = true,
-        verifiedAt = DateTime.UtcNow
-    };
+    public Task<object> Verify(Guid incidentId, VerifyIncidentRequest request) => repository.Verify(incidentId, request);
 
-    public object Assess(Guid incidentId) => new
-    {
-        incidentId,
-        assessed = true,
-        assessedAt = DateTime.UtcNow
-    };
+    public Task<object> Assess(Guid incidentId, AssessIncidentRequest request) => repository.Assess(incidentId, request);
+
+    public Task<object> CreateSceneObservation(Guid incidentId, SceneObservationRequest request)
+        => repository.CreateSceneObservation(incidentId, request);
+
+    public Task<object> UpdateRequirements(Guid incidentId, UpdateIncidentRequirementsRequest request)
+        => repository.UpdateRequirements(incidentId, request);
+
+    public Task<object> GetDispatchOptions(Guid incidentId)
+        => repository.GetDispatchOptions(incidentId);
+
+    public Task<object> CreateMission(Guid incidentId, CreateMissionRequest request)
+        => repository.CreateMission(incidentId, request);
+
+    public Task<object> GetTeamDashboard()
+        => repository.GetTeamDashboard();
+
+    public Task<object> GetTeamMissions()
+        => repository.GetTeamMissions();
+
+    public Task<object> GetTeamMissionDetail(Guid missionId)
+        => repository.GetTeamMissionDetail(missionId);
+
+    public Task<object> TeamRespondMission(Guid missionId, TeamRespondMissionRequest request)
+        => repository.TeamRespondMission(missionId, request);
+
+    public Task<object> TeamUpdateMissionStatus(Guid missionId, TeamMissionStatusRequest request)
+        => repository.TeamUpdateMissionStatus(missionId, request);
+
+    public Task<object> TeamCreateFieldReport(Guid missionId, TeamFieldReportRequest request)
+        => repository.TeamCreateFieldReport(missionId, request);
+
+    public Task<object> TeamCreateAbortRequest(Guid missionId, TeamAbortRequest request)
+        => repository.TeamCreateAbortRequest(missionId, request);
+
+    public Task<object> TeamCreateSupportRequest(Guid missionId, TeamSupportRequest request)
+        => repository.TeamCreateSupportRequest(missionId, request);
 }

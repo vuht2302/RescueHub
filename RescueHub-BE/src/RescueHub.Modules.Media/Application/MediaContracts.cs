@@ -1,6 +1,27 @@
+using Microsoft.AspNetCore.Http;
+
 namespace RescueHub.Modules.Media.Application;
 
-public sealed record CloudinarySignatureRequest(string? Folder, string ResourceType, string FileName, string Purpose);
+public sealed class CloudinarySignatureRequest
+{
+    public string ResourceType { get; init; } = string.Empty;
+
+    public string FileName { get; init; } = string.Empty;
+
+    public string? Type { get; init; }
+
+    public string? Purpose { get; init; }
+}
+
+public sealed class UploadMediaFormRequest
+{
+    public IFormFile? File { get; init; }
+
+    public string? Type { get; init; }
+
+    // Backward-compatible alias for old clients.
+    public string? Purpose { get; init; }
+}
 
 public sealed record RegisterMediaRequest(
     string Provider,

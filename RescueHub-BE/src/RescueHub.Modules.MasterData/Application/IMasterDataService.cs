@@ -2,7 +2,9 @@ namespace RescueHub.Modules.MasterData.Application;
 
 public interface IMasterDataService
 {
-    object GetBootstrap();
+    Task<object> GetBootstrap();
 
-    object GetWorkflow(string entityType);
+    Task<object> GetSceneFactors();
+
+    Task<object> GetWorkflow(string entityType);
 }

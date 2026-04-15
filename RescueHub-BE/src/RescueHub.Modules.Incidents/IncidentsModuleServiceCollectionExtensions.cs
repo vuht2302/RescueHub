@@ -9,7 +9,7 @@ public static class IncidentsModuleServiceCollectionExtensions
 {
     public static IServiceCollection AddIncidentsModule(this IServiceCollection services)
     {
-        services.AddSingleton<IIncidentRepository, InMemoryIncidentRepository>();
+        services.AddScoped<IIncidentRepository, DbIncidentRepository>();
         services.AddScoped<IIncidentService, IncidentService>();
         services.AddHostedService<IncidentProjectionWorker>();
         return services;

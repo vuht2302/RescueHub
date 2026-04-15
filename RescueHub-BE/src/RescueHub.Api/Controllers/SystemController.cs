@@ -18,7 +18,7 @@ public sealed class SystemController(RescueHubDbContext dbContext) : BaseApiCont
             return BadRequestResponse<object>("Khong ket noi duoc PostgreSQL");
         }
 
-        var incidentCount = await dbContext.su_cos.CountAsync(cancellationToken);
+        var incidentCount = await dbContext.incidents.CountAsync(cancellationToken);
 
         return OkResponse<object>(new
         {

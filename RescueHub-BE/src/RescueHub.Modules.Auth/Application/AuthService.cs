@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using RescueHub.Persistence;
@@ -11,7 +12,8 @@ namespace RescueHub.Modules.Auth.Application;
 
 public sealed class AuthService(
     RescueHubDbContext dbContext,
-    IConfiguration configuration) : IAuthService
+    IConfiguration configuration,
+    IDistributedCache distributedCache) : IAuthService
 {
     public async Task<object> Login(LoginRequest request)
     {
@@ -118,8 +120,10 @@ public sealed class AuthService(
             }
         }
 
-        var otpCode = GenerateOtp(request.Phone, normalizedPurpose);
+        var otpCode = GenerateOtp();
         var expiredAt = DateTime.UtcNow.AddMinutes(5);
+
+        await SaveOtpAsync(request.Phone, normalizedPurpose, otpCode, expiredAt);
 
         return new
         {
@@ -130,13 +134,14 @@ public sealed class AuthService(
 
     public async Task<object> VerifyOtp(VerifyOtpRequest request)
     {
-        var valid = ValidateOtp(request.Phone, request.Purpose, request.OtpCode);
+        var normalizedPurpose = request.Purpose.Trim().ToUpperInvariant();
+        var valid = await ValidateOtpAsync(request.Phone, normalizedPurpose, request.OtpCode);
         if (!valid)
         {
             throw new InvalidOperationException("OTP khong hop le hoac da het han.");
         }
 
-        if (!string.Equals(request.Purpose, "LOGIN", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(normalizedPurpose, "LOGIN", StringComparison.OrdinalIgnoreCase))
         {
             return new { verified = true };
         }
@@ -368,42 +373,50 @@ public sealed class AuthService(
         return userId;
     }
 
-    private string GenerateOtp(string phone, string purpose)
+    private static string GenerateOtp()
     {
-        var normalizedPurpose = purpose.Trim().ToUpperInvariant();
-        var phoneKey = phone.Trim();
-        var window = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 300;
-        var hmac = ComputeOtpHmac(phoneKey, normalizedPurpose, window);
-        var value = Math.Abs(BitConverter.ToInt32(hmac, 0)) % 1_000_000;
+        Span<byte> bytes = stackalloc byte[4];
+        RandomNumberGenerator.Fill(bytes);
+        var value = Math.Abs(BitConverter.ToInt32(bytes)) % 1_000_000;
         return value.ToString("D6");
     }
 
-    private bool ValidateOtp(string phone, string purpose, string otpCode)
+    private async Task<bool> ValidateOtpAsync(string phone, string purpose, string otpCode)
     {
-        var normalizedPurpose = purpose.Trim().ToUpperInvariant();
-        var phoneKey = phone.Trim();
-        var nowWindow = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 300;
-
-        for (var offset = -1; offset <= 1; offset++)
+        var key = BuildOtpCacheKey(phone, purpose);
+        var cachedOtp = await distributedCache.GetStringAsync(key);
+        if (string.IsNullOrWhiteSpace(cachedOtp))
         {
-            var candidate = ComputeOtpHmac(phoneKey, normalizedPurpose, nowWindow + offset);
-            var value = Math.Abs(BitConverter.ToInt32(candidate, 0)) % 1_000_000;
-            if (string.Equals(value.ToString("D6"), otpCode, StringComparison.Ordinal))
-            {
-                return true;
-            }
+            return false;
         }
 
-        return false;
+        var isValid = string.Equals(cachedOtp, otpCode, StringComparison.Ordinal);
+        if (isValid)
+        {
+            await distributedCache.RemoveAsync(key);
+        }
+
+        return isValid;
     }
 
-    private byte[] ComputeOtpHmac(string phone, string purpose, long window)
+    private async Task SaveOtpAsync(string phone, string purpose, string otpCode, DateTime expiredAtUtc)
     {
-        var secret = configuration["Otp:Secret"] ?? configuration["Jwt:Key"]
-            ?? throw new InvalidOperationException("Missing Otp:Secret or Jwt:Key configuration.");
+        var key = BuildOtpCacheKey(phone, purpose);
+        var ttl = expiredAtUtc - DateTime.UtcNow;
+        if (ttl <= TimeSpan.Zero)
+        {
+            ttl = TimeSpan.FromMinutes(5);
+        }
 
-        var payload = Encoding.UTF8.GetBytes($"{phone}:{purpose}:{window}");
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-        return hmac.ComputeHash(payload);
+        await distributedCache.SetStringAsync(
+            key,
+            otpCode,
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = ttl
+            });
     }
+
+    private static string BuildOtpCacheKey(string phone, string purpose)
+        => $"otp:{purpose.Trim().ToUpperInvariant()}:{phone.Trim()}";
 }

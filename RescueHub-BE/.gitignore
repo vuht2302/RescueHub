@@ -1,0 +1,91 @@
+# ---------------------------------------------
+# OS / Editor
+# ---------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# ---------------------------------------------
+# .NET build artifacts
+# ---------------------------------------------
+**/bin/
+**/obj/
+**/out/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Test / coverage artifacts
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Logs
+*.log
+logs/
+
+# Rider / ReSharper
+_ReSharper*/
+*.DotSettings.user
+
+# Dotnet tools / profiler
+.dotnet/
+BenchmarkDotNet.Artifacts/
+
+# ---------------------------------------------
+# Local environment and secrets
+# ---------------------------------------------
+.env
+.env.*
+!.env.example
+secrets.json
+
+# ---------------------------------------------
+# Node (if frontend is added later)
+# ---------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------------------------------------------
+# Docker / compose overrides
+# ---------------------------------------------
+.docker/
+docker-compose.override.yml
+
+# ---------------------------------------------
+# Temporary files
+# ---------------------------------------------
+*.tmp
+*.temp
+
+# ---------------------------------------------
+# Project-specific ignored documents/databases
+# ---------------------------------------------
+api_contract_cloudinary_architecture_v1.md
+flood_rescue_relief_postgresql_schema_v1.sql
+src/RescueHub.Api/appsettings.json
+src/RescueHub.Api/appsettings.Development.json

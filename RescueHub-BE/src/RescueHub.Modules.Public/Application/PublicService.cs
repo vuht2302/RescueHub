@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using NetTopologySuite.Geometries;
 using RescueHub.BuildingBlocks.Application;
@@ -14,7 +15,8 @@ namespace RescueHub.Modules.Public.Application;
 public sealed class PublicService(
     RescueHubDbContext dbContext,
     IMediaService mediaService,
-    IConfiguration configuration) : IPublicService
+    IConfiguration configuration,
+    IDistributedCache distributedCache) : IPublicService
 {
     public async Task<object> GetBootstrap()
     {
@@ -164,7 +166,7 @@ public sealed class PublicService(
             request.SceneDetails,
             isSos: false);
 
-    public Task<object> RequestTrackingOtp(RequestTrackingOtpRequest request)
+    public async Task<object> RequestTrackingOtp(RequestTrackingOtpRequest request)
     {
         var purpose = request.Purpose.Trim().ToUpperInvariant();
         if (!string.Equals(purpose, "TRACKING", StringComparison.OrdinalIgnoreCase))
@@ -172,17 +174,19 @@ public sealed class PublicService(
             throw new InvalidOperationException("Purpose khong hop le cho tracking.");
         }
 
-        var otpCode = GenerateOtp(request.Phone, purpose);
+        var otpCode = GenerateOtp();
         var expiredAt = DateTime.UtcNow.AddMinutes(5);
 
-        return Task.FromResult<object>(new
+        await SaveOtpAsync(request.Phone, purpose, otpCode, expiredAt);
+
+        return new
         {
             expiredAt,
             otpCode
-        });
+        };
     }
 
-    public Task<object> VerifyTrackingOtp(VerifyTrackingOtpRequest request)
+    public async Task<object> VerifyTrackingOtp(VerifyTrackingOtpRequest request)
     {
         var purpose = request.Purpose.Trim().ToUpperInvariant();
         if (!string.Equals(purpose, "TRACKING", StringComparison.OrdinalIgnoreCase))
@@ -190,14 +194,14 @@ public sealed class PublicService(
             throw new InvalidOperationException("Purpose khong hop le cho tracking.");
         }
 
-        if (!ValidateOtp(request.Phone, purpose, request.OtpCode))
+        if (!await ValidateOtpAsync(request.Phone, purpose, request.OtpCode))
         {
             throw new InvalidOperationException("OTP khong hop le hoac da het han.");
         }
 
         var trackingToken = BuildSignedTrackingToken(request.Phone);
 
-        return Task.FromResult<object>(new { trackingToken });
+        return new { trackingToken };
     }
 
     public async Task<object> GetTrackingRescue(string trackingCode)
@@ -652,42 +656,52 @@ public sealed class PublicService(
         throw new InvalidOperationException("Khong tim thay yeu cau theo tracking code.");
     }
 
-    private string GenerateOtp(string phone, string purpose)
+    private static string GenerateOtp()
     {
-        var phoneKey = phone.Trim();
-        var normalizedPurpose = purpose.Trim().ToUpperInvariant();
-        var window = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 300;
-        var hash = ComputeOtpHmac(phoneKey, normalizedPurpose, window);
-        var value = Math.Abs(BitConverter.ToInt32(hash, 0)) % 1_000_000;
+        Span<byte> bytes = stackalloc byte[4];
+        RandomNumberGenerator.Fill(bytes);
+        var value = Math.Abs(BitConverter.ToInt32(bytes)) % 1_000_000;
         return value.ToString("D6");
     }
 
-    private bool ValidateOtp(string phone, string purpose, string otpCode)
+    private async Task<bool> ValidateOtpAsync(string phone, string purpose, string otpCode)
     {
-        var phoneKey = phone.Trim();
-        var normalizedPurpose = purpose.Trim().ToUpperInvariant();
-        var nowWindow = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 300;
-
-        for (var offset = -1; offset <= 1; offset++)
+        var key = BuildOtpCacheKey(phone, purpose);
+        var cachedOtp = await distributedCache.GetStringAsync(key);
+        if (string.IsNullOrWhiteSpace(cachedOtp))
         {
-            var hash = ComputeOtpHmac(phoneKey, normalizedPurpose, nowWindow + offset);
-            var value = Math.Abs(BitConverter.ToInt32(hash, 0)) % 1_000_000;
-            if (string.Equals(value.ToString("D6"), otpCode, StringComparison.Ordinal))
-            {
-                return true;
-            }
+            return false;
         }
 
-        return false;
+        var isValid = string.Equals(cachedOtp, otpCode, StringComparison.Ordinal);
+        if (isValid)
+        {
+            await distributedCache.RemoveAsync(key);
+        }
+
+        return isValid;
     }
 
-    private byte[] ComputeOtpHmac(string phone, string purpose, long window)
+    private async Task SaveOtpAsync(string phone, string purpose, string otpCode, DateTime expiredAtUtc)
     {
-        var secret = configuration["Otp:Secret"] ?? configuration["Jwt:Key"]
-            ?? throw new InvalidOperationException("Missing Otp:Secret or Jwt:Key configuration.");
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-        return hmac.ComputeHash(Encoding.UTF8.GetBytes($"{phone}:{purpose}:{window}"));
+        var key = BuildOtpCacheKey(phone, purpose);
+        var ttl = expiredAtUtc - DateTime.UtcNow;
+        if (ttl <= TimeSpan.Zero)
+        {
+            ttl = TimeSpan.FromMinutes(5);
+        }
+
+        await distributedCache.SetStringAsync(
+            key,
+            otpCode,
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = ttl
+            });
     }
+
+    private static string BuildOtpCacheKey(string phone, string purpose)
+        => $"otp:{purpose.Trim().ToUpperInvariant()}:{phone.Trim()}";
 
     private string BuildSignedTrackingToken(string phone)
     {

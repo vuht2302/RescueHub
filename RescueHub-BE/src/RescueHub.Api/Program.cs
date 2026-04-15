@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RescueHub.BuildingBlocks.Application;
@@ -68,6 +69,33 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
+
+var appsettingsConfiguration = new ConfigurationBuilder()
+    .SetBasePath(builder.Environment.ContentRootPath)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
+    .Build();
+
+var redisConnectionString = appsettingsConfiguration["Redis:ConnectionString"];
+if (string.IsNullOrWhiteSpace(redisConnectionString))
+{
+    redisConnectionString = builder.Configuration["Redis:ConnectionString"];
+}
+
+if (!string.IsNullOrWhiteSpace(redisConnectionString))
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnectionString;
+        options.InstanceName = "rescuehub:";
+    });
+}
+else
+{
+    // Fallback for local/dev if Redis is not configured.
+    builder.Services.AddDistributedMemoryCache();
+}
+
 if (swaggerEnabled)
 {
     builder.Services.AddSwaggerGen(options =>

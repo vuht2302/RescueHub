@@ -1,10 +1,12 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using RescueHub.Persistence;
 
@@ -13,8 +15,13 @@ namespace RescueHub.Modules.Auth.Application;
 public sealed class AuthService(
     RescueHubDbContext dbContext,
     IConfiguration configuration,
-    IDistributedCache distributedCache) : IAuthService
+    IDistributedCache distributedCache,
+    ILogger<AuthService> logger) : IAuthService
 {
+    private static readonly ConcurrentDictionary<string, LocalOtpEntry> LocalOtpStore = new();
+
+    private sealed record LocalOtpEntry(string OtpCode, DateTime ExpiredAtUtc);
+
     public async Task<object> Login(LoginRequest request)
     {
         var identity = request.Username.Trim();
@@ -384,19 +391,28 @@ public sealed class AuthService(
     private async Task<bool> ValidateOtpAsync(string phone, string purpose, string otpCode)
     {
         var key = BuildOtpCacheKey(phone, purpose);
-        var cachedOtp = await distributedCache.GetStringAsync(key);
-        if (string.IsNullOrWhiteSpace(cachedOtp))
+        try
         {
-            return false;
-        }
+            var cachedOtp = await distributedCache.GetStringAsync(key);
+            if (string.IsNullOrWhiteSpace(cachedOtp))
+            {
+                return TryValidateLocalOtp(key, otpCode);
+            }
 
-        var isValid = string.Equals(cachedOtp, otpCode, StringComparison.Ordinal);
-        if (isValid)
+            var isValid = string.Equals(cachedOtp, otpCode, StringComparison.Ordinal);
+            if (isValid)
+            {
+                await distributedCache.RemoveAsync(key);
+                LocalOtpStore.TryRemove(key, out _);
+            }
+
+            return isValid;
+        }
+        catch (Exception ex)
         {
-            await distributedCache.RemoveAsync(key);
+            logger.LogWarning(ex, "Redis unavailable when validating OTP. Falling back to local memory cache.");
+            return TryValidateLocalOtp(key, otpCode);
         }
-
-        return isValid;
     }
 
     private async Task SaveOtpAsync(string phone, string purpose, string otpCode, DateTime expiredAtUtc)
@@ -408,13 +424,43 @@ public sealed class AuthService(
             ttl = TimeSpan.FromMinutes(5);
         }
 
-        await distributedCache.SetStringAsync(
-            key,
-            otpCode,
-            new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = ttl
-            });
+        try
+        {
+            await distributedCache.SetStringAsync(
+                key,
+                otpCode,
+                new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = ttl
+                });
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Redis unavailable when saving OTP. Falling back to local memory cache.");
+            LocalOtpStore[key] = new LocalOtpEntry(otpCode, expiredAtUtc);
+        }
+    }
+
+    private static bool TryValidateLocalOtp(string key, string otpCode)
+    {
+        if (!LocalOtpStore.TryGetValue(key, out var entry))
+        {
+            return false;
+        }
+
+        if (entry.ExpiredAtUtc <= DateTime.UtcNow)
+        {
+            LocalOtpStore.TryRemove(key, out _);
+            return false;
+        }
+
+        var isValid = string.Equals(entry.OtpCode, otpCode, StringComparison.Ordinal);
+        if (isValid)
+        {
+            LocalOtpStore.TryRemove(key, out _);
+        }
+
+        return isValid;
     }
 
     private static string BuildOtpCacheKey(string phone, string purpose)

@@ -51,7 +51,7 @@ export const logout = async (accessToken: string): Promise<void> => {
 export const getDefaultRouteForRoles = (roles: InternalRole[]): string => {
   if (roles.includes("ADMIN")) return "/admin";
   if (roles.includes("MANAGER")) return "/manager";
-  if (roles.includes("RELIEF_OPERATOR")) return "/rescue-coordinator";
+  if (roles.includes("COORDINATOR")) return "/rescue-coordinator";
   if (roles.includes("TEAM_LEADER") || roles.includes("TEAM_MEMBER")) {
     return "/rescue-team";
   }

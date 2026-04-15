@@ -1,6 +1,9 @@
+using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using RescueHub.BuildingBlocks.Application;
-using RescueHub.Modules.AI;
 using RescueHub.Modules.Auth;
 using RescueHub.Modules.Incidents;
 using RescueHub.Modules.Incidents.Realtime;
@@ -19,7 +22,6 @@ builder.Services
     .AddApplicationPart(typeof(RescueHub.Modules.MasterData.Api.MasterDataController).Assembly)
     .AddApplicationPart(typeof(RescueHub.Modules.Incidents.Api.IncidentsController).Assembly)
     .AddApplicationPart(typeof(RescueHub.Modules.Media.Api.MediaController).Assembly)
-    .AddApplicationPart(typeof(RescueHub.Modules.AI.Api.AiController).Assembly)
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
@@ -28,10 +30,87 @@ builder.Services
         options.JsonSerializerOptions.Converters.Add(new NullableUtcDateTimeJsonConverter());
     });
 
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException("Missing Jwt:Key configuration.");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+    ?? throw new InvalidOperationException("Missing Jwt:Issuer configuration.");
+var jwtAudience = builder.Configuration["Jwt:Audience"]
+    ?? throw new InvalidOperationException("Missing Jwt:Audience configuration.");
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 builder.Services.AddEndpointsApiExplorer();
 if (swaggerEnabled)
 {
-    builder.Services.AddSwaggerGen();
+    builder.Services.AddSwaggerGen(options =>
+    {
+        var xmlFiles = new[]
+        {
+            "RescueHub.Api.xml",
+            "RescueHub.Modules.Auth.xml",
+            "RescueHub.Modules.Public.xml",
+            "RescueHub.Modules.MasterData.xml",
+            "RescueHub.Modules.Incidents.xml",
+            "RescueHub.Modules.Media.xml"
+        };
+
+        foreach (var xmlFile in xmlFiles)
+        {
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            if (File.Exists(xmlPath))
+            {
+                options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+            }
+        }
+
+        options.MapType<IFormFile>(() => new OpenApiSchema
+        {
+            Type = "string",
+            Format = "binary"
+        });
+
+        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "Nhap token theo dang: Bearer {your JWT token}"
+        });
+
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
+            }
+        });
+    });
 }
 builder.Services.AddSignalR();
 builder.Services.AddPersistence(builder.Configuration);
@@ -41,7 +120,6 @@ builder.Services.AddPublicModule();
 builder.Services.AddMasterDataModule();
 builder.Services.AddIncidentsModule();
 builder.Services.AddMediaModule(builder.Configuration);
-builder.Services.AddAiModule();
 
 var app = builder.Build();
 
@@ -56,6 +134,7 @@ if (swaggerEnabled)
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

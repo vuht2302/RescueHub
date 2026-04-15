@@ -11,6 +11,7 @@ public static class MediaModuleServiceCollectionExtensions
     public static IServiceCollection AddMediaModule(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<CloudinaryOptions>(configuration.GetSection(CloudinaryOptions.SectionName));
+        services.AddHttpClient();
         services.AddScoped<IMediaService, MediaService>();
         services.AddSingleton<IMediaRepository, InMemoryMediaRepository>();
         services.AddHostedService<MediaCleanupWorker>();

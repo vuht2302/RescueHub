@@ -2,11 +2,11 @@ namespace RescueHub.Modules.Auth.Application;
 
 public interface IAuthService
 {
-    object Login(LoginRequest request);
+    Task<object> Login(LoginRequest request);
 
-    object Refresh(RefreshTokenRequest request);
+    Task<object> Refresh(RefreshTokenRequest request);
 
-    object RequestOtp(RequestOtpRequest request);
+    Task<object> RequestOtp(RequestOtpRequest request);
 
-    object VerifyOtp(VerifyOtpRequest request);
+    Task<object> VerifyOtp(VerifyOtpRequest request);
 }

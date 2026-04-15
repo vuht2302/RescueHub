@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RescueHub.BuildingBlocks.Api;
 using RescueHub.Modules.Incidents.Application;
@@ -5,21 +6,145 @@ using RescueHub.Modules.Incidents.Application;
 namespace RescueHub.Modules.Incidents.Api;
 
 [Route("api/v1/incidents")]
+[Authorize]
 public sealed class IncidentsController(IIncidentService service) : BaseApiController
 {
+    /// <summary>
+    /// Lay danh sach su co cho command center.
+    /// </summary>
+    /// <returns>Danh sach su co gan nhat.</returns>
     [HttpGet]
-    public ActionResult<ApiResponse<object>> List()
-        => OkResponse<object>(service.List(), "Lay danh sach su co thanh cong");
+    public async Task<ActionResult<ApiResponse<object>>> List()
+        => OkResponse<object>(await service.List(), "Lay danh sach su co thanh cong");
 
+    /// <summary>
+    /// Lay chi tiet su co theo id.
+    /// </summary>
+    /// <param name="incidentId">Id su co.</param>
+    /// <returns>Thong tin day du su co.</returns>
     [HttpGet("{incidentId:guid}")]
-    public ActionResult<ApiResponse<object>> GetById([FromRoute] Guid incidentId)
-        => OkResponse<object>(service.Get(incidentId), "Lay chi tiet su co thanh cong");
+    public async Task<ActionResult<ApiResponse<object>>> GetById([FromRoute] Guid incidentId)
+    {
+        try
+        {
+            return OkResponse<object>(await service.Get(incidentId), "Lay chi tiet su co thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
 
+    /// <summary>
+    /// Xac minh su co.
+    /// </summary>
+    /// <param name="incidentId">Id su co.</param>
+    /// <param name="request">Thong tin xac minh.</param>
+    /// <returns>Ket qua xac minh.</returns>
     [HttpPost("{incidentId:guid}/verify")]
-    public ActionResult<ApiResponse<object>> Verify([FromRoute] Guid incidentId)
-        => OkResponse<object>(service.Verify(incidentId), "Xac minh su co thanh cong");
+    public async Task<ActionResult<ApiResponse<object>>> Verify([FromRoute] Guid incidentId, [FromBody] VerifyIncidentRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.Verify(incidentId, request), "Xac minh su co thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
 
+    /// <summary>
+    /// Danh gia muc do uu tien va nghiem trong cua su co.
+    /// </summary>
+    /// <param name="incidentId">Id su co.</param>
+    /// <param name="request">Noi dung danh gia.</param>
+    /// <returns>Ket qua danh gia.</returns>
     [HttpPost("{incidentId:guid}/assess")]
-    public ActionResult<ApiResponse<object>> Assess([FromRoute] Guid incidentId)
-        => OkResponse<object>(service.Assess(incidentId), "Danh gia su co thanh cong");
+    public async Task<ActionResult<ApiResponse<object>>> Assess([FromRoute] Guid incidentId, [FromBody] AssessIncidentRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.Assess(incidentId, request), "Danh gia su co thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Tao ghi nhan hien truong.
+    /// </summary>
+    /// <param name="incidentId">Id su co.</param>
+    /// <param name="request">Thong tin quan sat hien truong.</param>
+    /// <returns>Observation moi duoc tao.</returns>
+    [HttpPost("{incidentId:guid}/scene-observations")]
+    public async Task<ActionResult<ApiResponse<object>>> CreateSceneObservation([FromRoute] Guid incidentId, [FromBody] SceneObservationRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.CreateSceneObservation(incidentId, request), "Tao ghi nhan hien truong thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Cap nhat nhu cau ky nang va nang luc phuong tien cho su co.
+    /// </summary>
+    /// <param name="incidentId">Id su co.</param>
+    /// <param name="request">Danh sach nhu cau.</param>
+    /// <returns>Ket qua cap nhat.</returns>
+    [HttpPost("{incidentId:guid}/requirements")]
+    public async Task<ActionResult<ApiResponse<object>>> UpdateRequirements([FromRoute] Guid incidentId, [FromBody] UpdateIncidentRequirementsRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.UpdateRequirements(incidentId, request), "Cap nhat nhu cau su co thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Lay goi y dieu phoi doi cuu ho.
+    /// </summary>
+    /// <param name="incidentId">Id su co.</param>
+    /// <returns>Danh sach doi duoc de xuat.</returns>
+    [HttpGet("{incidentId:guid}/dispatch-options")]
+    public async Task<ActionResult<ApiResponse<object>>> GetDispatchOptions([FromRoute] Guid incidentId)
+    {
+        try
+        {
+            return OkResponse<object>(await service.GetDispatchOptions(incidentId), "Lay phuong an dieu phoi thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Tao nhiem vu cuu ho tu su co.
+    /// </summary>
+    /// <param name="incidentId">Id su co.</param>
+    /// <param name="request">Thong tin tao nhiem vu.</param>
+    /// <returns>Nhiem vu moi da duoc tao.</returns>
+    [HttpPost("{incidentId:guid}/missions")]
+    public async Task<ActionResult<ApiResponse<object>>> CreateMission([FromRoute] Guid incidentId, [FromBody] CreateMissionRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.CreateMission(incidentId, request), "Tao nhiem vu cuu ho thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
 }

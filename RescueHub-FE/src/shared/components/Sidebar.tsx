@@ -153,13 +153,20 @@ const rescueTeamMenuItems: RescueTeamMenuItem[] = [
 export const Sidebar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const pathSegment = location.pathname.split("/")[1];
 
   const handleLogout = async () => {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
     try {
       await performLogout();
     } finally {
       navigate("/home", { replace: true });
+      setIsLoggingOut(false);
     }
   };
 
@@ -323,6 +330,18 @@ export const Sidebar: React.FC = () => {
             Triển khai đơn vị
           </button>
         </div>
+
+        {/* Logout */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full flex items-center justify-center gap-2 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-60 transition-colors text-sm font-semibold"
+          >
+            <LogOut size={16} />
+            {isLoggingOut ? "Đang đăng xuất..." : "Đăng xuất"}
+          </button>
+        </div>
       </aside>
     );
   }
@@ -396,6 +415,18 @@ export const Sidebar: React.FC = () => {
           >
             <Rocket size={18} />
             Triển khai đơn vị
+          </button>
+        </div>
+
+        {/* Logout */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full flex items-center justify-center gap-2 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-60 transition-colors text-sm font-semibold"
+          >
+            <LogOut size={16} />
+            {isLoggingOut ? "Đang đăng xuất..." : "Đăng xuất"}
           </button>
         </div>
       </aside>

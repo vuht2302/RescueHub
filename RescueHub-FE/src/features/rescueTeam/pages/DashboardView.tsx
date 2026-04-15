@@ -5,225 +5,169 @@ import {
   Clock,
   CheckCircle,
   Activity,
+  RefreshCw,
 } from "lucide-react";
-import { Mission, MissionStatus } from "../types/mission";
+import { TeamDashboardData } from "../services/teamDashboardService";
 
 interface DashboardViewProps {
-  missions: Mission[];
-  statusMap: Record<string, MissionStatus>;
-  priorityStyles: Record<string, string>;
-  statusStyles: Record<string, string>;
-  onMissionClick: (missionId: string) => void;
+  dashboard: TeamDashboardData | null;
+  isLoading: boolean;
+  error: string | null;
+  onRetry: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
-  missions,
-  statusMap,
-  priorityStyles,
-  statusStyles,
-  onMissionClick,
+  dashboard,
+  isLoading,
+  error,
+  onRetry,
 }) => {
+  const recentMissions = dashboard?.recentMissions ?? [];
+
   return (
     <div className="col-span-1 xl:col-span-2 space-y-4 overflow-auto">
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90 font-semibold">Tổng nhiệm vụ</p>
-              <p className="text-4xl font-black mt-2">{missions.length}</p>
-            </div>
-            <FolderKanban size={40} className="opacity-20" />
-          </div>
+      {isLoading ? (
+        <div className="rounded-2xl bg-white border border-[#c8ced6] p-6 shadow-md min-h-[420px] flex items-center justify-center text-sm text-on-surface-variant">
+          Đang tải dữ liệu dashboard...
         </div>
-
-        <div className="rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-white p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90 font-semibold">Chưa nhận</p>
-              <p className="text-4xl font-black mt-2">
-                {
-                  missions.filter(
-                    (m) => (statusMap[m.id] ?? "Chờ nhận") === "Chờ nhận",
-                  ).length
-                }
-              </p>
-            </div>
-            <AlertCircle size={40} className="opacity-20" />
-          </div>
+      ) : error ? (
+        <div className="rounded-2xl bg-white border border-[#c8ced6] p-6 shadow-md min-h-[420px] flex flex-col items-center justify-center text-center gap-3">
+          <p className="text-sm font-semibold text-red-600">{error}</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-900"
+          >
+            <RefreshCw size={16} />
+            Tải lại dashboard
+          </button>
         </div>
-
-        <div className="rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90 font-semibold">Đang thực hiện</p>
-              <p className="text-4xl font-black mt-2">
-                {
-                  missions.filter((m) =>
-                    ["Đang di chuyển", "Đang xử lý"].includes(
-                      statusMap[m.id] ?? "Chờ nhận",
-                    ),
-                  ).length
-                }
-              </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+            <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90 font-semibold">
+                    Chờ phản hồi
+                  </p>
+                  <p className="text-4xl font-black mt-2">
+                    {dashboard?.pendingResponseCount ?? 0}
+                  </p>
+                </div>
+                <FolderKanban size={40} className="opacity-20" />
+              </div>
             </div>
-            <Clock size={40} className="opacity-20" />
-          </div>
-        </div>
 
-        <div className="rounded-2xl bg-gradient-to-br from-green-500 to-green-600 text-white p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90 font-semibold">Hoàn tất</p>
-              <p className="text-4xl font-black mt-2">
-                {
-                  missions.filter(
-                    (m) => (statusMap[m.id] ?? "Chờ nhận") === "Đã hoàn tất",
-                  ).length
-                }
-              </p>
+            <div className="rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-white p-6 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90 font-semibold">
+                    Nhiệm vụ đang hoạt động
+                  </p>
+                  <p className="text-4xl font-black mt-2">
+                    {dashboard?.activeMissionCount ?? 0}
+                  </p>
+                </div>
+                <AlertCircle size={40} className="opacity-20" />
+              </div>
             </div>
-            <CheckCircle size={40} className="opacity-20" />
+
+            <div className="rounded-2xl bg-gradient-to-br from-green-500 to-green-600 text-white p-6 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90 font-semibold">
+                    Hoàn thành hôm nay
+                  </p>
+                  <p className="text-4xl font-black mt-2">
+                    {dashboard?.completedTodayCount ?? 0}
+                  </p>
+                </div>
+                <CheckCircle size={40} className="opacity-20" />
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90 font-semibold">Chờ hủy</p>
+                  <p className="text-4xl font-black mt-2">
+                    {dashboard?.pendingAbortCount ?? 0}
+                  </p>
+                </div>
+                <Clock size={40} className="opacity-20" />
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-gradient-to-br from-sky-500 to-sky-600 text-white p-6 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90 font-semibold">
+                    Chờ chi viện
+                  </p>
+                  <p className="text-4xl font-black mt-2">
+                    {dashboard?.pendingSupportCount ?? 0}
+                  </p>
+                </div>
+                <Activity size={40} className="opacity-20" />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Dashboard Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* New Missions */}
-        <div className="rounded-2xl bg-white border border-[#c8ced6] p-6 shadow-md">
-          <h3 className="text-lg font-black text-blue-950 font-primary flex items-center gap-2">
-            <AlertCircle size={20} className="text-amber-500" />
-            Nhiệm vụ mới
-          </h3>
+          <div className="rounded-2xl bg-white border border-[#c8ced6] p-6 shadow-md">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-black text-blue-950 font-primary flex items-center gap-2">
+                  <Activity size={20} className="text-blue-600" />
+                  Nhiệm vụ gần đây
+                </h3>
+                <p className="text-sm text-on-surface-variant mt-1">
+                  5 nhiệm vụ mới nhất từ dashboard team.
+                </p>
+              </div>
+              <span className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.16em]">
+                {recentMissions.length} mục
+              </span>
+            </div>
 
-          <div className="mt-4 space-y-3">
-            {missions
-              .filter((m) => statusMap[m.id] === "Chờ nhận")
-              .map((mission) => (
-                <button
-                  key={mission.id}
-                  onClick={() => onMissionClick(mission.id)}
-                  className="w-full text-left rounded-xl border border-amber-200 bg-amber-50 p-3 hover:bg-amber-100 transition-colors"
+            <div className="mt-4 space-y-3">
+              {recentMissions.map((mission) => (
+                <div
+                  key={mission.missionId}
+                  className="rounded-xl border border-[#d6dde6] bg-[#f8fafc] p-4"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="font-black text-sm text-blue-950 truncate">
-                        {mission.code}
+                      <p className="text-sm font-black text-blue-950">
+                        {mission.missionCode}
                       </p>
-                      <p className="text-xs text-amber-700 mt-1 line-clamp-2">
-                        {mission.title}
+                      <p className="text-sm text-on-surface mt-1 line-clamp-2">
+                        {mission.objective}
                       </p>
                     </div>
                     <span
-                      className={`text-[10px] px-2 py-1 rounded-md font-bold whitespace-nowrap ${priorityStyles[mission.priority]}`}
+                      className="shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase text-white"
+                      style={{ backgroundColor: mission.status.color }}
                     >
-                      {mission.priority}
+                      {mission.status.name}
                     </span>
                   </div>
-                </button>
+                  <p className="mt-2 text-xs text-on-surface-variant">
+                    Cập nhật:{" "}
+                    {new Date(mission.updatedAt).toLocaleString("vi-VN")}
+                  </p>
+                </div>
               ))}
 
-            {missions.filter((m) => statusMap[m.id] === "Chờ nhận").length ===
-              0 && (
-              <p className="text-sm text-on-surface-variant text-center py-4">
-                Không có nhiệm vụ mới
-              </p>
-            )}
+              {recentMissions.length === 0 && (
+                <p className="text-sm text-on-surface-variant text-center py-6">
+                  Chưa có nhiệm vụ gần đây.
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-
-        {/* Running Missions */}
-        <div className="rounded-2xl bg-white border border-[#c8ced6] p-6 shadow-md">
-          <h3 className="text-lg font-black text-blue-950 font-primary flex items-center gap-2">
-            <Activity size={20} className="text-purple-500" />
-            Đang thực hiện
-          </h3>
-
-          <div className="mt-4 space-y-3">
-            {missions
-              .filter((m) =>
-                ["Đang di chuyển", "Đang xử lý"].includes(
-                  statusMap[m.id] ?? "Chờ nhận",
-                ),
-              )
-              .map((mission) => {
-                const mStatus = statusMap[mission.id] ?? "Chờ nhận";
-                return (
-                  <button
-                    key={mission.id}
-                    onClick={() => onMissionClick(mission.id)}
-                    className="w-full text-left rounded-xl border border-purple-200 bg-purple-50 p-3 hover:bg-purple-100 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-black text-sm text-blue-950 truncate">
-                          {mission.code}
-                        </p>
-                        <p className="text-xs text-purple-700 mt-1">
-                          {mStatus}
-                        </p>
-                      </div>
-                      <div
-                        className={`text-[10px] px-2 py-1 rounded-md font-semibold whitespace-nowrap ${statusStyles[mStatus]}`}
-                      >
-                        {mStatus}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-
-            {missions.filter((m) =>
-              ["Đang di chuyển", "Đang xử lý"].includes(
-                statusMap[m.id] ?? "Chờ nhận",
-              ),
-            ).length === 0 && (
-              <p className="text-sm text-on-surface-variant text-center py-4">
-                Không có nhiệm vụ đang chạy
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Completed Missions */}
-        <div className="rounded-2xl bg-white border border-[#c8ced6] p-6 shadow-md">
-          <h3 className="text-lg font-black text-blue-950 font-primary flex items-center gap-2">
-            <CheckCircle size={20} className="text-green-500" />
-            Hoàn tất
-          </h3>
-
-          <div className="mt-4 space-y-3">
-            {missions
-              .filter((m) => statusMap[m.id] === "Đã hoàn tất")
-              .map((mission) => (
-                <button
-                  key={mission.id}
-                  onClick={() => onMissionClick(mission.id)}
-                  className="w-full text-left rounded-xl border border-green-200 bg-green-50 p-3 hover:bg-green-100 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-black text-sm text-blue-950 truncate">
-                        {mission.code}
-                      </p>
-                      <p className="text-xs text-green-700 mt-1 line-clamp-2">
-                        {mission.title}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-
-            {missions.filter((m) => statusMap[m.id] === "Đã hoàn tất")
-              .length === 0 && (
-              <p className="text-sm text-on-surface-variant text-center py-4">
-                Không có nhiệm vụ hoàn tất
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

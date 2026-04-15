@@ -6,6 +6,7 @@ import { LifeBuoy, LocateFixed, MapPin, Phone, Siren } from "lucide-react";
 import { ConfirmationModal } from "../../../shared/components/ConfirmationModal";
 import { getPublicBootstrap } from "../../../shared/services/publicApi";
 import { RescueRequestModal } from "../components/RescueRequestModal";
+import { ReliefRequestModal } from "../components/ReliefRequestModal";
 
 type Coordinate = {
   lat: number;
@@ -67,6 +68,7 @@ export const HomeView: React.FC = () => {
   const [location, setLocation] = useState<Coordinate>(DEFAULT_CENTER);
   const [reliefPoints, setReliefPoints] = useState<ReliefPoint[]>([]);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [isReliefModalOpen, setIsReliefModalOpen] = useState(false);
 
   const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
   const hasVietmapKey = vietmapApiKey.length > 0;
@@ -90,6 +92,10 @@ export const HomeView: React.FC = () => {
     const params = new URLSearchParams(locationRouter.search);
     if (params.get("request") === "1") {
       setIsRequestModalOpen(true);
+    }
+
+    if (params.get("relief") === "1") {
+      setIsReliefModalOpen(true);
     }
   }, [locationRouter.search]);
 
@@ -492,6 +498,16 @@ export const HomeView: React.FC = () => {
         }}
         defaultLocation={location}
         onSubmitted={() => navigate("/confirmed")}
+      />
+
+      <ReliefRequestModal
+        isOpen={isReliefModalOpen}
+        onClose={() => {
+          setIsReliefModalOpen(false);
+          if (locationRouter.search) {
+            navigate("/home", { replace: true });
+          }
+        }}
       />
     </div>
   );

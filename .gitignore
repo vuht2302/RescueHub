@@ -64,3 +64,5 @@ secrets.json
 # ---------------------------------------------
 RescueHub-BE/api_contract_cloudinary_architecture_v1.md
 RescueHub-BE/flood_rescue_relief_postgresql_schema_v1.sql
+RescueHub-BE/src/RescueHub.Api/appsettings.json
+RescueHub-BE/src/RescueHub.Api/appsettings.Development.json

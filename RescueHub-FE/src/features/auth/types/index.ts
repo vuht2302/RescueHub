@@ -1,24 +1,33 @@
-export interface Login {
+export type InternalRole =
+  | "TEAM_LEADER"
+  | "ADMIN"
+  | "MANAGER"
+  | "TEAM_MEMBER"
+  | "RELIEF_OPERATOR";
+
+export interface LoginRequest {
   username: string;
-  phone: string;
   password: string;
 }
-export interface AuthData {
+
+export interface AuthUser {
+  id: string;
+  displayName: string;
+  phone: string;
+  roles: InternalRole[];
+}
+
+export interface AuthSession {
   accessToken: string;
-  username: string;
-  role: string;
+  refreshToken: string;
+  expiresAt: string;
+  user: AuthUser;
 }
-export interface LoginResponse {
-  success: boolean;
+export interface LogoutRequest {
+  success: string;
   message: string;
-  data: AuthData;
-  error: null | string[];
-}
-export interface AuthState {
-  user: AuthData | null;
-  token: string | null;
-  isLoading: boolean;
-  error: string | null;
+  data: null;
+  errors: null;
 }
 
 export interface ApiResponse<T> {
@@ -26,9 +35,4 @@ export interface ApiResponse<T> {
   message: string;
   data: T;
   errors: null | string[];
-}
-export interface MyData {
-  userId: string;
-  username: string;
-  role: string;
 }

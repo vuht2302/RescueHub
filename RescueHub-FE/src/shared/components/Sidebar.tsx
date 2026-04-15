@@ -1,5 +1,5 @@
 import React from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   House,
   Send,
@@ -25,6 +25,7 @@ import {
 import { useManager } from "../context/ManagerContext";
 import { useCoordinator } from "../context/CoordinatorContext";
 import { useRescueTeam } from "../context/RescueTeamContext";
+import { performLogout } from "../../features/auth/services/authStorage";
 
 // Manager Menu Items
 interface ManagerMenuItem {
@@ -151,7 +152,16 @@ const rescueTeamMenuItems: RescueTeamMenuItem[] = [
 
 export const Sidebar: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const pathSegment = location.pathname.split("/")[1];
+
+  const handleLogout = async () => {
+    try {
+      await performLogout();
+    } finally {
+      navigate("/home", { replace: true });
+    }
+  };
 
   // Manager Sidebar
   if (pathSegment === "manager") {
@@ -227,7 +237,10 @@ export const Sidebar: React.FC = () => {
 
         {/* Logout */}
         <div className="p-4 border-t border-gray-200">
-          <button className="w-full flex items-center justify-center gap-2 py-2 text-gray-600 hover:text-gray-900 transition-colors text-sm font-semibold">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 py-2 text-gray-600 hover:text-gray-900 transition-colors text-sm font-semibold"
+          >
             <LogOut size={16} />
             Đăng xuất
           </button>

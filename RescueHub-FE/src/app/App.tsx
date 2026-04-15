@@ -19,9 +19,16 @@ import { RescueTeamMission } from "../features/rescueTeam/pages/RescueTeamMissio
 import { RescueCoordinator } from "../features/rescue-coordinator/pages/RescueCoordinator";
 import ManagerDashboard from "../features/manager/pages/dashboard";
 import { AdminPage } from "../features/admin/pages/AdminPage";
+import { getDefaultRouteForRoles } from "../features/auth/services/authService";
+import {
+  getAuthSession,
+  hasAnyRole,
+} from "../features/auth/services/authStorage";
 
 export default function App() {
   const location = useLocation();
+  const authSession = getAuthSession();
+  const fallbackRoute = getDefaultRouteForRoles(authSession?.user.roles ?? []);
   const isHomeRoute =
     location.pathname === "/" || location.pathname === "/home";
   const isRescueTeamRoute = location.pathname === "/rescue-team";
@@ -30,19 +37,39 @@ export default function App() {
   );
   const isManagerRoute = location.pathname.startsWith("/manager");
   const isAdminRoute = location.pathname.startsWith("/admin");
+
+  if (isAdminRoute && !hasAnyRole(authSession, ["ADMIN"])) {
+    return <Navigate to={fallbackRoute} replace />;
+  }
+
+  if (isManagerRoute && !hasAnyRole(authSession, ["MANAGER"])) {
+    return <Navigate to={fallbackRoute} replace />;
+  }
+
+  if (isCoordinatorRoute && !hasAnyRole(authSession, ["RELIEF_OPERATOR"])) {
+    return <Navigate to={fallbackRoute} replace />;
+  }
+
+  if (
+    isRescueTeamRoute &&
+    !hasAnyRole(authSession, ["TEAM_LEADER", "TEAM_MEMBER"])
+  ) {
+    return <Navigate to={fallbackRoute} replace />;
+  }
+
   if (isAdminRoute) {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Sidebar />
-      <div className="ml-64">
-        <Routes>
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="*" element={<Navigate to="/admin" replace />} />
-        </Routes>
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Sidebar />
+        <div className="ml-64">
+          <Routes>
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
+          </Routes>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
   if (isRescueTeamRoute) {
     return (
       <div className="min-h-screen bg-surface selection:bg-blue-950/20 selection:text-blue-950">
@@ -72,7 +99,7 @@ export default function App() {
                 path="/rescue-coordinator"
                 element={<RescueCoordinator />}
               />
-            
+
               <Route
                 path="*"
                 element={<Navigate to="/rescue-coordinator" replace />}
@@ -132,7 +159,7 @@ export default function App() {
             <Route path="/rescue-team" element={<RescueTeamMission />} />
             <Route path="/request" element={<CreateRequest />} />
             <Route path="/confirmed" element={<SupportConfirmed />} />
-            <Route path="*" element={<Navigate to="/rescue-team" replace />} />
+            <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
         </main>
       </div>

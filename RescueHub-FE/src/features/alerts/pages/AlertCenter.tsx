@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import {
   CloudLightning,
@@ -9,46 +9,103 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Alert } from "../../../shared/types";
+import {
+  getPublicAlerts,
+  type PublicAlertItem,
+} from "../../../shared/services/publicApi";
 
 export const AlertCenter: React.FC = () => {
-  const alerts: Alert[] = [
-    {
-      id: "1",
-      title: "Canh bao thoi tiet nguy hiem",
-      description:
-        "Canh bao lu quet tai khu 7-B. Di chuyen len noi cao trong 45 phut toi. Tranh xa bo song.",
-      time: "10:42",
-      type: "weather",
-      priority: "high",
-    },
-    {
-      id: "2",
-      title: "Goi tiep te da duoc dieu dong",
-      description:
-        "Vat tu y te va chan giu nhiet dang toi khu C. Du kien giao luc 09:30.",
-      time: "08:15",
-      type: "supply",
-      priority: "medium",
-    },
-    {
-      id: "3",
-      title: "Yeu cau da xu ly xong",
-      description:
-        "Yeu cau dua nguoi o khu 4-A da hoan tat. Tat ca thanh vien da duoc diem danh day du.",
-      time: "Hom qua, 18:20",
-      type: "resolved",
-      priority: "low",
-    },
-    {
-      id: "4",
-      title: "Bao tri mang lien lac",
-      description:
-        "Bao tri tram tiep song ve tinh da hoan tat. Duong truyen toc do cao da khoi phuc toan khu.",
-      time: "Hom qua, 14:00",
-      type: "maintenance",
-      priority: "low",
-    },
-  ];
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [apiItems, setApiItems] = useState<PublicAlertItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadAlerts = async () => {
+      try {
+        setIsLoading(true);
+        setLoadError("");
+
+        const data = await getPublicAlerts();
+        if (controller.signal.aborted) return;
+
+        const items = Array.isArray(data.items) ? data.items : [];
+        setApiItems(items);
+
+        const mappedAlerts: Alert[] = items.map((item) => {
+          const text = `${item.title} ${item.message}`.toUpperCase();
+          const inferredType: Alert["type"] =
+            text.includes("SOS") || text.includes("KHAN")
+              ? "critical"
+              : text.includes("LU") || text.includes("THOI TIET")
+                ? "weather"
+                : text.includes("CUU TRO") || text.includes("TIEP TE")
+                  ? "supply"
+                  : "maintenance";
+
+          const inferredPriority: Alert["priority"] =
+            inferredType === "critical"
+              ? "critical"
+              : inferredType === "weather"
+                ? "high"
+                : inferredType === "supply"
+                  ? "medium"
+                  : "low";
+
+          return {
+            id: item.id,
+            title: item.title,
+            description: item.message,
+            time: new Date(item.sentAt).toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            type: inferredType,
+            priority: inferredPriority,
+          };
+        });
+
+        setAlerts(mappedAlerts);
+      } catch {
+        if (controller.signal.aborted) return;
+        setLoadError("Khong the tai du lieu canh bao. Vui long thu lai sau.");
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadAlerts();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  const todayAlerts = useMemo(() => {
+    const now = new Date();
+    return alerts.filter((alert) => {
+      const raw = apiItems.find((item) => item.id === alert.id)?.sentAt;
+      if (!raw) return false;
+      const sentAt = new Date(raw);
+      return sentAt.toDateString() === now.toDateString();
+    });
+  }, [alerts, apiItems]);
+
+  const previousAlerts = useMemo(() => {
+    const now = new Date();
+    return alerts.filter((alert) => {
+      const raw = apiItems.find((item) => item.id === alert.id)?.sentAt;
+      if (!raw) return false;
+      const sentAt = new Date(raw);
+      return sentAt.toDateString() !== now.toDateString();
+    });
+  }, [alerts, apiItems]);
+
+  const primaryAlert = alerts[0] ?? null;
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -103,13 +160,13 @@ export const AlertCenter: React.FC = () => {
           <div className="flex-1">
             <div className="flex justify-between items-start mb-1">
               <h3 className="text-2xl font-black font-headline tracking-tight text-on-error-container">
-                Doi cuu ho se den trong 2 phut
+                {primaryAlert?.title ?? "Doi cuu ho se den trong 2 phut"}
               </h3>
               <span className="text-sm font-bold text-error">NGHIEM TRONG</span>
             </div>
             <p className="text-on-surface-variant leading-relaxed mb-4">
-              Don vi truc thang "Vanguard-1" da xac dinh tin hieu cua ban. Hay
-              tao vung ha canh rong 10m va bat den bao hieu.
+              {primaryAlert?.description ??
+                "Don vi truc thang Vanguard-1 da xac dinh tin hieu cua ban. Hay tao vung ha canh rong 10m va bat den bao hieu."}
             </p>
             <div className="flex gap-3">
               <button className="bg-primary text-on-primary px-6 py-3 rounded-lg font-bold text-sm shadow-sm hover:brightness-110 transition-all">
@@ -124,12 +181,24 @@ export const AlertCenter: React.FC = () => {
       </section>
 
       <div className="space-y-10">
+        {isLoading && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            Dang tai canh bao tu he thong...
+          </div>
+        )}
+
+        {loadError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
+
         <section>
           <h2 className="text-xl font-bold font-headline mb-6 text-on-surface">
             Hom nay
           </h2>
           <div className="space-y-4">
-            {alerts.slice(0, 2).map((alert) => (
+            {todayAlerts.map((alert) => (
               <motion.div
                 key={alert.id}
                 whileHover={{ x: 4 }}
@@ -155,6 +224,12 @@ export const AlertCenter: React.FC = () => {
                 </div>
               </motion.div>
             ))}
+
+            {!isLoading && !todayAlerts.length && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                Hom nay chua co canh bao moi.
+              </div>
+            )}
           </div>
         </section>
 
@@ -166,7 +241,7 @@ export const AlertCenter: React.FC = () => {
             <div className="flex-1 h-[1px] bg-outline-variant/20"></div>
           </div>
           <div className="space-y-4 opacity-80">
-            {alerts.slice(2).map((alert) => (
+            {previousAlerts.map((alert) => (
               <div
                 key={alert.id}
                 className="bg-surface-container-low/50 p-5 rounded-2xl flex gap-5 items-start"
@@ -191,6 +266,12 @@ export const AlertCenter: React.FC = () => {
                 </div>
               </div>
             ))}
+
+            {!isLoading && !previousAlerts.length && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                Chua co lich su canh bao truoc do.
+              </div>
+            )}
           </div>
         </section>
       </div>

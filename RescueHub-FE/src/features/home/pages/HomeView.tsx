@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import vietmapgl from "@vietmap/vietmap-gl-js/dist/vietmap-gl";
 import "@vietmap/vietmap-gl-js/dist/vietmap-gl.css";
 import { LifeBuoy, LocateFixed, MapPin, Phone, Siren } from "lucide-react";
 import { ConfirmationModal } from "../../../shared/components/ConfirmationModal";
+import { getPublicBootstrap } from "../../../shared/services/publicApi";
+import { RescueRequestModal } from "../components/RescueRequestModal";
 
 type Coordinate = {
   lat: number;
@@ -18,11 +20,6 @@ type ReliefPoint = {
   lng: number;
   statusName: string;
   statusColor: string;
-};
-
-type PublicApiEnvelope = {
-  data?: any;
-  Data?: any;
 };
 
 const DEFAULT_CENTER: Coordinate = {
@@ -53,6 +50,7 @@ const getDistanceKm = (from: Coordinate, to: Coordinate) => {
 };
 
 export const HomeView: React.FC = () => {
+  const locationRouter = useLocation();
   const navigate = useNavigate();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<vietmapgl.Map | null>(null);
@@ -68,6 +66,7 @@ export const HomeView: React.FC = () => {
   >("locating");
   const [location, setLocation] = useState<Coordinate>(DEFAULT_CENTER);
   const [reliefPoints, setReliefPoints] = useState<ReliefPoint[]>([]);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
 
   const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
   const hasVietmapKey = vietmapApiKey.length > 0;
@@ -86,6 +85,13 @@ export const HomeView: React.FC = () => {
       }))
       .sort((left, right) => left.distanceKm - right.distanceKm)[0];
   }, [location, reliefPoints]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(locationRouter.search);
+    if (params.get("request") === "1") {
+      setIsRequestModalOpen(true);
+    }
+  }, [locationRouter.search]);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -116,16 +122,9 @@ export const HomeView: React.FC = () => {
 
     const loadBootstrap = async () => {
       try {
-        const response = await fetch("/api/v1/public/bootstrap", {
-          signal: controller.signal,
-        });
+        if (controller.signal.aborted) return;
 
-        if (!response.ok) {
-          return;
-        }
-
-        const payload = (await response.json()) as PublicApiEnvelope;
-        const bootstrapData = payload.data ?? payload.Data;
+        const bootstrapData = await getPublicBootstrap();
 
         if (typeof bootstrapData?.hotline === "string") {
           setHotline(bootstrapData.hotline);
@@ -175,7 +174,10 @@ export const HomeView: React.FC = () => {
           return;
         }
 
-        const payload = (await response.json()) as PublicApiEnvelope;
+        const payload = (await response.json()) as {
+          data?: { markers?: unknown[] };
+          Data?: { markers?: unknown[] };
+        };
         const mapData = payload.data ?? payload.Data;
         const markers = Array.isArray(mapData?.markers) ? mapData.markers : [];
 
@@ -424,7 +426,7 @@ export const HomeView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => navigate("/request")}
+            onClick={() => setIsRequestModalOpen(true)}
             className="w-14 h-14 rounded-full cursor-pointer bg-primary text-on-primary shadow-2xl flex items-center justify-center hover:opacity-90 active:scale-95 transition-all "
             aria-label="Gửi cứu hộ"
             title="Gửi cứu hộ"
@@ -478,6 +480,18 @@ export const HomeView: React.FC = () => {
         message="Bạn chuẩn bị gửi SOS khẩn cấp đến trung tâm điều phối. Tiếp tục?"
         confirmText={sosStatus === "sending" ? "Đang gửi..." : "Có, gửi SOS"}
         cancelText="Quay lại"
+      />
+
+      <RescueRequestModal
+        isOpen={isRequestModalOpen}
+        onClose={() => {
+          setIsRequestModalOpen(false);
+          if (locationRouter.search) {
+            navigate("/home", { replace: true });
+          }
+        }}
+        defaultLocation={location}
+        onSubmitted={() => navigate("/confirmed")}
       />
     </div>
   );

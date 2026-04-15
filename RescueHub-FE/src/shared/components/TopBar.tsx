@@ -98,7 +98,7 @@ export const TopBar: React.FC = () => {
 
         <div className="flex items-center gap-4">
           <Link
-            to="/request"
+            to="/home?request=1"
             className="bg-cyan-500 hover:bg-cyan-600 text-white px-6 py-2 rounded-lg font-bold transition-all active:scale-95 text-sm"
             style={{ fontFamily: "var(--font-primary)" }}
           >

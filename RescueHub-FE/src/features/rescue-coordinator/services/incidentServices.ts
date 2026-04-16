@@ -69,6 +69,45 @@ export interface IncidentsApiResponse {
   errors: unknown;
 }
 
+export interface VerifyIncidentRequest {
+  verified: boolean;
+  note: string;
+}
+
+export interface AssessIncidentRequest {
+  priorityCode: string;
+  severityCode: string;
+  victimCountEstimate: number;
+  injuredCountEstimate: number;
+  vulnerableCountEstimate: number;
+  requiresMedicalSupport: boolean;
+  requiresEvacuation: boolean;
+  notes: string;
+}
+
+export interface PriorityData {
+  code: string;
+  name: string;
+  color: string;
+}
+
+export interface SeverityData {
+  code: string;
+  name: string;
+  color: string;
+}
+
+export interface AssessIncidentResponse {
+  success: boolean;
+  message: string;
+  data: {
+    incidentId: string;
+    priority: PriorityData;
+    severity: SeverityData;
+  };
+  errors: unknown;
+}
+
 const INCIDENTS_API_URL = "https://rescuehub.onrender.com/api/v1/incidents";
 
 const INCIDENT_DETAIL_API_URL = (id: string) => `${INCIDENTS_API_URL}/${id}`;
@@ -116,4 +155,60 @@ export async function getIncidentDetail(id: string, accessToken: string): Promis
   }
 
   return payload.data;
+}
+
+export async function verifyIncident(
+  incidentId: string,
+  request: VerifyIncidentRequest,
+  accessToken: string
+): Promise<void> {
+  const url = `${INCIDENTS_API_URL}/${incidentId}/verify`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Không thể xác minh sự cố ${incidentId}: HTTP ${response.status}`);
+  }
+
+  const payload = await response.json();
+
+  if (!payload.success) {
+    throw new Error(payload.message || "API xác minh thất bại");
+  }
+}
+
+export async function assessIncident(
+  incidentId: string,
+  request: AssessIncidentRequest,
+  accessToken: string
+): Promise<AssessIncidentResponse> {
+  const url = `${INCIDENTS_API_URL}/${incidentId}/assess`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Không thể đánh giá sự cố ${incidentId}: HTTP ${response.status}`);
+  }
+
+  const payload: AssessIncidentResponse = await response.json();
+
+  if (!payload.success) {
+    throw new Error(payload.message || "API đánh giá thất bại");
+  }
+
+  return payload;
 }

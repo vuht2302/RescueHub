@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { X, Phone, AlertTriangle, CheckCircle2, Image } from "lucide-react";
+import {
+  X,
+  Phone,
+  AlertTriangle,
+  CheckCircle2,
+  Image,
+  AlertCircle,
+} from "lucide-react";
 
 interface VerificationModalProps {
   isOpen: boolean;
@@ -10,8 +17,11 @@ interface VerificationModalProps {
   requestTitle: string;
   location: string;
   description: string;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onReject: () => void;
+  isVerifying?: boolean;
+  error?: string | null;
+  success?: boolean;
 }
 
 const VerificationModal: React.FC<VerificationModalProps> = ({
@@ -25,18 +35,17 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
   description,
   onConfirm,
   onReject,
+  isVerifying = false,
+  error = null,
+  success = false,
 }) => {
   const [verificationStatus, setVerificationStatus] = useState<
     "pending" | "confirmed" | "rejected"
   >("pending");
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     setVerificationStatus("confirmed");
-    setTimeout(() => {
-      onConfirm();
-      setVerificationStatus("pending");
-      onClose();
-    }, 1500);
+    await onConfirm();
   };
 
   const handleReject = () => {
@@ -72,7 +81,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
           <button
             onClick={onClose}
             className="text-white hover:bg-white/10 p-2 rounded-lg transition-colors"
-            disabled={verificationStatus !== "pending"}
+            disabled={verificationStatus !== "pending" || isVerifying}
           >
             <X size={24} />
           </button>
@@ -84,6 +93,17 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
             <div className="grid grid-cols-2 gap-6 p-6">
               {/* Left: Contact Info */}
               <div className="space-y-4">
+                {/* Error Message */}
+                {error && (
+                  <div className="border border-red-200 bg-red-50 rounded-lg p-4 flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-red-900">Lỗi xác minh</p>
+                      <p className="text-sm text-red-700 mt-1">{error}</p>
+                    </div>
+                  </div>
+                )}
+
                 <div
                   className="bg-blue-50 border-l-4 p-4 rounded"
                   style={{ borderColor: "var(--color-blue-950)" }}
@@ -269,14 +289,16 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
           <div className="border-t border-gray-200 p-6 flex gap-3 justify-end bg-gray-50">
             <button
               onClick={onClose}
-              className="px-6 py-2 rounded-lg border-2 border-gray-300 text-gray-900 font-bold hover:bg-gray-100 transition-colors"
+              disabled={isVerifying}
+              className="px-6 py-2 rounded-lg border-2 border-gray-300 text-gray-900 font-bold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ fontFamily: "var(--font-primary)" }}
             >
               Hủy bỏ
             </button>
             <button
               onClick={handleReject}
-              className="px-6 py-2 rounded-lg text-white font-bold transition-colors hover:opacity-90"
+              disabled={isVerifying}
+              className="px-6 py-2 rounded-lg text-white font-bold transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 backgroundColor: "#dc3545",
                 fontFamily: "var(--font-primary)",
@@ -286,13 +308,14 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
             </button>
             <button
               onClick={handleConfirm}
-              className="px-6 py-2 rounded-lg text-white font-bold transition-colors hover:opacity-90"
+              disabled={isVerifying}
+              className="px-6 py-2 rounded-lg text-white font-bold transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 backgroundColor: "var(--color-blue-950)",
                 fontFamily: "var(--font-primary)",
               }}
             >
-              Xác minh
+              {isVerifying ? "Đang xác minh..." : "Xác minh"}
             </button>
           </div>
         )}

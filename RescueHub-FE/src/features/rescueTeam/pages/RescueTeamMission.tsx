@@ -12,7 +12,10 @@ import {
 } from "../services/teamDashboardService";
 import {
   getTeamMissions,
+  getTeamMembers,
   TeamMissionListItem,
+  TeamMemberItem,
+  TeamMemberSkill,
 } from "../services/teamMissionService";
 import {
   Mission,
@@ -72,7 +75,7 @@ const missions: Mission[] = [
   },
 ];
 
-const teamMembers: TeamMember[] = [
+const teamMembersFallback: TeamMember[] = [
   {
     id: "tm-1",
     name: "Nguyễn Văn An",
@@ -110,9 +113,59 @@ const teamMembers: TeamMember[] = [
   },
 ];
 
+const getInitialsFromName = (name: string) => {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length === 0) {
+    return "--";
+  }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+};
+
+const mapMemberSkills = (skills: TeamMemberSkill[]): TeamMember["skills"] => {
+  return skills.map((skill) => ({
+    id: skill.teamMemberSkillId,
+    code: skill.skillCode,
+    name: skill.skillName,
+    levelCode: skill.levelCode,
+    isPrimary: skill.isPrimary,
+  }));
+};
+
+const mapApiMemberToUiMember = (member: TeamMemberItem): TeamMember => {
+  const displayName =
+    member.displayName ??
+    member.fullName ??
+    member.username ??
+    "Thanh vien chua cap nhat";
+
+  const primarySkill = member.skills.find((skill) => skill.isPrimary);
+  const role = member.isTeamLeader
+    ? "Đội trưởng"
+    : (primarySkill?.skillName ?? "Thành viên");
+
+  return {
+    id: member.memberId,
+    name: displayName,
+    role,
+    status: member.status.code === "AVAILABLE" ? "Available" : "Unavailable",
+    avatar: getInitialsFromName(displayName),
+    phone: member.phone,
+    isTeamLeader: member.isTeamLeader,
+    notes: member.notes,
+    lastKnownLocation: member.lastKnownLocation,
+    skills: mapMemberSkills(member.skills),
+  };
+};
+
 const statusStyles: Record<MissionStatus, string> = {
   "Chờ nhận": "bg-surface-container-high text-on-surface-variant",
-  "Đã tới hiện trường": "bg-blue-950/10 text-blue-950",
+  "Đang di chuyển": "bg-blue-950/10 text-blue-950",
   "Đang xử lý": "bg-amber-100 text-amber-800",
   "Đã hoàn tất": "bg-emerald-100 text-emerald-700",
   "Tạm dừng": "bg-error-container text-error",
@@ -122,6 +175,36 @@ const priorityStyles: Record<string, string> = {
   "Khẩn cấp": "bg-error-container text-error",
   Cao: "bg-amber-100 text-amber-800",
   "Trung bình": "bg-blue-100 text-blue-800",
+};
+
+const mapBackendStatusToUiStatus = (
+  statusCode?: string,
+  teamResponseStatus?: string,
+): MissionStatus => {
+  const normalizedStatusCode = statusCode?.toUpperCase();
+  const normalizedResponseStatus = teamResponseStatus?.toUpperCase();
+
+  if (normalizedStatusCode === "COMPLETED") {
+    return "Đã hoàn tất";
+  }
+
+  if (normalizedStatusCode === "RESCUING") {
+    return "Đang xử lý";
+  }
+
+  if (
+    normalizedStatusCode === "ON_SITE" ||
+    normalizedStatusCode === "ARRIVED" ||
+    normalizedStatusCode === "EN_ROUTE"
+  ) {
+    return "Đang di chuyển";
+  }
+
+  if (normalizedResponseStatus === "ACCEPTED") {
+    return "Đang di chuyển";
+  }
+
+  return "Chờ nhận";
 };
 
 export const RescueTeamMission: React.FC = () => {
@@ -134,10 +217,14 @@ export const RescueTeamMission: React.FC = () => {
   const [teamMissionsError, setTeamMissionsError] = useState<string | null>(
     null,
   );
+  const [teamMembers, setTeamMembers] =
+    useState<TeamMember[]>(teamMembersFallback);
+  const [isTeamMembersLoading, setIsTeamMembersLoading] = useState(false);
+  const [teamMembersError, setTeamMembersError] = useState<string | null>(null);
   const [selectedMissionId, setSelectedMissionId] = useState(missions[0].id);
   const [statusMap, setStatusMap] = useState<Record<string, MissionStatus>>({
     "rg-4492-d": "Chờ nhận",
-    "rg-4510-b": "Đã tới hiện trường",
+    "rg-4510-b": "Đang di chuyển",
     "rg-4522-a": "Chờ nhận",
   });
   const [logs, setLogs] = useState<MissionLog[]>([
@@ -168,9 +255,60 @@ export const RescueTeamMission: React.FC = () => {
     }
   };
 
+  const loadTeamMembers = async () => {
+    setIsTeamMembersLoading(true);
+    setTeamMembersError(null);
+
+    try {
+      const response = await getTeamMembers();
+      const flattenedMembers = response.items.flatMap((team) => team.members);
+      const mappedMembers = flattenedMembers.map(mapApiMemberToUiMember);
+
+      setTeamMembers(mappedMembers);
+    } catch (error) {
+      setTeamMembersError(
+        error instanceof Error
+          ? error.message
+          : "Khong tai duoc danh sach thanh vien doi",
+      );
+    } finally {
+      setIsTeamMembersLoading(false);
+    }
+  };
+
   useEffect(() => {
     void loadTeamMissions();
+    void loadTeamMembers();
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+  }, []);
+
+  useEffect(() => {
+    if (teamMissions.length === 0) {
+      return;
+    }
+
+    const mappedStatus = teamMissions.reduce<Record<string, MissionStatus>>(
+      (acc, mission) => {
+        const primaryTeam =
+          mission.teams.find((team) => team.isPrimary) ?? mission.teams[0];
+
+        acc[mission.missionId] = mapBackendStatusToUiStatus(
+          mission.status?.code,
+          primaryTeam?.responseStatus,
+        );
+        return acc;
+      },
+      {},
+    );
+
+    setStatusMap((prev) => ({
+      ...prev,
+      ...mappedStatus,
+    }));
+  }, [teamMissions]);
 
   useEffect(() => {
     let isMounted = true;
@@ -242,7 +380,7 @@ export const RescueTeamMission: React.FC = () => {
     sourceMissions[0];
 
   const handleAcceptMission = (missionId: string) => {
-    setStatusMap((prev) => ({ ...prev, [missionId]: "Đã tới hiện trường" }));
+    setStatusMap((prev) => ({ ...prev, [missionId]: "Đang di chuyển" }));
     setLogs((prev) => [
       ...prev,
       {
@@ -269,6 +407,24 @@ export const RescueTeamMission: React.FC = () => {
           minute: "2-digit",
         }),
         content: `Cập nhật ${status}: ${reportText}`,
+      },
+    ]);
+  };
+
+  const handleAbortRequestSubmitted = (
+    reasonCode: string,
+    detailNote: string,
+  ) => {
+    setLogs((prev) => [
+      ...prev,
+      {
+        id: `log-${Date.now()}`,
+        missionId: selectedMission.id,
+        time: new Date().toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        content: `Đã gửi yêu cầu hủy nhiệm vụ (${reasonCode}): ${detailNote}`,
       },
     ]);
   };
@@ -367,6 +523,7 @@ export const RescueTeamMission: React.FC = () => {
               reportStatus={reportStatus}
               onStatusChange={setReportStatus}
               onSubmitReport={handleSubmitReport}
+              onAbortRequestSubmitted={handleAbortRequestSubmitted}
             />
           )}
 
@@ -379,7 +536,7 @@ export const RescueTeamMission: React.FC = () => {
               onAcceptMission={(missionId) => {
                 handleAcceptMission(missionId);
                 setSelectedMissionId(missionId);
-                setReportStatus("Đã tới hiện trường");
+                setReportStatus("Đang di chuyển");
                 setActiveMenu("map");
               }}
               onViewMission={handleViewMission}
@@ -388,7 +545,15 @@ export const RescueTeamMission: React.FC = () => {
           )}
 
           {activeMenu === "team" && (
-            <TeamView teamMembers={teamMembers} isLeader />
+            <TeamView
+              teamMembers={teamMembers}
+              isLeader
+              isLoading={isTeamMembersLoading}
+              error={teamMembersError}
+              onRetry={() => {
+                void loadTeamMembers();
+              }}
+            />
           )}
 
           {activeMenu === "reports" && <ReportsView />}

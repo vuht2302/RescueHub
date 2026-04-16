@@ -1,15 +1,21 @@
 import React from "react";
-import { Users } from "lucide-react";
+import { RefreshCw, Users } from "lucide-react";
 import { TeamMember } from "../types/mission";
 
 interface TeamViewProps {
   teamMembers: TeamMember[];
   isLeader?: boolean;
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 export const TeamView: React.FC<TeamViewProps> = ({
   teamMembers,
   isLeader = false,
+  isLoading = false,
+  error = null,
+  onRetry,
 }) => {
   const [members, setMembers] = React.useState<TeamMember[]>(teamMembers);
 
@@ -89,59 +95,89 @@ export const TeamView: React.FC<TeamViewProps> = ({
 
       {/* Team Members Table */}
       <div className="overflow-x-auto rounded-xl border border-[#c7ced7]">
-        <table className="w-full text-sm">
-          <thead className="bg-[#f0f2f5] text-on-surface-variant">
-            <tr className="text-left border-b border-[#c7ced7]">
-              <th className="px-4 py-3 font-primary font-bold">Thành viên</th>
-              <th className="px-4 py-3 font-primary font-bold">Vai trò</th>
-              <th className="px-4 py-3 font-primary font-bold">Trạng thái</th>
-              <th className="px-4 py-3 font-primary font-bold">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((member) => (
-              <tr
-                key={member.id}
-                className="border-t border-[#c7ced7] hover:bg-[#f9fafb]"
+        {isLoading ? (
+          <div className="p-6 text-sm text-on-surface-variant text-center">
+            Đang tải danh sách thành viên...
+          </div>
+        ) : error ? (
+          <div className="p-6 flex flex-col items-center justify-center gap-3 text-center">
+            <p className="text-sm font-semibold text-red-600">{error}</p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-950 px-3 py-2 text-xs font-bold text-white hover:bg-blue-900"
               >
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-950 text-white grid place-items-center text-xs font-bold">
-                      {member.avatar}
-                    </div>
-                    <span className="font-semibold text-on-surface">
-                      {member.name}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-on-surface-variant">
-                  {member.role}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
-                      member.status === "Available"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-rose-100 text-rose-700"
-                    }`}
-                  >
-                    {member.status === "Available"
-                      ? "Sẵn sàng"
-                      : "Không sẵn sàng"}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    className="text-xs bg-blue-950 text-white px-3 py-1.5 rounded-lg font-bold font-primary hover:bg-blue-900"
-                  >
-                    Chi tiết
-                  </button>
-                </td>
+                <RefreshCw size={14} />
+                Tải lại
+              </button>
+            )}
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-[#f0f2f5] text-on-surface-variant">
+              <tr className="text-left border-b border-[#c7ced7]">
+                <th className="px-4 py-3 font-primary font-bold">Thành viên</th>
+                <th className="px-4 py-3 font-primary font-bold">Vai trò</th>
+                <th className="px-4 py-3 font-primary font-bold">Trạng thái</th>
+                <th className="px-4 py-3 font-primary font-bold">Thao tác</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {members.map((member) => (
+                <tr
+                  key={member.id}
+                  className="border-t border-[#c7ced7] hover:bg-[#f9fafb]"
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-950 text-white grid place-items-center text-xs font-bold">
+                        {member.avatar}
+                      </div>
+                      <span className="font-semibold text-on-surface">
+                        {member.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-on-surface-variant">
+                    {member.role}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                        member.status === "Available"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-rose-100 text-rose-700"
+                      }`}
+                    >
+                      {member.status === "Available"
+                        ? "Sẵn sàng"
+                        : "Không sẵn sàng"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      className="text-xs bg-blue-950 text-white px-3 py-1.5 rounded-lg font-bold font-primary hover:bg-blue-900"
+                    >
+                      Chi tiết
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {members.length === 0 && (
+                <tr>
+                  <td
+                    className="px-4 py-6 text-sm text-on-surface-variant text-center"
+                    colSpan={4}
+                  >
+                    Chưa có thành viên trong đội.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

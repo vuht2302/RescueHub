@@ -10,7 +10,7 @@ type ApiResponse<T> = {
 export interface TeamMissionStatus {
   code: string;
   name: string;
-  color: string;
+  color: string | null;
 }
 
 export interface TeamMissionTeamSummary {
@@ -189,6 +189,57 @@ export const updateMissionStatus = async (
   );
 };
 
+export interface TeamMemberStatus {
+  code: string;
+  name: string;
+  color: string | null;
+}
+
+export interface TeamMemberLocation {
+  lat: number;
+  lng: number;
+}
+
+export interface TeamMemberSkill {
+  teamMemberSkillId: string;
+  skillId: string;
+  skillCode: string;
+  skillName: string;
+  levelCode: string;
+  isPrimary: boolean;
+}
+
+export interface TeamMemberItem {
+  memberId: string;
+  fullName: string;
+  phone: string;
+  userId: string | null;
+  username: string | null;
+  displayName: string | null;
+  isTeamLeader: boolean;
+  status: TeamMemberStatus;
+  lastKnownLocation: TeamMemberLocation | null;
+  skills: TeamMemberSkill[];
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface TeamMembersGroupItem {
+  teamId: string;
+  teamCode: string;
+  teamName: string;
+  status: TeamMemberStatus;
+  members: TeamMemberItem[];
+}
+
+export interface ListMembersResponse {
+  items: TeamMembersGroupItem[];
+}
+
+export const getTeamMembers = async (): Promise<ListMembersResponse> => {
+  return requestTeamApi<ListMembersResponse>("/api/v1/team/my-members");
+};
+
 export interface TeamRespondMissionRequest {
   response: "ACCEPT" | "REJECT";
   reasonCode?: string;
@@ -199,6 +250,19 @@ export interface TeamRespondMissionResponse {
   missionId: string;
   response: string;
   respondedAt: string;
+}
+
+export interface TeamAbortMissionRequest {
+  reasonCode: string;
+  detailNote: string;
+}
+
+export interface TeamAbortMissionResponse {
+  missionId: string;
+  abortRequestId?: string;
+  reasonCode?: string;
+  detailNote?: string;
+  createdAt?: string;
 }
 
 export const respondToMission = async (
@@ -212,6 +276,20 @@ export const respondToMission = async (
       response: request.response,
       reasonCode: request.reasonCode,
       note: request.note,
+    },
+  );
+};
+
+export const requestMissionAbort = async (
+  missionId: string,
+  request: TeamAbortMissionRequest,
+): Promise<TeamAbortMissionResponse> => {
+  return requestTeamApiWithBody<TeamAbortMissionResponse>(
+    `/api/v1/team/missions/${missionId}/abort-requests`,
+    "POST",
+    {
+      reasonCode: request.reasonCode,
+      detailNote: request.detailNote,
     },
   );
 };

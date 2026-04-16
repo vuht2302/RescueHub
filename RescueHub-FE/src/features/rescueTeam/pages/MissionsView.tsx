@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { AlertCircle, Car, Eye, FileText, Loader, MapPinned, UsersRound, X } from "lucide-react";
+import {
+  AlertCircle,
+  Car,
+  Eye,
+  FileText,
+  Loader,
+  MapPinned,
+  UsersRound,
+  X,
+} from "lucide-react";
 import { Mission, MissionStatus } from "../types/mission";
 import { respondToMission } from "../services/teamMissionService";
 
@@ -29,7 +38,9 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
     missions[0]?.id ?? "",
   );
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [acceptingMissionId, setAcceptingMissionId] = useState<string | null>(null);
+  const [acceptingMissionId, setAcceptingMissionId] = useState<string | null>(
+    null,
+  );
   const [acceptError, setAcceptError] = useState<string | null>(null);
 
   const pendingCount = missions.filter(
@@ -59,7 +70,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         note: "Đội chấp nhận nhiệm vụ",
       });
       console.log("[MissionsView] Phản hồi chấp nhận:", response);
-      
+
       onAcceptMission(missionId);
     } catch (error) {
       const errorMessage =
@@ -226,9 +237,14 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
 
       {acceptError && (
         <div className="fixed bottom-5 left-5 right-5 md:left-auto md:right-5 md:w-96 z-50 rounded-lg bg-red-50 border border-red-200 p-4 flex items-start gap-3">
-          <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+          <AlertCircle
+            size={20}
+            className="text-red-600 flex-shrink-0 mt-0.5"
+          />
           <div>
-            <p className="text-sm font-semibold text-red-700">Lỗi chấp nhận nhiệm vụ</p>
+            <p className="text-sm font-semibold text-red-700">
+              Lỗi chấp nhận nhiệm vụ
+            </p>
             <p className="text-sm text-red-600 mt-1">{acceptError}</p>
             <button
               onClick={() => setAcceptError(null)}

@@ -430,7 +430,11 @@ const RescueCoordinatorPage: React.FC = () => {
                       <div
                         key={request.id}
                         onClick={() => setSelectedRequest(request)}
-                        className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-950 cursor-pointer transition-colors"
+                        className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
+                          selectedRequest?.id === request.id
+                            ? "border-black bg-blue-50"
+                            : "border-gray-200 hover:border-blue-950"
+                        }`}
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div>

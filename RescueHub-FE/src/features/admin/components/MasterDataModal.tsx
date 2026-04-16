@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 
-const MasterDataModal = ({ type, onClose, onSubmit }) => {
+const MasterDataModal = ({ type, onClose, onSubmit, priorities }) => {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
-  const [priority, setPriority] = useState("HIGH");
+  const [priority, setPriority] = useState(
+    priorities?.[0]?.code || "HIGH"
+  );
 
   const handleSubmit = () => {
     if (!code || !name) {
@@ -45,10 +47,11 @@ const MasterDataModal = ({ type, onClose, onSubmit }) => {
             onChange={(e) => setPriority(e.target.value)}
             className="w-full border p-2 rounded"
           >
-            <option value="LOW">LOW</option>
-            <option value="MEDIUM">MEDIUM</option>
-            <option value="HIGH">HIGH</option>
-            <option value="CRITICAL">CRITICAL</option>
+            {priorities?.map((p) => (
+              <option key={p.code} value={p.code}>
+                {p.name}
+              </option>
+            ))}
           </select>
         )}
 

@@ -1,45 +1,57 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import MasterDataModal from "../components/MasterDataModal";
+import { getMasterDataBootstrap } from "@/src/shared/services/masterData.service";
 
-type TabType = "incident" | "reason" | "skill" | "vehicle";
+type TabType = "incident" | "skill" | "vehicle";
 
 const MasterDataPage = () => {
   const [activeTab, setActiveTab] = useState<TabType>("incident");
   const [showModal, setShowModal] = useState(false);
 
-  // ===== MOCK DATA =====
+  const [loading, setLoading] = useState(false);
+
   const [data, setData] = useState({
-    incident: [
-      { id: "1", code: "FLOOD", name: "Lũ lụt", priority: "HIGH" },
-      { id: "2", code: "FIRE", name: "Cháy", priority: "CRITICAL" },
-    ],
-    reason: [
-      { id: "1", code: "VEHICLE_BROKEN", name: "Hỏng xe" },
-    ],
-    skill: [
-      { id: "1", code: "WATER_RESCUE", name: "Cứu hộ nước" },
-    ],
-    vehicle: [
-      { id: "1", code: "BOAT", name: "Xuồng" },
-    ],
+    incident: [],
+    skill: [],
+    vehicle: [],
+    priorityLevels: [],
   });
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const res = await getMasterDataBootstrap();
+
+      setData({
+        incident: res.incidentTypes || [],
+        skill: res.skills || [],
+        vehicle: res.vehicleTypes || [],
+        priorityLevels: res.priorityLevels || [],
+      });
+    } catch (err) {
+      console.error(err);
+      alert("Load dữ liệu thất bại");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const getCurrentData = () => data[activeTab];
 
   const handleAdd = (item: any) => {
     setData((prev) => ({
       ...prev,
-      [activeTab]: [
-        ...prev[activeTab],
-        { ...item, id: Date.now().toString() },
-      ],
+      [activeTab]: [...prev[activeTab], item],
     }));
   };
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
       <div>
         <h1 className="text-2xl font-black">Danh mục hệ thống</h1>
         <p className="text-gray-600 text-sm">
@@ -47,11 +59,9 @@ const MasterDataPage = () => {
         </p>
       </div>
 
-      {/* TABS */}
       <div className="flex gap-6 border-b">
         {[
           { key: "incident", label: "Loại sự cố" },
-          { key: "reason", label: "Lý do" },
           { key: "skill", label: "Kỹ năng" },
           { key: "vehicle", label: "Phương tiện" },
         ].map((tab) => (
@@ -69,7 +79,6 @@ const MasterDataPage = () => {
         ))}
       </div>
 
-      {/* ACTION */}
       <div className="flex justify-end">
         <button
           onClick={() => setShowModal(true)}
@@ -79,37 +88,46 @@ const MasterDataPage = () => {
         </button>
       </div>
 
-      {/* TABLE */}
       <div className="bg-white rounded-xl shadow p-4">
-        <table className="w-full text-sm">
-          <thead className="border-b text-gray-600">
-            <tr>
-              <th className="text-left py-2">Code</th>
-              <th className="text-left py-2">Tên</th>
-              {activeTab === "incident" && (
-                <th className="text-left py-2">Độ ưu tiên</th>
-              )}
-            </tr>
-          </thead>
-
-          <tbody>
-            {getCurrentData().map((item: any) => (
-              <tr key={item.id} className="border-t">
-                <td className="py-2">{item.code}</td>
-                <td>{item.name}</td>
+        {loading ? (
+          <div>Loading...</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="border-b text-gray-600">
+              <tr>
+                <th className="text-left py-2">Code</th>
+                <th className="text-left py-2">Tên</th>
                 {activeTab === "incident" && (
-                  <td>{item.priority}</td>
+                  <th className="text-left py-2">Độ ưu tiên</th>
                 )}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {getCurrentData().map((item: any, index) => (
+                <tr key={index} className="border-t">
+                  <td className="py-2">{item.code}</td>
+                  <td>{item.name}</td>
+
+                  {activeTab === "incident" && (
+                    <td>
+                      {data.priorityLevels.find(
+                        (p) => p.code === item.priority
+                      )?.name || "-"}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* MODAL */}
       {showModal && (
         <MasterDataModal
           type={activeTab}
+          priorities={data.priorityLevels}
           onClose={() => setShowModal(false)}
           onSubmit={handleAdd}
         />

@@ -42,15 +42,7 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
   }
 
   const canSubmit =
-    requesterName.trim().length > 0 &&
-    requesterPhone.trim().length > 0 &&
-    items.length > 0 &&
-    items.every(
-      (item) =>
-        item.supportTypeCode.trim().length > 0 &&
-        item.unitCode.trim().length > 0 &&
-        item.requestedQty > 0,
-    );
+    requesterName.trim().length > 0 && requesterPhone.trim().length > 0;
 
   const handleChangeItem = (
     index: number,
@@ -73,9 +65,7 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
     event.preventDefault();
 
     if (!canSubmit) {
-      setSubmitError(
-        "Vui lòng nhập đầy đủ người yêu cầu và ít nhất một vật phẩm cứu trợ hợp lệ.",
-      );
+      setSubmitError("Vui lòng nhập tên người yêu cầu và số điện thoại.");
       return;
     }
 
@@ -83,16 +73,27 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
     setSubmitError("");
     setSubmitSuccess("");
 
+    // Only include items if they are all valid, otherwise send null
+    const validItems = items.filter(
+      (item) =>
+        item.supportTypeCode.trim().length > 0 &&
+        item.unitCode.trim().length > 0 &&
+        item.requestedQty > 0,
+    );
+
     const payload: PublicReliefRequest = {
       requesterName: requesterName.trim(),
       requesterPhone: requesterPhone.trim(),
       householdCount,
       note: note.trim(),
-      items: items.map((item) => ({
-        supportTypeCode: item.supportTypeCode.trim(),
-        requestedQty: item.requestedQty,
-        unitCode: item.unitCode.trim(),
-      })),
+      items:
+        validItems.length > 0
+          ? validItems.map((item) => ({
+              supportTypeCode: item.supportTypeCode.trim(),
+              requestedQty: item.requestedQty,
+              unitCode: item.unitCode.trim(),
+            }))
+          : (null as any),
     };
 
     try {
@@ -191,75 +192,6 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
               rows={3}
               placeholder="Mô tả nhu cầu cứu trợ"
             />
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-on-surface uppercase tracking-widest">
-                Danh sách vật phẩm
-              </h3>
-              <button
-                type="button"
-                onClick={handleAddItem}
-                className="inline-flex items-center gap-2 bg-surface-container-high hover:bg-surface-container-highest px-3 py-2 rounded-lg text-sm font-semibold"
-              >
-                <Plus size={16} />
-                Thêm vật phẩm
-              </button>
-            </div>
-
-            {items.map((item, index) => (
-              <div
-                key={`relief-item-${index}`}
-                className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-4 grid grid-cols-1 md:grid-cols-[1fr_140px_140px_auto] gap-3"
-              >
-                <input
-                  value={item.supportTypeCode}
-                  onChange={(event) =>
-                    handleChangeItem(index, {
-                      supportTypeCode: event.target.value,
-                    })
-                  }
-                  className="w-full bg-surface-container-high border-none rounded-xl p-3 text-sm text-on-surface focus:ring-2 focus:ring-primary"
-                  placeholder="SupportTypeCode (ví dụ: RICE_5KG)"
-                />
-                <input
-                  type="number"
-                  min={1}
-                  step="0.5"
-                  value={item.requestedQty}
-                  onChange={(event) =>
-                    handleChangeItem(index, {
-                      requestedQty: Math.max(
-                        1,
-                        Number(event.target.value) || 1,
-                      ),
-                    })
-                  }
-                  className="w-full bg-surface-container-high border-none rounded-xl p-3 text-sm text-on-surface focus:ring-2 focus:ring-primary"
-                  placeholder="Số lượng"
-                />
-                <input
-                  value={item.unitCode}
-                  onChange={(event) =>
-                    handleChangeItem(index, {
-                      unitCode: event.target.value,
-                    })
-                  }
-                  className="w-full bg-surface-container-high border-none rounded-xl p-3 text-sm text-on-surface focus:ring-2 focus:ring-primary"
-                  placeholder="UnitCode"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveItem(index)}
-                  className="inline-flex items-center justify-center rounded-xl bg-red-50 text-red-700 hover:bg-red-100 px-3"
-                  disabled={items.length === 1}
-                  title="Xóa vật phẩm"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
           </div>
 
           {submitError && (

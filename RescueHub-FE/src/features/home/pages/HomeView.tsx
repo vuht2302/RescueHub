@@ -7,6 +7,13 @@ import { ConfirmationModal } from "../../../shared/components/ConfirmationModal"
 import { getPublicBootstrap } from "../../../shared/services/publicApi";
 import { RescueRequestModal } from "../components/RescueRequestModal";
 import { ReliefRequestModal } from "../components/ReliefRequestModal";
+import { SyncModal } from "../components/SyncModal";
+import {
+  getUnsyncedRequests,
+  syncRequests,
+  type UnsyncedRequest,
+} from "../services/syncService";
+import { getAuthSession } from "../../../features/auth/services/authStorage";
 
 type Coordinate = {
   lat: number;
@@ -69,11 +76,52 @@ export const HomeView: React.FC = () => {
   const [reliefPoints, setReliefPoints] = useState<ReliefPoint[]>([]);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isReliefModalOpen, setIsReliefModalOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [unsyncedRequests, setUnsyncedRequests] = useState<UnsyncedRequest[]>(
+    [],
+  );
 
   const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
   const hasVietmapKey = vietmapApiKey.length > 0;
   const canUseVietmap =
     hasVietmapKey && isWithinVietnamBounds(location.lat, location.lng);
+
+  // Check for unsynced requests on component mount and auth changes
+  useEffect(() => {
+    const checkForUnsyncedRequests = async () => {
+      try {
+        const authSession = getAuthSession();
+        if (!authSession?.user?.phone || !authSession?.accessToken) {
+          return;
+        }
+
+        const unsynced = await getUnsyncedRequests(
+          authSession.user.phone,
+          authSession.accessToken,
+        );
+
+        if (unsynced.length > 0) {
+          setUnsyncedRequests(unsynced);
+          setIsSyncModalOpen(true);
+        }
+      } catch (error) {
+        console.error("Error checking for unsynced requests:", error);
+      }
+    };
+
+    // Run on mount
+    void checkForUnsyncedRequests();
+
+    // Also listen for auth changes
+    const handleAuthChanged = () => {
+      void checkForUnsyncedRequests();
+    };
+
+    window.addEventListener("auth-changed", handleAuthChanged);
+    return () => {
+      window.removeEventListener("auth-changed", handleAuthChanged);
+    };
+  }, []);
 
   const nearestReliefPoint = useMemo(() => {
     if (reliefPoints.length === 0) {
@@ -319,6 +367,28 @@ export const HomeView: React.FC = () => {
     })();
   };
 
+  const handleSyncRequests = async () => {
+    try {
+      const authSession = getAuthSession();
+      if (!authSession?.user?.phone || !authSession?.accessToken) {
+        throw new Error("Auth session not available");
+      }
+
+      const requestIds = unsyncedRequests.map((req) => req.id);
+      await syncRequests(
+        authSession.user.phone,
+        authSession.accessToken,
+        requestIds,
+      );
+
+      setIsSyncModalOpen(false);
+      setUnsyncedRequests([]);
+    } catch (error) {
+      console.error("Error syncing requests:", error);
+      throw error;
+    }
+  };
+
   const handleSosClick = () => {
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
       navigator.vibrate([120, 60, 120, 60, 220]);
@@ -508,6 +578,14 @@ export const HomeView: React.FC = () => {
             navigate("/home", { replace: true });
           }
         }}
+      />
+
+      <SyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        unsyncedRequests={unsyncedRequests}
+        onConfirmSync={handleSyncRequests}
+        onSkip={() => setIsSyncModalOpen(false)}
       />
     </div>
   );

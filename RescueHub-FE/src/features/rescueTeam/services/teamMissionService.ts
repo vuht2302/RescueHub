@@ -73,6 +73,29 @@ export interface TeamMissionReportItem {
   reportedAt: string;
 }
 
+export interface TeamMissionAbortRequestItem {
+  requestId: string;
+  reasonCode: string;
+  detailNote: string;
+  decisionStatus: string;
+  requestedAt: string;
+  decidedAt: string | null;
+}
+
+export interface TeamMissionSupportRequestItem {
+  requestId: string;
+  supportTypeCode: string;
+  detailNote: string;
+  decisionStatus: string;
+  requestedAt: string;
+  decidedAt: string | null;
+}
+
+export interface TeamMissionActionCodeCatalogItem {
+  actionCode: string;
+  targetStatusCode: string;
+}
+
 export interface TeamMissionDetail {
   missionId: string;
   missionCode: string;
@@ -87,8 +110,11 @@ export interface TeamMissionDetail {
   teams: TeamMissionTeamDetail[];
   statusHistory: TeamMissionStatusHistoryItem[];
   reports: TeamMissionReportItem[];
-  abortRequests: unknown[];
-  supportRequests: unknown[];
+  abortRequests: TeamMissionAbortRequestItem[];
+  supportRequests: TeamMissionSupportRequestItem[];
+  allActionCodes: string[];
+  actionCodeCatalog: TeamMissionActionCodeCatalogItem[];
+  historyActionCodes: string[];
   createdAt: string;
   updatedAt: string;
 }

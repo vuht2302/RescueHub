@@ -11,8 +11,10 @@ import {
   TeamDashboardData,
 } from "../services/teamDashboardService";
 import {
+  getTeamMissionDetail,
   getTeamMissions,
   getTeamMembers,
+  TeamMissionDetail,
   TeamMissionListItem,
   TeamMemberItem,
   TeamMemberSkill,
@@ -207,12 +209,27 @@ const mapBackendStatusToUiStatus = (
   return "Chờ nhận";
 };
 
+const formatMissionLogTime = (isoDateTime: string) => {
+  const parsedDate = new Date(isoDateTime);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "--:--";
+  }
+
+  return parsedDate.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 export const RescueTeamMission: React.FC = () => {
   const { activeMenu, setActiveMenu } = useRescueTeam();
   const [dashboard, setDashboard] = useState<TeamDashboardData | null>(null);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [teamMissions, setTeamMissions] = useState<TeamMissionListItem[]>([]);
+  const [missionDetailsById, setMissionDetailsById] = useState<
+    Record<string, TeamMissionDetail>
+  >({});
   const [isTeamMissionsLoading, setIsTeamMissionsLoading] = useState(false);
   const [teamMissionsError, setTeamMissionsError] = useState<string | null>(
     null,
@@ -255,6 +272,22 @@ export const RescueTeamMission: React.FC = () => {
     }
   };
 
+  const loadTeamMissionDetail = async (missionId: string, force = false) => {
+    if (!missionId || (!force && missionDetailsById[missionId])) {
+      return;
+    }
+
+    try {
+      const detail = await getTeamMissionDetail(missionId);
+      setMissionDetailsById((prev) => ({
+        ...prev,
+        [missionId]: detail,
+      }));
+    } catch {
+      // Keep list data as fallback when mission detail endpoint is unavailable.
+    }
+  };
+
   const loadTeamMembers = async () => {
     setIsTeamMembersLoading(true);
     setTeamMembersError(null);
@@ -282,8 +315,32 @@ export const RescueTeamMission: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-  }, []);
+    if (teamMissions.length === 0) {
+      return;
+    }
+
+    const hasSelectedMission = teamMissions.some(
+      (mission) => mission.missionId === selectedMissionId,
+    );
+
+    if (!hasSelectedMission) {
+      const firstMissionId = teamMissions[0].missionId;
+      setSelectedMissionId(firstMissionId);
+      void loadTeamMissionDetail(firstMissionId);
+    }
+  }, [teamMissions, selectedMissionId]);
+
+  useEffect(() => {
+    const isApiMissionSelected = teamMissions.some(
+      (mission) => mission.missionId === selectedMissionId,
+    );
+
+    if (!isApiMissionSelected) {
+      return;
+    }
+
+    void loadTeamMissionDetail(selectedMissionId);
+  }, [selectedMissionId, teamMissions]);
 
   useEffect(() => {
     if (teamMissions.length === 0) {
@@ -309,6 +366,25 @@ export const RescueTeamMission: React.FC = () => {
       ...mappedStatus,
     }));
   }, [teamMissions]);
+
+  useEffect(() => {
+    const currentDetail = missionDetailsById[selectedMissionId];
+    if (!currentDetail) {
+      return;
+    }
+
+    const primaryTeam =
+      currentDetail.teams.find((team) => team.isPrimary) ??
+      currentDetail.teams[0];
+
+    setStatusMap((prev) => ({
+      ...prev,
+      [selectedMissionId]: mapBackendStatusToUiStatus(
+        currentDetail.status?.code,
+        primaryTeam?.responseStatus,
+      ),
+    }));
+  }, [missionDetailsById, selectedMissionId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -348,29 +424,36 @@ export const RescueTeamMission: React.FC = () => {
     };
   }, []);
 
-  const mappedApiMissions: Mission[] = teamMissions.map((mission, index) => ({
-    id: mission.missionId,
-    code: mission.missionCode,
-    type: "Cứu hộ",
-    title: mission.objective,
-    requester: "Chưa cập nhật",
-    phone: "--",
-    address: mission.incidentCode,
-    priority:
-      mission.etaMinutes <= 10
-        ? "Khẩn cấp"
-        : mission.etaMinutes <= 20
-          ? "Cao"
-          : "Trung bình",
-    summary: mission.objective,
-    assignedTeam:
-      mission.teams.find((team) => team.isPrimary)?.teamName ??
-      mission.teams[0]?.teamName ??
-      "Chưa có đội",
-    assignedMembers: [],
-    assignedVehicles: [],
-    coord: missions[index % missions.length].coord,
-  }));
+  const mappedApiMissions: Mission[] = teamMissions.map((mission, index) => {
+    const detail = missionDetailsById[mission.missionId];
+    const etaMinutes = detail?.etaMinutes ?? mission.etaMinutes;
+    const missionSummary =
+      detail?.incident?.description?.trim() ||
+      detail?.resultSummary ||
+      mission.objective;
+
+    return {
+      id: mission.missionId,
+      code: mission.missionCode,
+      type: "Cứu hộ",
+      title: detail?.objective ?? mission.objective,
+      requester: "Tổng đài RescueHub",
+      phone: "--",
+      address: detail?.incident?.incidentCode ?? mission.incidentCode,
+      priority:
+        etaMinutes <= 10 ? "Khẩn cấp" : etaMinutes <= 20 ? "Cao" : "Trung bình",
+      summary: missionSummary,
+      assignedTeam:
+        detail?.teams.find((team) => team.isPrimary)?.teamName ??
+        detail?.teams[0]?.teamName ??
+        mission.teams.find((team) => team.isPrimary)?.teamName ??
+        mission.teams[0]?.teamName ??
+        "Chưa có đội",
+      assignedMembers: [],
+      assignedVehicles: [],
+      coord: missions[index % missions.length].coord,
+    };
+  });
 
   const sourceMissions =
     mappedApiMissions.length > 0 ? mappedApiMissions : missions;
@@ -379,8 +462,35 @@ export const RescueTeamMission: React.FC = () => {
     sourceMissions.find((mission) => mission.id === selectedMissionId) ??
     sourceMissions[0];
 
+  const selectedMissionDetail = selectedMission
+    ? missionDetailsById[selectedMission.id]
+    : undefined;
+
+  const detailHistoryLogs: MissionLog[] = selectedMissionDetail
+    ? selectedMissionDetail.statusHistory.map((historyItem, index) => ({
+        id: `history-${selectedMissionDetail.missionId}-${index}`,
+        missionId: selectedMissionDetail.missionId,
+        time: formatMissionLogTime(historyItem.changedAt),
+        content:
+          historyItem.note?.trim() ||
+          `[${historyItem.actionCode}] ${historyItem.fromState ?? "--"} -> ${historyItem.toState}`,
+      }))
+    : [];
+
+  const detailReportLogs: MissionLog[] = selectedMissionDetail
+    ? selectedMissionDetail.reports.map((reportItem) => ({
+        id: `report-${reportItem.reportId}`,
+        missionId: selectedMissionDetail.missionId,
+        time: formatMissionLogTime(reportItem.reportedAt),
+        content: `[${reportItem.reportTypeCode}] ${reportItem.summary}`,
+      }))
+    : [];
+
+  const missionLogs = [...detailHistoryLogs, ...detailReportLogs, ...logs];
+
   const handleAcceptMission = (missionId: string) => {
     setStatusMap((prev) => ({ ...prev, [missionId]: "Đang di chuyển" }));
+    void loadTeamMissionDetail(missionId, true);
     setLogs((prev) => [
       ...prev,
       {
@@ -397,6 +507,7 @@ export const RescueTeamMission: React.FC = () => {
 
   const handleSubmitReport = (status: MissionStatus, reportText: string) => {
     setStatusMap((prev) => ({ ...prev, [selectedMission.id]: status }));
+    void loadTeamMissionDetail(selectedMission.id, true);
     setLogs((prev) => [
       ...prev,
       {
@@ -415,6 +526,7 @@ export const RescueTeamMission: React.FC = () => {
     reasonCode: string,
     detailNote: string,
   ) => {
+    void loadTeamMissionDetail(selectedMission.id, true);
     setLogs((prev) => [
       ...prev,
       {
@@ -439,7 +551,7 @@ export const RescueTeamMission: React.FC = () => {
     missionId: string,
     action: "Xin hủy" | "Xin chi viện",
   ) => {
-    const mission = missions.find((item) => item.id === missionId);
+    const mission = sourceMissions.find((item) => item.id === missionId);
     if (!mission) {
       return;
     }
@@ -516,7 +628,7 @@ export const RescueTeamMission: React.FC = () => {
             <MapView
               selectedMission={selectedMission}
               statusMap={statusMap}
-              logs={logs}
+              logs={missionLogs}
               priorityStyles={priorityStyles}
               missions={sourceMissions}
               onMissionSelect={setSelectedMissionId}

@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RescueHub.BuildingBlocks\RescueHub.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\RescueHub.Modules.Admin\RescueHub.Modules.Admin.csproj" />
     <ProjectReference Include="..\RescueHub.Modules.Auth\RescueHub.Modules.Auth.csproj" />
     <ProjectReference Include="..\RescueHub.Modules.Public\RescueHub.Modules.Public.csproj" />
     <ProjectReference Include="..\RescueHub.Modules.MasterData\RescueHub.Modules.MasterData.csproj" />

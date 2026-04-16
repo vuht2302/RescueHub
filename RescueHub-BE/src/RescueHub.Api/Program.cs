@@ -5,6 +5,7 @@ using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RescueHub.BuildingBlocks.Application;
+using RescueHub.Modules.Admin;
 using RescueHub.Modules.Auth;
 using RescueHub.Modules.Incidents;
 using RescueHub.Modules.Incidents.Realtime;
@@ -19,6 +20,7 @@ var swaggerEnabled = builder.Configuration.GetValue("Swagger:Enabled", true);
 builder.Services
     .AddControllers()
     .AddApplicationPart(typeof(RescueHub.Modules.Auth.Api.AuthController).Assembly)
+    .AddApplicationPart(typeof(RescueHub.Modules.Admin.Api.AdminController).Assembly)
     .AddApplicationPart(typeof(RescueHub.Modules.Public.Api.PublicController).Assembly)
     .AddApplicationPart(typeof(RescueHub.Modules.MasterData.Api.MasterDataController).Assembly)
     .AddApplicationPart(typeof(RescueHub.Modules.Incidents.Api.IncidentsController).Assembly)
@@ -122,6 +124,7 @@ if (swaggerEnabled)
         {
             "RescueHub.Api.xml",
             "RescueHub.Modules.Auth.xml",
+            "RescueHub.Modules.Admin.xml",
             "RescueHub.Modules.Public.xml",
             "RescueHub.Modules.MasterData.xml",
             "RescueHub.Modules.Incidents.xml",
@@ -173,6 +176,7 @@ builder.Services.AddSignalR();
 builder.Services.AddPersistence(builder.Configuration);
 
 builder.Services.AddAuthModule();
+builder.Services.AddAdminModule();
 builder.Services.AddPublicModule();
 builder.Services.AddMasterDataModule();
 builder.Services.AddIncidentsModule();

@@ -147,4 +147,47 @@ public sealed class IncidentsController(IIncidentService service) : BaseApiContr
             return BadRequestResponse<object>(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Lay danh sach yeu cau cuu tro cho coordinator xu ly chuan hoa phan phoi.
+    /// </summary>
+    [HttpGet("relief-requests")]
+    public async Task<ActionResult<ApiResponse<object>>> ListReliefRequests(
+        [FromQuery] string? statusCode,
+        [FromQuery] string? keyword,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+        => OkResponse<object>(await service.ListReliefRequestsForCoordinator(statusCode, keyword, page, pageSize), "Lay danh sach relief request thanh cong");
+
+    /// <summary>
+    /// Lay chi tiet yeu cau cuu tro de coordinator chuan hoa.
+    /// </summary>
+    [HttpGet("relief-requests/{reliefRequestId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> GetReliefRequest([FromRoute] Guid reliefRequestId)
+    {
+        try
+        {
+            return OkResponse<object>(await service.GetReliefRequestForCoordinator(reliefRequestId), "Lay chi tiet relief request thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Coordinator chuan hoa phan phoi: approve/reject va chot approved qty.
+    /// </summary>
+    [HttpPost("relief-requests/{reliefRequestId:guid}/standardize")]
+    public async Task<ActionResult<ApiResponse<object>>> StandardizeReliefRequest([FromRoute] Guid reliefRequestId, [FromBody] StandardizeReliefRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.StandardizeReliefRequest(reliefRequestId, request), "Chuan hoa relief request thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
 }

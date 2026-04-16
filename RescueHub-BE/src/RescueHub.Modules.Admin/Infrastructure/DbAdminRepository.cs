@@ -1318,7 +1318,20 @@ public sealed class DbAdminRepository(
             throw new InvalidOperationException("Catalog type khong hop le.");
         }
 
-        return catalogType.Trim().ToLowerInvariant();
+        var normalized = catalogType.Trim().ToLowerInvariant();
+        var collapsed = normalized
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal);
+
+        return collapsed switch
+        {
+            "skill" or "skills" => "skills",
+            "vehicletype" or "vehicletypes" => "vehicle-types",
+            "vehiclecapability" or "vehiclecapabilities" => "vehicle-capabilities",
+            "itemcategory" or "itemcategories" => "item-categories",
+            _ => normalized
+        };
     }
 
     private static (DateTime From, DateTime To) ResolveRange(DateTime? fromDateUtc, DateTime? toDateUtc)

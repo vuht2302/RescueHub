@@ -290,11 +290,6 @@ public sealed class PublicService(
 
     public async Task<object> CreateReliefRequest(CreateReliefRequest request)
     {
-        if (request.Items is null || request.Items.Count == 0)
-        {
-            throw new InvalidOperationException("Items la bat buoc.");
-        }
-
         var now = DateTime.UtcNow;
         var prefix = $"CT-{now:yyyyMMdd}";
         var todayCount = await dbContext.relief_requests.CountAsync(x => x.code.StartsWith(prefix));
@@ -316,20 +311,54 @@ public sealed class PublicService(
         };
         dbContext.relief_requests.Add(reliefRequest);
 
-        var itemCodes = request.Items
-            .Select(x => x.SupportTypeCode)
+        var incomingItems = request.Items?.ToArray() ?? Array.Empty<ReliefItemRequest>();
+        var itemCodes = incomingItems
+            .Select(x => x.SupportTypeCode?.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!.ToUpperInvariant())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var itemMap = await dbContext.items
-            .Where(x => itemCodes.Contains(x.code))
-            .ToDictionaryAsync(x => x.code, x => x, StringComparer.OrdinalIgnoreCase);
+        var itemMap = itemCodes.Length == 0
+            ? new Dictionary<string, item>(StringComparer.OrdinalIgnoreCase)
+            : await dbContext.items
+                .Where(x => itemCodes.Contains(x.code))
+                .ToDictionaryAsync(x => x.code, x => x, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var item in request.Items)
+        var ignoredItems = new List<object>();
+        var acceptedCount = 0;
+
+        foreach (var item in incomingItems)
         {
-            if (!itemMap.TryGetValue(item.SupportTypeCode, out var mappedItem))
+            var normalizedSupportTypeCode = item.SupportTypeCode?.Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(normalizedSupportTypeCode))
             {
-                throw new InvalidOperationException($"SupportTypeCode khong hop le: {item.SupportTypeCode}");
+                ignoredItems.Add(new
+                {
+                    supportTypeCode = item.SupportTypeCode,
+                    reason = "supportTypeCode is empty"
+                });
+                continue;
+            }
+
+            if (item.RequestedQty <= 0)
+            {
+                ignoredItems.Add(new
+                {
+                    supportTypeCode = normalizedSupportTypeCode,
+                    reason = "requestedQty must be greater than 0"
+                });
+                continue;
+            }
+
+            if (!itemMap.TryGetValue(normalizedSupportTypeCode, out var mappedItem))
+            {
+                ignoredItems.Add(new
+                {
+                    supportTypeCode = normalizedSupportTypeCode,
+                    reason = "supportTypeCode not mapped to item master"
+                });
+                continue;
             }
 
             dbContext.relief_request_items.Add(new relief_request_item
@@ -341,6 +370,7 @@ public sealed class PublicService(
                 approved_qty = 0,
                 unit_code = string.IsNullOrWhiteSpace(item.UnitCode) ? mappedItem.unit_code : item.UnitCode
             });
+            acceptedCount++;
         }
 
         await dbContext.SaveChangesAsync();
@@ -350,7 +380,14 @@ public sealed class PublicService(
             reliefRequestId = reliefRequest.id,
             requestCode = reliefRequest.code,
             status = new { code = "NEW", name = "Da tiep nhan", color = "#EF4444" },
-            requestedAt = reliefRequest.created_at
+            requestedAt = reliefRequest.created_at,
+            itemSummary = new
+            {
+                receivedCount = incomingItems.Length,
+                acceptedCount,
+                ignoredCount = ignoredItems.Count,
+                ignoredItems
+            }
         };
     }
 

@@ -1,8 +1,8 @@
 # FE API Contract (Current Implemented APIs)
 
-Tai lieu nay la contract de FE bam theo API da implement thuc te trong backend hien tai.
+Tài liệu này là bản contract để FE bám theo **API đã implement thực tế** trong backend hiện tại.
 
-## 1. Chuan response dung chung
+## 1. Chuẩn response dùng chung
 
 ### 1.1 Success
 ```json
@@ -28,7 +28,7 @@ Tai lieu nay la contract de FE bam theo API da implement thuc te trong backend h
 }
 ```
 
-### 1.3 Quy uoc
+### 1.3 Quy ước
 - Base URL: `/api/v1`
 - JSON: `camelCase`
 - Time: UTC ISO 8601
@@ -93,7 +93,7 @@ Request:
 ```
 
 ### 2.5 POST `/api/v1/auth/logout`
-Request: khong body
+Request: không body
 
 ## 3. Media APIs
 
@@ -134,7 +134,7 @@ Response:
 ```
 
 ### 3.3 POST `/api/v1/media`
-Dung khi FE upload truc tiep Cloudinary xong thi dang ky metadata de lay `fileId`.
+Dùng khi FE upload trực tiếp Cloudinary xong thì đăng ký metadata để lấy `fileId`.
 
 Request:
 ```json
@@ -178,10 +178,10 @@ Response:
 ### 3.4 POST `/api/v1/media/upload`
 `multipart/form-data`
 - `file`: binary
-- `type`: string (hoac `purpose` de backward-compatible)
+- `type`: string (hoặc `purpose` để backward-compatible)
 
 ### 3.5 GET `/api/v1/media/{fileId}`
-Lay metadata theo `fileId`.
+Lấy metadata theo `fileId`.
 
 ## 4. Public / Citizen APIs
 
@@ -232,7 +232,7 @@ Response:
 ### 4.3 GET `/api/v1/public/alerts`
 
 ### 4.4 GET `/api/v1/public/rescue-form`
-Response co `dynamicFields` theo flood scene factors chuan.
+Response có `dynamicFields` theo flood scene factors chuẩn.
 
 ### 4.5 POST `/api/v1/public/incidents/sos`
 Request:
@@ -357,22 +357,22 @@ Request:
 }
 ```
 
-### 4.14 Validation quan trong cho FE
-- `incidentTypeCode` bat buoc `FLOOD`.
-- `reporterPhone` phai dung dinh dang so dien thoai.
-- `victimCountEstimate`, `injuredCountEstimate`, `vulnerableCountEstimate` khong am.
-- Neu `victimCountEstimate = 0` thi `injured/vulnerable` cung phai = 0.
-- `sceneDetails.factorCode` phai nam trong danh sach flood factors chuan.
+### 4.14 Validation quan trọng cho FE
+- `incidentTypeCode` bắt buộc `FLOOD`.
+- `reporterPhone` phải đúng định dạng số điện thoại.
+- `victimCountEstimate`, `injuredCountEstimate`, `vulnerableCountEstimate` không âm.
+- Nếu `victimCountEstimate = 0` thì `injured/vulnerable` cũng phải = 0.
+- `sceneDetails.factorCode` phải nằm trong danh sách flood factors chuẩn.
 
 ## 5. Master Data APIs
 
 Base route: `/api/v1/master-data`
 
 ### 5.1 GET `/api/v1/master-data/bootstrap`
-Tra du lieu master data tong hop (incidentTypes, channels, priorityLevels, severityLevels, skills, skillLevels, vehicleTypes, vehicleCapabilities, warehouseTypes, units, sceneFactors).
+Trả dữ liệu master data tổng hợp (incidentTypes, channels, priorityLevels, severityLevels, skills, skillLevels, vehicleTypes, vehicleCapabilities, warehouseTypes, units, sceneFactors).
 
 ### 5.2 GET `/api/v1/master-data/scene-factors`
-Nguon chuan de FE render `sceneDetails`.
+Nguồn chuẩn để FE render `sceneDetails`.
 
 Response:
 ```json
@@ -457,15 +457,16 @@ Response:
 ```
 
 ### 5.3 GET `/api/v1/master-data/workflows/{entityType}`
-Vi du: `/api/v1/master-data/workflows/INCIDENT`
+Ví dụ: `/api/v1/master-data/workflows/INCIDENT`
 
 ## 6. Incidents (Coordinator) APIs
 
 Base route: `/api/v1/incidents`
 
-Luu y: nhom nay yeu cau Bearer token.
+Lưu ý: nhóm này yêu cầu Bearer token.
 
 ### 6.1 GET `/api/v1/incidents`
+
 ### 6.2 GET `/api/v1/incidents/{incidentId}`
 
 ### 6.3 POST `/api/v1/incidents/{incidentId}/verify`
@@ -558,7 +559,7 @@ Request:
 
 Base route: `/api/v1/team`
 
-Luu y: nhom nay yeu cau Bearer token.
+Lưu ý: nhóm này yêu cầu Bearer token.
 
 ### 7.1 GET `/api/v1/team/dashboard`
 ### 7.2 GET `/api/v1/team/missions`
@@ -637,19 +638,19 @@ Request:
 
 ### 8.2 GET `/api/v1/ai/jobs/{jobId}`
 
-## 9. Mapping legacy code cho FE
+## 9. Mapping legacy field/code cho FE
 
-### 9.1 Scene factor alias (backend van ho tro de tuong thich)
+### 9.1 Scene factor alias (backend vẫn hỗ trợ để tương thích)
 - `FLOOD_DEPTH_M` -> `WATER_LEVEL`
 - `WATER_CURRENT` -> `CURRENT_LEVEL`
 - `ACCESSIBILITY` -> `ROAD_ACCESS`
 
-### 9.2 Khuyen nghi FE
-- Khi gui moi, luon dung code chuan trong `/api/v1/master-data/scene-factors`.
-- Khong hardcode danh sach factor o FE.
-- Flow upload media khuyen nghi: Cloudinary direct upload -> `POST /api/v1/media` de lay `fileId` -> truyen `fileIds` vao API nghiep vu.
+### 9.2 Khuyến nghị FE
+- Khi gửi mới, luôn dùng code chuẩn trong `/api/v1/master-data/scene-factors`.
+- Không hardcode danh sách factor ở FE.
+- Flow upload media khuyến nghị: Cloudinary direct upload -> `POST /api/v1/media` để lấy `fileId` -> truyền `fileIds` vào API nghiệp vụ.
 
-## 10. Danh sach API da implement (checklist)
+## 10. Danh sách API đã implement (checklist)
 
 ### Auth
 - POST `/api/v1/auth/login`

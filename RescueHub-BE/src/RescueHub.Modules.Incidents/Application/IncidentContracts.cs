@@ -44,3 +44,15 @@ public sealed record MissionTeamAssignmentRequest(
     bool IsPrimaryTeam,
     IReadOnlyCollection<Guid>? MemberIds,
     IReadOnlyCollection<Guid>? VehicleIds);
+
+public sealed record StandardizeReliefRequest(
+    string DecisionCode,
+    Guid? CampaignId,
+    string? Note,
+    IReadOnlyCollection<StandardizedReliefItemRequest>? Items);
+
+public sealed record StandardizedReliefItemRequest(
+    Guid? ReliefRequestItemId,
+    string? SupportTypeCode,
+    decimal ApprovedQty,
+    string? UnitCode);

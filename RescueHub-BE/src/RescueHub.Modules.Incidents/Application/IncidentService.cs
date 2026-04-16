@@ -24,6 +24,15 @@ public sealed class IncidentService(IIncidentRepository repository) : IIncidentS
     public Task<object> CreateMission(Guid incidentId, CreateMissionRequest request)
         => repository.CreateMission(incidentId, request);
 
+    public Task<object> ListReliefRequestsForCoordinator(string? statusCode, string? keyword, int page, int pageSize)
+        => repository.ListReliefRequestsForCoordinator(statusCode, keyword, page, pageSize);
+
+    public Task<object> GetReliefRequestForCoordinator(Guid reliefRequestId)
+        => repository.GetReliefRequestForCoordinator(reliefRequestId);
+
+    public Task<object> StandardizeReliefRequest(Guid reliefRequestId, StandardizeReliefRequest request)
+        => repository.StandardizeReliefRequest(reliefRequestId, request);
+
     public Task<object> GetTeamDashboard()
         => repository.GetTeamDashboard();
 

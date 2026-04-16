@@ -511,6 +511,378 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         };
     }
 
+    public async Task<object> ListReliefRequestsForCoordinator(string? statusCode, string? keyword, int page, int pageSize)
+    {
+        var normalizedPage = page <= 0 ? 1 : page;
+        var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
+
+        var query = dbContext.relief_requests
+            .AsNoTracking()
+            .Include(x => x.relief_request_items)
+            .ThenInclude(x => x.item)
+            .Include(x => x.linked_incident)
+            .Include(x => x.campaign)
+            .AsQueryable();
+
+        var normalizedStatusCode = string.IsNullOrWhiteSpace(statusCode)
+            ? "NEW"
+            : statusCode.Trim().ToUpperInvariant();
+
+        query = query.Where(x => x.status_code == normalizedStatusCode);
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var normalizedKeyword = keyword.Trim();
+            query = query.Where(x =>
+                x.code.Contains(normalizedKeyword) ||
+                x.requester_name.Contains(normalizedKeyword) ||
+                x.requester_phone.Contains(normalizedKeyword) ||
+                x.address_text.Contains(normalizedKeyword));
+        }
+
+        var totalItems = await query.CountAsync();
+
+        var items = await query
+            .OrderByDescending(x => x.created_at)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(x => new
+            {
+                reliefRequestId = x.id,
+                requestCode = x.code,
+                sourceTypeCode = x.source_type_code,
+                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                requester = new
+                {
+                    name = x.requester_name,
+                    phone = x.requester_phone
+                },
+                householdCount = x.household_count,
+                addressText = x.address_text,
+                incident = x.linked_incident_id == null
+                    ? null
+                    : new
+                    {
+                        id = x.linked_incident_id,
+                        code = x.linked_incident != null ? x.linked_incident.code : null
+                    },
+                campaign = x.campaign_id == null
+                    ? null
+                    : new
+                    {
+                        id = x.campaign_id,
+                        code = x.campaign != null ? x.campaign.code : null,
+                        name = x.campaign != null ? x.campaign.name : null
+                    },
+                requestedItems = x.relief_request_items
+                    .OrderBy(i => i.item.code)
+                    .Select(i => new
+                    {
+                        reliefRequestItemId = i.id,
+                        supportTypeCode = i.item.code,
+                        supportTypeName = i.item.name,
+                        requestedQty = i.requested_qty,
+                        approvedQty = i.approved_qty,
+                        unitCode = i.unit_code
+                    })
+                    .ToList(),
+                requestedAt = x.created_at,
+                updatedAt = x.updated_at
+            })
+            .ToListAsync();
+
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)normalizedPageSize);
+
+        return new
+        {
+            items,
+            page = normalizedPage,
+            pageSize = normalizedPageSize,
+            totalItems,
+            totalPages
+        };
+    }
+
+    public async Task<object> GetReliefRequestForCoordinator(Guid reliefRequestId)
+    {
+        var reliefRequest = await dbContext.relief_requests
+            .AsNoTracking()
+            .Include(x => x.relief_request_items)
+            .ThenInclude(x => x.item)
+            .Include(x => x.linked_incident)
+            .Include(x => x.campaign)
+            .FirstOrDefaultAsync(x => x.id == reliefRequestId);
+
+        if (reliefRequest is null)
+        {
+            throw new InvalidOperationException("Khong tim thay relief request.");
+        }
+
+        var campaignOptions = await dbContext.relief_campaigns
+            .AsNoTracking()
+            .Where(x => x.status_code == "PLANNED" || x.status_code == "ACTIVE")
+            .OrderByDescending(x => x.start_at)
+            .Take(50)
+            .Select(x => new
+            {
+                campaignId = x.id,
+                campaignCode = x.code,
+                campaignName = x.name,
+                status = x.status_code,
+                linkedIncidentId = x.linked_incident_id,
+                startAt = x.start_at,
+                endAt = x.end_at
+            })
+            .ToListAsync();
+
+        return new
+        {
+            reliefRequestId = reliefRequest.id,
+            requestCode = reliefRequest.code,
+            sourceTypeCode = reliefRequest.source_type_code,
+            status = new { code = reliefRequest.status_code, name = reliefRequest.status_code, color = (string?)null },
+            requester = new
+            {
+                name = reliefRequest.requester_name,
+                phone = reliefRequest.requester_phone
+            },
+            householdCount = reliefRequest.household_count,
+            addressText = reliefRequest.address_text,
+            note = reliefRequest.note,
+            incident = reliefRequest.linked_incident_id == null
+                ? null
+                : new
+                {
+                    id = reliefRequest.linked_incident_id,
+                    code = reliefRequest.linked_incident != null ? reliefRequest.linked_incident.code : null,
+                    description = reliefRequest.linked_incident != null ? reliefRequest.linked_incident.description : null
+                },
+            campaign = reliefRequest.campaign_id == null
+                ? null
+                : new
+                {
+                    id = reliefRequest.campaign_id,
+                    code = reliefRequest.campaign != null ? reliefRequest.campaign.code : null,
+                    name = reliefRequest.campaign != null ? reliefRequest.campaign.name : null
+                },
+            requestedItems = reliefRequest.relief_request_items
+                .OrderBy(x => x.item.code)
+                .Select(x => new
+                {
+                    reliefRequestItemId = x.id,
+                    supportTypeCode = x.item.code,
+                    supportTypeName = x.item.name,
+                    requestedQty = x.requested_qty,
+                    approvedQty = x.approved_qty,
+                    defaultApprovedQty = x.approved_qty ?? x.requested_qty,
+                    unitCode = x.unit_code
+                })
+                .ToList(),
+            decisionOptions = new[]
+            {
+                new { code = "APPROVE", name = "Duyet" },
+                new { code = "REJECT", name = "Tu choi" }
+            },
+            campaignOptions,
+            updatedAt = reliefRequest.updated_at,
+            requestedAt = reliefRequest.created_at
+        };
+    }
+
+    public async Task<object> StandardizeReliefRequest(Guid reliefRequestId, StandardizeReliefRequest request)
+    {
+        var reliefRequest = await dbContext.relief_requests
+            .Include(x => x.relief_request_items)
+            .ThenInclude(x => x.item)
+            .FirstOrDefaultAsync(x => x.id == reliefRequestId);
+
+        if (reliefRequest is null)
+        {
+            throw new InvalidOperationException("Khong tim thay relief request.");
+        }
+
+        var decisionCode = request.DecisionCode?.Trim().ToUpperInvariant();
+        if (decisionCode is not ("APPROVE" or "REJECT"))
+        {
+            throw new InvalidOperationException("DecisionCode chi nhan APPROVE hoac REJECT.");
+        }
+
+        var now = DateTime.UtcNow;
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync();
+
+        if (decisionCode == "REJECT")
+        {
+            foreach (var reliefItem in reliefRequest.relief_request_items)
+            {
+                reliefItem.approved_qty = 0;
+            }
+
+            reliefRequest.status_code = "REJECTED";
+            reliefRequest.note = request.Note;
+            reliefRequest.updated_at = now;
+
+            await dbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return new
+            {
+                reliefRequestId = reliefRequest.id,
+                requestCode = reliefRequest.code,
+                decisionCode,
+                status = "REJECTED",
+                approvedItemCount = 0,
+                approvedTotalQty = 0m,
+                standardizedAt = now
+            };
+        }
+
+        if (request.CampaignId.HasValue)
+        {
+            var campaign = await dbContext.relief_campaigns
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.id == request.CampaignId.Value);
+
+            if (campaign is null)
+            {
+                throw new InvalidOperationException("CampaignId khong ton tai.");
+            }
+
+            if (campaign.status_code is "CLOSED" or "CANCELLED")
+            {
+                throw new InvalidOperationException("Campaign khong con hoat dong de gan vao relief request.");
+            }
+
+            reliefRequest.campaign_id = campaign.id;
+        }
+
+        var incomingItems = request.Items?.ToArray() ?? Array.Empty<StandardizedReliefItemRequest>();
+
+        var existingById = reliefRequest.relief_request_items.ToDictionary(x => x.id, x => x);
+        var existingBySupportTypeCode = reliefRequest.relief_request_items
+            .Where(x => x.item != null)
+            .GroupBy(x => x.item.code, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var reliefItem in reliefRequest.relief_request_items)
+        {
+            reliefItem.approved_qty = incomingItems.Length == 0 ? reliefItem.requested_qty : 0;
+        }
+
+        if (incomingItems.Length > 0)
+        {
+            var incomingSupportTypeCodes = incomingItems
+                .Where(x => !string.IsNullOrWhiteSpace(x.SupportTypeCode))
+                .Select(x => x.SupportTypeCode!.Trim().ToUpperInvariant())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var supportTypeMap = incomingSupportTypeCodes.Length == 0
+                ? new Dictionary<string, item>(StringComparer.OrdinalIgnoreCase)
+                : await dbContext.items
+                    .Where(x => incomingSupportTypeCodes.Contains(x.code))
+                    .ToDictionaryAsync(x => x.code, x => x, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var incoming in incomingItems)
+            {
+                if (incoming.ApprovedQty <= 0)
+                {
+                    throw new InvalidOperationException("ApprovedQty phai lon hon 0.");
+                }
+
+                relief_request_item? targetItem = null;
+
+                if (incoming.ReliefRequestItemId.HasValue)
+                {
+                    if (!existingById.TryGetValue(incoming.ReliefRequestItemId.Value, out targetItem))
+                    {
+                        throw new InvalidOperationException($"ReliefRequestItemId khong ton tai trong request: {incoming.ReliefRequestItemId}");
+                    }
+                }
+                else
+                {
+                    var normalizedSupportTypeCode = incoming.SupportTypeCode?.Trim().ToUpperInvariant();
+                    if (string.IsNullOrWhiteSpace(normalizedSupportTypeCode))
+                    {
+                        throw new InvalidOperationException("Can ReliefRequestItemId hoac SupportTypeCode de chuan hoa.");
+                    }
+
+                    if (existingBySupportTypeCode.TryGetValue(normalizedSupportTypeCode, out var existingItem))
+                    {
+                        targetItem = existingItem;
+                    }
+                    else
+                    {
+                        if (!supportTypeMap.TryGetValue(normalizedSupportTypeCode, out var mappedItem))
+                        {
+                            throw new InvalidOperationException($"SupportTypeCode khong hop le: {normalizedSupportTypeCode}");
+                        }
+
+                        targetItem = new relief_request_item
+                        {
+                            id = Guid.NewGuid(),
+                            relief_request_id = reliefRequest.id,
+                            item_id = mappedItem.id,
+                            requested_qty = incoming.ApprovedQty,
+                            approved_qty = 0,
+                            unit_code = mappedItem.unit_code
+                        };
+
+                        dbContext.relief_request_items.Add(targetItem);
+                        existingById[targetItem.id] = targetItem;
+                        existingBySupportTypeCode[mappedItem.code] = targetItem;
+                    }
+                }
+
+                targetItem.approved_qty = incoming.ApprovedQty;
+
+                if (!string.IsNullOrWhiteSpace(incoming.UnitCode))
+                {
+                    targetItem.unit_code = incoming.UnitCode.Trim().ToUpperInvariant();
+                }
+            }
+        }
+
+        var approvedItems = reliefRequest.relief_request_items
+            .Where(x => x.approved_qty.HasValue && x.approved_qty.Value > 0)
+            .ToList();
+
+        if (approvedItems.Count == 0)
+        {
+            throw new InvalidOperationException("Khong co item nao duoc phe duyet sau chuan hoa.");
+        }
+
+        reliefRequest.status_code = "APPROVED";
+        reliefRequest.note = request.Note;
+        reliefRequest.updated_at = now;
+
+        await dbContext.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        return new
+        {
+            reliefRequestId = reliefRequest.id,
+            requestCode = reliefRequest.code,
+            decisionCode,
+            status = reliefRequest.status_code,
+            campaignId = reliefRequest.campaign_id,
+            approvedItemCount = approvedItems.Count,
+            approvedTotalQty = approvedItems.Sum(x => x.approved_qty ?? 0),
+            approvedItems = approvedItems
+                .OrderBy(x => x.item.code)
+                .Select(x => new
+                {
+                    reliefRequestItemId = x.id,
+                    supportTypeCode = x.item.code,
+                    supportTypeName = x.item.name,
+                    approvedQty = x.approved_qty,
+                    unitCode = x.unit_code
+                })
+                .ToList(),
+            standardizedAt = now
+        };
+    }
+
     public async Task<object> GetTeamDashboard()
     {
         var todayUtc = DateTime.UtcNow.Date;

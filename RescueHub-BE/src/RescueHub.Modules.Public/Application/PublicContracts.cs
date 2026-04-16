@@ -46,7 +46,7 @@ public sealed record CreateReliefRequest(
     string RequesterPhone,
     int? HouseholdCount,
     string? Note,
-    IReadOnlyCollection<ReliefItemRequest> Items);
+    IReadOnlyCollection<ReliefItemRequest>? Items);
 
 public sealed record ReliefItemRequest(
     string SupportTypeCode,

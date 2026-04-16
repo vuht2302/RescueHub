@@ -3,7 +3,11 @@ import vietmapgl from "@vietmap/vietmap-gl-js/dist/vietmap-gl";
 import "@vietmap/vietmap-gl-js/dist/vietmap-gl.css";
 import { MapPin, UserRound, Phone, Users, AlertCircle } from "lucide-react";
 import { Mission, MissionStatus, MissionLog } from "../types/mission";
-import { updateMissionStatus } from "../services/teamMissionService";
+import {
+  requestMissionAbort,
+  updateMissionStatus,
+} from "../services/teamMissionService";
+
 interface MapViewProps {
   selectedMission: Mission;
   statusMap: Record<string, MissionStatus>;
@@ -13,6 +17,7 @@ interface MapViewProps {
   onMissionSelect: (missionId: string) => void;
   onStatusChange: (status: MissionStatus) => void;
   onSubmitReport: (status: MissionStatus, text: string) => void;
+  onAbortRequestSubmitted: (reasonCode: string, detailNote: string) => void;
   reportStatus: MissionStatus;
 }
 
@@ -24,6 +29,7 @@ export const MapView: React.FC<MapViewProps> = ({
   reportStatus,
   onStatusChange,
   onSubmitReport,
+  onAbortRequestSubmitted,
   logs,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -32,6 +38,14 @@ export const MapView: React.FC<MapViewProps> = ({
   const [reportText, setReportText] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [abortReasonCode, setAbortReasonCode] =
+    React.useState<string>("RESOURCE_LIMIT");
+  const [abortDetailNote, setAbortDetailNote] = React.useState("");
+  const [isAbortSubmitting, setIsAbortSubmitting] = React.useState(false);
+  const [abortError, setAbortError] = React.useState<string | null>(null);
+  const [abortSuccessMessage, setAbortSuccessMessage] = React.useState<
+    string | null
+  >(null);
 
   const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
   const hasVietmapKey = vietmapApiKey.length > 0;
@@ -126,7 +140,7 @@ export const MapView: React.FC<MapViewProps> = ({
     try {
       const statusCodeMap: Record<MissionStatus, string> = {
         "Chờ nhận": "DEPART",
-        "Đã tới hiện trường": "ARRIVED",
+        "Đang di chuyển": "ARRIVED",
         "Đang xử lý": "START_RESCUE",
         "Đã hoàn tất": "COMPLETE",
         "Tạm dừng": "ABORTED",
@@ -158,6 +172,37 @@ export const MapView: React.FC<MapViewProps> = ({
       setSubmitError(errorMessage);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitAbortRequest = async () => {
+    const trimmedDetailNote = abortDetailNote.trim();
+    if (!trimmedDetailNote) {
+      setAbortError("Vui lòng nhập chi tiết lý do hủy nhiệm vụ.");
+      return;
+    }
+
+    setIsAbortSubmitting(true);
+    setAbortError(null);
+    setAbortSuccessMessage(null);
+
+    try {
+      await requestMissionAbort(selectedMission.id, {
+        reasonCode: abortReasonCode,
+        detailNote: trimmedDetailNote,
+      });
+
+      onAbortRequestSubmitted(abortReasonCode, trimmedDetailNote);
+      setAbortDetailNote("");
+      setAbortSuccessMessage("Đã gửi yêu cầu hủy nhiệm vụ thành công.");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Gửi yêu cầu hủy thất bại. Vui lòng thử lại.";
+      setAbortError(errorMessage);
+    } finally {
+      setIsAbortSubmitting(false);
     }
   };
 
@@ -295,6 +340,62 @@ export const MapView: React.FC<MapViewProps> = ({
             {isSubmitting ? "Đang gửi..." : "Gửi cập nhật cứu hộ"}
           </button>
         </form>
+
+        <div className="mt-5 space-y-3">
+          <h3 className="text-sm uppercase tracking-[0.16em] font-bold text-on-surface-variant font-primary">
+            Yêu cầu hủy nhiệm vụ
+          </h3>
+
+          {abortError && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+              <AlertCircle
+                size={16}
+                className="text-red-600 mt-0.5 flex-shrink-0"
+              />
+              <p className="text-xs text-red-700">{abortError}</p>
+            </div>
+          )}
+
+          {abortSuccessMessage && (
+            <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+              <p className="text-xs text-emerald-700">{abortSuccessMessage}</p>
+            </div>
+          )}
+
+          <label className="block text-xs font-semibold text-on-surface-variant">
+            Lý do hủy
+            <select
+              value={abortReasonCode}
+              onChange={(event) => setAbortReasonCode(event.target.value)}
+              className="w-full mt-1 rounded-lg border border-[#c7ced7] bg-[#eef2f5] px-3 py-2 text-sm"
+            >
+              <option value="RESOURCE_LIMIT">Thiếu nguồn lực</option>
+              <option value="SAFETY_RISK">Rủi ro an toàn</option>
+              <option value="WEATHER_CONDITION">Điều kiện thời tiết</option>
+              <option value="OTHER">Khác</option>
+            </select>
+          </label>
+
+          <label className="block text-xs font-semibold text-on-surface-variant">
+            Chi tiết lý do hủy
+            <textarea
+              value={abortDetailNote}
+              onChange={(event) => setAbortDetailNote(event.target.value)}
+              rows={3}
+              placeholder="Mô tả lý do cần hủy nhiệm vụ..."
+              className="w-full mt-1 rounded-lg border border-[#c7ced7] bg-[#eef2f5] px-3 py-2 text-sm resize-none"
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={handleSubmitAbortRequest}
+            disabled={isAbortSubmitting}
+            className="w-full rounded-xl bg-[#ba1a1a] hover:bg-[#8f1515] disabled:bg-slate-400 text-white py-3 font-black font-primary text-lg shadow-md transition-colors"
+          >
+            {isAbortSubmitting ? "Đang gửi yêu cầu..." : "Gửi yêu cầu hủy"}
+          </button>
+        </div>
 
         <div className="mt-5">
           <h3 className="text-sm uppercase tracking-[0.16em] font-bold text-on-surface-variant font-primary mb-3">

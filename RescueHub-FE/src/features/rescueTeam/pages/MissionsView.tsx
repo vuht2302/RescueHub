@@ -1,6 +1,16 @@
 import React, { useState } from "react";
-import { Car, Eye, FileText, MapPinned, UsersRound, X } from "lucide-react";
+import {
+  AlertCircle,
+  Car,
+  Eye,
+  FileText,
+  Loader,
+  MapPinned,
+  UsersRound,
+  X,
+} from "lucide-react";
 import { Mission, MissionStatus } from "../types/mission";
+import { respondToMission } from "../services/teamMissionService";
 
 interface MissionsViewProps {
   missions: Mission[];
@@ -28,6 +38,10 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
     missions[0]?.id ?? "",
   );
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [acceptingMissionId, setAcceptingMissionId] = useState<string | null>(
+    null,
+  );
+  const [acceptError, setAcceptError] = useState<string | null>(null);
 
   const pendingCount = missions.filter(
     (m) => (statusMap[m.id] ?? "Chờ nhận") === "Chờ nhận",
@@ -43,6 +57,31 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   const openDetail = (missionId: string) => {
     setSelectedMissionId(missionId);
     setIsDetailOpen(true);
+  };
+
+  const handleAcceptMissionClick = async (missionId: string) => {
+    setAcceptingMissionId(missionId);
+    setAcceptError(null);
+
+    try {
+      console.log("[MissionsView] Chấp nhận nhiệm vụ:", missionId);
+      const response = await respondToMission(missionId, {
+        response: "ACCEPT",
+        note: "Đội chấp nhận nhiệm vụ",
+      });
+      console.log("[MissionsView] Phản hồi chấp nhận:", response);
+
+      onAcceptMission(missionId);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Không thể chấp nhận nhiệm vụ. Vui lòng thử lại.";
+      console.error("[MissionsView] Lỗi chấp nhận:", error);
+      setAcceptError(errorMessage);
+    } finally {
+      setAcceptingMissionId(null);
+    }
   };
 
   return (
@@ -140,11 +179,19 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          onAcceptMission(mission.id);
+                          handleAcceptMissionClick(mission.id);
                         }}
-                        className="text-xs bg-blue-950 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-900"
+                        disabled={acceptingMissionId === mission.id}
+                        className="text-xs bg-blue-950 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-900 disabled:bg-slate-400 flex items-center gap-1 transition-colors"
                       >
-                        Nhận và xem
+                        {acceptingMissionId === mission.id ? (
+                          <>
+                            <Loader size={14} className="animate-spin" />
+                            Đang xử lý...
+                          </>
+                        ) : (
+                          "Nhận và xem"
+                        )}
                       </button>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -186,6 +233,27 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         <p className="text-sm text-on-surface-variant text-center py-8">
           Chưa có nhiệm vụ nào.
         </p>
+      )}
+
+      {acceptError && (
+        <div className="fixed bottom-5 left-5 right-5 md:left-auto md:right-5 md:w-96 z-50 rounded-lg bg-red-50 border border-red-200 p-4 flex items-start gap-3">
+          <AlertCircle
+            size={20}
+            className="text-red-600 flex-shrink-0 mt-0.5"
+          />
+          <div>
+            <p className="text-sm font-semibold text-red-700">
+              Lỗi chấp nhận nhiệm vụ
+            </p>
+            <p className="text-sm text-red-600 mt-1">{acceptError}</p>
+            <button
+              onClick={() => setAcceptError(null)}
+              className="mt-3 text-xs font-semibold text-red-700 hover:text-red-800"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
       )}
 
       {isDetailOpen && selectedMission && (
@@ -269,6 +337,28 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             </div>
 
             <div className="border-t border-[#e2e8f0] bg-white px-6 py-4 flex flex-col sm:flex-row gap-3 justify-end">
+              {(statusMap[selectedMission.id] ?? "Chờ nhận") === "Chờ nhận" && (
+                <button
+                  type="button"
+                  disabled={acceptingMissionId === selectedMission.id}
+                  onClick={() => {
+                    if (selectedMission.id) {
+                      handleAcceptMissionClick(selectedMission.id);
+                      setIsDetailOpen(false);
+                    }
+                  }}
+                  className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+                >
+                  {acceptingMissionId === selectedMission.id ? (
+                    <>
+                      <Loader size={16} className="animate-spin" />
+                      Đang chấp nhận...
+                    </>
+                  ) : (
+                    "Chấp nhận nhiệm vụ"
+                  )}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {

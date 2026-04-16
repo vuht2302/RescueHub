@@ -6,7 +6,7 @@ import {
   LayoutDashboard,
   Package,
   Truck,
-  Calendar,
+  Car,
   BarChart3,
   Settings,
   LogOut,
@@ -49,6 +49,12 @@ const managerMenuItems: ManagerMenuItem[] = [
     color: "text-black-600",
   },
   {
+    id: "vehicle",
+    label: "Quản lý phương tiện",
+    icon: Car,
+    color: "text-black-600",
+  },
+  {
     id: "event",
     label: "Quản lý sự kiện",
     icon: SquareMenu,
@@ -58,18 +64,6 @@ const managerMenuItems: ManagerMenuItem[] = [
     id: "import-export",
     label: "Xuất nhập kho",
     icon: Truck,
-    color: "text-black-600",
-  },
-  {
-    id: "expiry",
-    label: "Hạn sử dụng",
-    icon: Calendar,
-    color: "text-black-600",
-  },
-  {
-    id: "reports",
-    label: "Báo cáo & thống kê",
-    icon: BarChart3,
     color: "text-black-600",
   },
   {

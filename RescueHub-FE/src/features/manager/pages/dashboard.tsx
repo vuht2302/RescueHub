@@ -32,7 +32,7 @@ import { useManager } from "../../../shared/context/ManagerContext";
 import { RescueEventSection } from "../components/RescueEventSection";
 import { InventorySection } from "../components/InventorySection";
 import { ImportExportSection } from "../components/ImportExportSection";
-import { ExpirySection } from "../components/ExpirySection";
+import { VehicleManagementSection } from "../components/VehicleManagementSection";
 
 type KPI = {
   title: string;
@@ -1765,8 +1765,8 @@ export default function ManagerDashboard() {
         {/* Import/Export Section */}
         {activeMenu === "import-export" && <ImportExportSection />}
 
-        {/* Expiry Management Section */}
-        {activeMenu === "expiry" && <ExpirySection />}
+        {/* Vehicle Management Section */}
+        {activeMenu === "vehicle" && <VehicleManagementSection />}
 
         {/* Reports Section - Placeholder */}
         {activeMenu === "reports" && (

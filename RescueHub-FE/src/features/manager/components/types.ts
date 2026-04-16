@@ -25,6 +25,7 @@ export type InventoryItem = {
   location: string;
   status: "In Stock" | "Low Stock" | "Out of Stock";
   lastRestocked: string;
+  expiredDate?: string;
 };
 
 export type Transaction = {

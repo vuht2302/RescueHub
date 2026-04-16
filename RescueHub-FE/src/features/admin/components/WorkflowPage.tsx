@@ -1,107 +1,167 @@
-import React, { useState } from "react";
-import { Plus } from "lucide-react";
-import StateModal from "../components/StateModal";
-import TransitionModal from "../components/TransitionModal";
+import React, { useEffect, useState } from "react";
+import { getWorkflow } from "@/src/shared/services/workflow.service";
 
 const WorkflowPage = () => {
-  const [states, setStates] = useState([
-    { code: "ASSIGNED", name: "Đã phân công", color: "#3b82f6" },
-    { code: "EN_ROUTE", name: "Đang di chuyển", color: "#f59e0b" },
-    { code: "ON_SITE", name: "Đã tới hiện trường", color: "#10b981" },
-  ]);
+  const [entityType, setEntityType] = useState<"INCIDENT" | "MISSION">(
+    "INCIDENT"
+  );
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
 
-  const [transitions, setTransitions] = useState([
-    {
-      from: "ASSIGNED",
-      to: "EN_ROUTE",
-      action: "START_MOVING",
-    },
-  ]);
-
-  const [showStateModal, setShowStateModal] = useState(false);
-  const [showTransitionModal, setShowTransitionModal] = useState(false);
-
-  // ===== ADD STATE =====
-  const addState = (data) => {
-    setStates((prev) => [...prev, data]);
+  const fetchWorkflow = async () => {
+    try {
+      setLoading(true);
+      const res = await getWorkflow(entityType);
+      setData(res);
+    } catch (err) {
+      console.error(err);
+      alert("Load workflow thất bại");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ===== ADD TRANSITION =====
-  const addTransition = (data) => {
-    setTransitions((prev) => [...prev, data]);
-  };
+  useEffect(() => {
+    fetchWorkflow();
+  }, [entityType]);
+
+  if (loading || !data) return <div>Loading...</div>;
+
+  const normalize = (t: any) => ({
+    from: t.fromStateCode || "START",
+    to: t.toStateCode,
+    action: t.actionCode,
+    count: t.usedCount,
+  });
 
   return (
-    <div className="grid grid-cols-3 gap-6">
-      {/* ===== STATES ===== */}
-      <div className="bg-white p-5 rounded-2xl shadow space-y-4">
-        <div className="flex justify-between">
-          <h2 className="font-bold">Trạng thái</h2>
-          <button onClick={() => setShowStateModal(true)}>
-            <Plus />
-          </button>
-        </div>
+    <div className="space-y-6">
+      {/* HEADER */}
+      <div>
+        <h1 className="text-2xl font-black">Workflow hệ thống</h1>
+        <p className="text-gray-600 text-sm">
+          Luồng xử lý trạng thái Incident / Mission
+        </p>
+      </div>
 
-        {states.map((s) => (
-          <div
-            key={s.code}
-            className="p-3 rounded-lg flex justify-between items-center"
-            style={{ backgroundColor: s.color + "20" }}
+      {/* SWITCH */}
+      <div className="flex gap-4">
+        {["INCIDENT", "MISSION"].map((type) => (
+          <button
+            key={type}
+            onClick={() => setEntityType(type as any)}
+            className={`px-4 py-2 rounded-lg font-semibold ${
+              entityType === type
+                ? "bg-blue-950 text-white"
+                : "bg-gray-100"
+            }`}
           >
-            <span className="font-semibold">{s.name}</span>
-            <span className="text-xs text-gray-500">{s.code}</span>
-          </div>
+            {type}
+          </button>
         ))}
       </div>
 
-      {/* ===== TRANSITIONS ===== */}
-      <div className="col-span-2 bg-white p-5 rounded-2xl shadow space-y-4">
-        <div className="flex justify-between">
-          <h2 className="font-bold">Luồng chuyển trạng thái</h2>
-          <button onClick={() => setShowTransitionModal(true)}>
-            <Plus />
-          </button>
-        </div>
+      {/* STATES */}
+      <div className="bg-white p-4 rounded-xl shadow">
+        <h2 className="font-bold mb-3">States</h2>
 
-        {transitions.map((t, index) => (
-          <div
-            key={index}
-            className="border rounded-lg p-4 flex justify-between items-center"
-          >
-            <div className="flex items-center gap-4">
-              <span className="bg-gray-100 px-2 py-1 rounded">
-                {t.from}
-              </span>
+        <div className="flex flex-wrap gap-2">
+          <span className="px-3 py-1 bg-green-100 rounded">START</span>
 
-              <span>➡️</span>
-
-              <span className="bg-gray-100 px-2 py-1 rounded">
-                {t.to}
-              </span>
-            </div>
-
-            <span className="text-blue-600 font-semibold">
-              {t.action}
+          {data.states.map((s: string) => (
+            <span
+              key={s}
+              className="px-3 py-1 bg-blue-100 rounded"
+            >
+              {s}
             </span>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {/* ===== MODALS ===== */}
-      {showStateModal && (
-        <StateModal
-          onClose={() => setShowStateModal(false)}
-          onSubmit={addState}
-        />
-      )}
+      {/* FLOW TABLE */}
+      <div className="bg-white p-4 rounded-xl shadow">
+        <h2 className="font-bold mb-3">Transitions</h2>
 
-      {showTransitionModal && (
-        <TransitionModal
-          states={states}
-          onClose={() => setShowTransitionModal(false)}
-          onSubmit={addTransition}
-        />
-      )}
+        <table className="w-full text-sm">
+          <thead className="border-b text-gray-600">
+            <tr>
+              <th className="text-left py-2">From</th>
+              <th className="text-left py-2">Action</th>
+              <th className="text-left py-2">To</th>
+              <th className="text-left py-2">Used</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {data.transitions.map((t: any, index: number) => {
+              const row = normalize(t);
+
+              return (
+                <tr key={index} className="border-t">
+                  <td className="py-2">
+                    <span className="font-semibold text-green-600">
+                      {row.from}
+                    </span>
+                  </td>
+
+                  <td>
+                    <span className="px-2 py-1 bg-gray-100 rounded">
+                      {row.action}
+                    </span>
+                  </td>
+
+                  <td>
+                    <span className="font-semibold text-blue-600">
+                      {row.to}
+                    </span>
+                  </td>
+
+                  <td>{row.count}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* FLOW VISUAL (simple) */}
+      <div className="bg-white p-4 rounded-xl shadow">
+        <h2 className="font-bold mb-3">Flow Preview</h2>
+
+        <div className="space-y-2 text-sm">
+          {data.transitions.map((t: any, index: number) => {
+            const row = normalize(t);
+
+            return (
+              <div
+                key={index}
+                className="flex items-center gap-2"
+              >
+                <span className="text-green-600 font-semibold">
+                  {row.from}
+                </span>
+
+                <span>→</span>
+
+                <span className="bg-gray-200 px-2 rounded">
+                  {row.action}
+                </span>
+
+                <span>→</span>
+
+                <span className="text-blue-600 font-semibold">
+                  {row.to}
+                </span>
+
+                <span className="text-gray-400 text-xs">
+                  ({row.count})
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };

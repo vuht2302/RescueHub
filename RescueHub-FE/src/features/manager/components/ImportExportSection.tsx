@@ -1,8 +1,13 @@
 import React, { useState } from "react";
 import { Search, Eye } from "lucide-react";
 import { Transaction } from "./types";
+import {
+  CreateImportRequestModal,
+  ImportRequestData,
+} from "./CreateImportRequestModal";
 
 export function ImportExportSection() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactions] = useState<Transaction[]>([
     {
       id: "TRX001",
@@ -42,8 +47,25 @@ export function ImportExportSection() {
     },
   ]);
 
+  const handleCreateImportRequest = async (data: ImportRequestData) => {
+    // Mock API call - in real app, this would call an API endpoint
+    console.log("Creating import request:", data);
+
+    // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    // Success notification (in real app, could show toast)
+    alert("Yêu cầu nhập kho đã được tạo thành công!");
+  };
+
   return (
     <section className="space-y-6">
+      <CreateImportRequestModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateImportRequest}
+      />
+
       <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-[280px] flex-1 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
@@ -55,6 +77,7 @@ export function ImportExportSection() {
             />
           </div>
           <button
+            onClick={() => setIsModalOpen(true)}
             className="rounded-lg px-4 py-2 text-sm font-medium text-white transition"
             style={{ backgroundColor: "var(--color-blue-950)" }}
           >

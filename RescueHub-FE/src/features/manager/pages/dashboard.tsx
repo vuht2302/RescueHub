@@ -4,35 +4,23 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import {
   Bell,
   ChevronDown,
-  Clock,
-  DollarSign,
-  FileText,
-  Filter,
-  HardDrive,
-  Home,
-  Landmark,
   LifeBuoy,
-  List,
   MoreVertical,
   Phone,
   Search,
   ShieldCheck,
-  TrendingUp,
   Trash2,
-  Users,
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  Package,
-  AlertTriangle,
-  TrendingDown,
-  Eye,
 } from "lucide-react";
 import { useManager } from "../../../shared/context/ManagerContext";
 import { RescueEventSection } from "../components/RescueEventSection";
 import { InventorySection } from "../components/InventorySection";
 import { ImportExportSection } from "../components/ImportExportSection";
 import { VehicleManagementSection } from "../components/VehicleManagementSection";
+import { PendingVerificationSection } from "../components/PendingVerificationSection";
+import { getAuthSession } from "../../../features/auth/services/authStorage";
 
 type KPI = {
   title: string;
@@ -1665,6 +1653,14 @@ export default function ManagerDashboard() {
                 </div>
               </div>
             </section>
+
+            {/* Pending Verification Section */}
+            {(() => {
+              const session = getAuthSession();
+              return session?.accessToken ? (
+                <PendingVerificationSection accessToken={session.accessToken} />
+              ) : null;
+            })()}
 
             {/* Recent Orders */}
             <section className="rounded-lg border border-slate-200 bg-white shadow-sm">

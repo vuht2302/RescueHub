@@ -14,10 +14,14 @@ import { useCoordinator } from "../../../shared/context/CoordinatorContext";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { DispatchModal } from "../components/DispatchModal";
 import { VerificationModal } from "../components/VerificationModal";
+import { SeverityAssessmentModal } from "../components/SeverityAssessmentModal";
 import { CurrentMissionsSection } from "../components/CurrentMissionsSection";
+import { MissionMapSection } from "../components/MissionMapSection";
 import {
   getIncidents,
   getIncidentDetail,
+  verifyIncident,
+  assessIncident,
   type IncidentItem,
   type IncidentDetail,
 } from "../services/incidentServices";
@@ -56,6 +60,7 @@ const RescueCoordinatorPage: React.FC = () => {
   const [showMapModal, setShowMapModal] = useState(false);
   const [showDispatchModal, setShowDispatchModal] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showAssessmentModal, setShowAssessmentModal] = useState(false);
 
   const [requests, setRequests] = useState<RescueRequest[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
@@ -65,6 +70,16 @@ const RescueCoordinatorPage: React.FC = () => {
     useState<IncidentDetail | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(
+    null,
+  );
+  const [verificationSuccess, setVerificationSuccess] = useState(false);
+
+  const [isAssessing, setIsAssessing] = useState(false);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const [assessmentSuccess, setAssessmentSuccess] = useState(false);
 
   const mapIncidentToRescueRequest = (
     incident: IncidentItem,
@@ -278,6 +293,86 @@ const RescueCoordinatorPage: React.FC = () => {
     [requests, searchQuery],
   );
 
+  const handleVerifyConfirm = async () => {
+    if (!selectedRequest) return;
+
+    try {
+      setIsVerifying(true);
+      setVerificationError(null);
+
+      const authSession = getAuthSession();
+      if (!authSession?.accessToken) {
+        throw new Error("Không có token xác thực");
+      }
+
+      await verifyIncident(
+        selectedRequest.id,
+        {
+          verified: true,
+          note: "Đã gọi xác minh qua điện thoại",
+        },
+        authSession.accessToken,
+      );
+
+      setVerificationSuccess(true);
+      // Update request status to verified
+      setRequests((prev) =>
+        prev.map((req) =>
+          req.id === selectedRequest.id
+            ? { ...req, status: "verified" as const }
+            : req,
+        ),
+      );
+
+      setTimeout(() => {
+        setShowVerificationModal(false);
+        setVerificationSuccess(false);
+        // Auto open assessment modal
+        setShowAssessmentModal(true);
+      }, 1500);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Lỗi không xác định";
+      setVerificationError(message);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleAssessmentConfirm = async (incidentId: string) => {
+    try {
+      setIsAssessing(true);
+      setAssessmentError(null);
+
+      const authSession = getAuthSession();
+      if (!authSession?.accessToken) {
+        throw new Error("Không có token xác thực");
+      }
+
+      // Update request status to dispatched after assessment
+      setRequests((prev) =>
+        prev.map((req) =>
+          req.id === incidentId
+            ? { ...req, status: "dispatched" as const }
+            : req,
+        ),
+      );
+
+      setAssessmentSuccess(true);
+
+      setTimeout(() => {
+        setShowAssessmentModal(false);
+        setAssessmentSuccess(false);
+      }, 1500);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Lỗi không xác định";
+      setAssessmentError(message);
+    } finally {
+      setIsAssessing(false);
+    }
+  };
+
   return (
     <>
       <main
@@ -336,6 +431,19 @@ const RescueCoordinatorPage: React.FC = () => {
             Tổng quan
           </button>
           <button
+            onClick={() => setActiveMenu("map")}
+            className={`pb-4 px-2 font-bold transition-colors ${
+              activeMenu === "map"
+                ? "text-blue-950 border-b-2 border-blue-950"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+            style={
+              activeMenu === "map" ? { color: "var(--color-blue-950)" } : {}
+            }
+          >
+            Bản đồ
+          </button>
+          <button
             onClick={() => setActiveMenu("tasks")}
             className={`pb-4 px-2 font-bold transition-colors ${
               activeMenu === "tasks"
@@ -379,13 +487,19 @@ const RescueCoordinatorPage: React.FC = () => {
         {/* Content Area */}
         <div
           className={`${
-            activeMenu === "current"
+            activeMenu === "map" || activeMenu === "current"
               ? "grid grid-cols-1 gap-6"
               : "grid grid-cols-3 gap-6"
           }`}
         >
           {/* Main Content */}
-          <div className="col-span-2 space-y-6">
+          <div
+            className={`${
+              activeMenu === "map" ? "col-span-1" : "col-span-2"
+            } space-y-6`}
+          >
+            {activeMenu === "map" && <MissionMapSection />}
+
             {activeMenu === "overview" && (
               <>
                 {/* Stats */}
@@ -562,7 +676,7 @@ const RescueCoordinatorPage: React.FC = () => {
           </div>
 
           {/* Right Panel - Current Task */}
-          {activeMenu !== "current" && (
+          {activeMenu !== "current" && activeMenu !== "map" && (
             <div className="bg-white rounded-lg shadow-sm p-6 h-fit sticky top-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
                 Chi tiết yêu cầu
@@ -715,6 +829,13 @@ const RescueCoordinatorPage: React.FC = () => {
                       Xác minh thông tin
                     </button>
                     <button
+                      onClick={() => setShowAssessmentModal(true)}
+                      className="flex-1 text-white font-bold py-2 rounded text-sm transition-colors hover:opacity-90"
+                      style={{ backgroundColor: "#f59e0b" }}
+                    >
+                      Đánh giá mức độ
+                    </button>
+                    <button
                       onClick={() => setShowDispatchModal(true)}
                       className="flex-1 text-white font-bold py-2 rounded text-sm transition-colors hover:opacity-90"
                       style={{ backgroundColor: "var(--color-blue-950)" }}
@@ -766,23 +887,24 @@ const RescueCoordinatorPage: React.FC = () => {
       {selectedRequest && (
         <VerificationModal
           isOpen={showVerificationModal}
-          onClose={() => setShowVerificationModal(false)}
+          onClose={() => {
+            setShowVerificationModal(false);
+            setVerificationError(null);
+          }}
           requestId={selectedRequest.id}
           requesterName={selectedRequest.requesterName}
           requesterPhone={selectedRequest.requesterPhone}
           requestTitle={selectedRequest.title}
           location={selectedRequest.location}
           description={selectedRequest.description}
-          onConfirm={() => {
-            console.log(
-              `Confirmed request ${selectedRequest.id} as legitimate`,
-            );
-            // TODO: Gọi API để cập nhật trạng thái xác minh
-          }}
+          onConfirm={handleVerifyConfirm}
           onReject={() => {
             console.log(`Rejected request ${selectedRequest.id} as fake`);
             // TODO: Gọi API để đánh dấu tin giả
           }}
+          isVerifying={isVerifying}
+          error={verificationError}
+          success={verificationSuccess}
         />
       )}
 
@@ -801,6 +923,22 @@ const RescueCoordinatorPage: React.FC = () => {
             );
             // TODO: Gọi API để lưu thông tin điều phối
           }}
+        />
+      )}
+
+      {/* Assessment Modal */}
+      {selectedRequest && (
+        <SeverityAssessmentModal
+          isOpen={showAssessmentModal}
+          onClose={() => {
+            setShowAssessmentModal(false);
+            setAssessmentError(null);
+          }}
+          incidentId={selectedRequest.id}
+          incidentCode={selectedRequest.title}
+          onAssessed={(result) => handleAssessmentConfirm(selectedRequest.id)}
+          accessToken={getAuthSession()?.accessToken || ""}
+          isLoading={isAssessing}
         />
       )}
     </>

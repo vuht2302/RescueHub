@@ -1,4 +1,4 @@
-import { ApiResponse } from "@/features/auth/types";
+import { ApiResponse } from "@/src/features/auth/types";
 
 export interface UnsyncedRequest {
   id: string;

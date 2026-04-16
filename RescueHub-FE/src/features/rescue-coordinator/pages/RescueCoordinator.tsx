@@ -14,6 +14,7 @@ import { useCoordinator } from "../../../shared/context/CoordinatorContext";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { DispatchModal } from "../components/DispatchModal";
 import { VerificationModal } from "../components/VerificationModal";
+import { CurrentMissionsSection } from "../components/CurrentMissionsSection";
 import {
   getIncidents,
   getIncidentDetail,
@@ -360,10 +361,29 @@ const RescueCoordinatorPage: React.FC = () => {
           >
             Tài sản
           </button>
+          <button
+            onClick={() => setActiveMenu("current")}
+            className={`pb-4 px-2 font-bold transition-colors ${
+              activeMenu === "current"
+                ? "text-blue-950 border-b-2 border-blue-950"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+            style={
+              activeMenu === "current" ? { color: "var(--color-blue-950)" } : {}
+            }
+          >
+            Nhiệm vụ hiện tại
+          </button>
         </div>
 
         {/* Content Area */}
-        <div className="grid grid-cols-3 gap-6">
+        <div
+          className={`${
+            activeMenu === "current"
+              ? "grid grid-cols-1 gap-6"
+              : "grid grid-cols-3 gap-6"
+          }`}
+        >
           {/* Main Content */}
           <div className="col-span-2 space-y-6">
             {activeMenu === "overview" && (
@@ -537,174 +557,179 @@ const RescueCoordinatorPage: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {activeMenu === "current" && <CurrentMissionsSection />}
           </div>
 
           {/* Right Panel - Current Task */}
-          <div className="bg-white rounded-lg shadow-sm p-6 h-fit sticky top-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              Chi tiết yêu cầu
-            </h3>
+          {activeMenu !== "current" && (
+            <div className="bg-white rounded-lg shadow-sm p-6 h-fit sticky top-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                Chi tiết yêu cầu
+              </h3>
 
-            {selectedRequest ? (
-              <div className="space-y-4">
-                {isLoadingDetail && (
-                  <p className="text-sm text-gray-600">
-                    Đang tải chi tiết sự cố...
-                  </p>
-                )}
+              {selectedRequest ? (
+                <div className="space-y-4">
+                  {isLoadingDetail && (
+                    <p className="text-sm text-gray-600">
+                      Đang tải chi tiết sự cố...
+                    </p>
+                  )}
 
-                {detailError && (
-                  <div className="border border-red-200 bg-red-50 rounded-lg p-3">
-                    <p className="text-sm text-red-700">{detailError}</p>
-                  </div>
-                )}
-
-                {!isLoadingDetail && selectedIncidentDetail ? (
-                  <>
-                    <div>
-                      <span className="text-xs text-gray-600 font-semibold">
-                        Mã
-                      </span>
-                      <p className="text-lg font-bold text-gray-900">
-                        {selectedIncidentDetail.incidentCode}
-                      </p>
+                  {detailError && (
+                    <div className="border border-red-200 bg-red-50 rounded-lg p-3">
+                      <p className="text-sm text-red-700">{detailError}</p>
                     </div>
+                  )}
 
-                    <div className="bg-red-50 border border-red-200 rounded p-3">
-                      <p className="text-sm font-bold text-red-900">
-                        Sự cố {selectedIncidentDetail.incidentCode}
-                      </p>
-                      <span className="text-xs text-red-700 font-semibold">
-                        {selectedIncidentDetail.priority?.name || "KHẨN CẤP"}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 text-sm">
+                  {!isLoadingDetail && selectedIncidentDetail ? (
+                    <>
                       <div>
-                        <span className="text-xs text-gray-600 block">
-                          📍 Vị trí
+                        <span className="text-xs text-gray-600 font-semibold">
+                          Mã
                         </span>
-                        <p className="text-gray-900">
-                          {selectedIncidentDetail.location?.addressText ||
-                            "Chưa có thông tin vị trí"}
+                        <p className="text-lg font-bold text-gray-900">
+                          {selectedIncidentDetail.incidentCode}
                         </p>
                       </div>
-                      <div>
-                        <span className="text-xs text-gray-600 block">
-                          👤 Người gửi tín hiệu
-                        </span>
-                        <p className="text-gray-900">
-                          {selectedIncidentDetail.reporter?.name ||
-                            "Chưa cập nhật"}{" "}
-                          -{" "}
-                          {selectedIncidentDetail.reporter?.phone ||
-                            "Chưa cập nhật"}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-xs text-gray-600 block">
-                          ⏰ Thời gian tạo yêu cầu
-                        </span>
-                        <p className="text-gray-900">
-                          {new Date(
-                            selectedIncidentDetail.reportedAt,
-                          ).toLocaleTimeString("vi-VN", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="border border-blue-100 bg-blue-50 rounded-lg p-3">
-                      <h4
-                        className="text-sm font-bold mb-2 text-blue-950"
-                        style={{ color: "var(--color-blue-950)" }}
-                      >
-                        Thông tin tín hiệu nhận được
-                      </h4>
-                      <div className="space-y-1 text-sm">
-                        <p className="text-gray-700">
-                          Kênh tiếp nhận:{" "}
-                          <span className="font-semibold text-gray-900">
-                            {selectedIncidentDetail.channel?.name ||
-                              "Chưa cập nhật"}
+                      <div className="bg-red-50 border border-red-200 rounded p-3">
+                        <p className="text-sm font-bold text-red-900">
+                          Sự cố {selectedIncidentDetail.incidentCode}
+                        </p>
+                        <span className="text-xs text-red-700 font-semibold">
+                          {selectedIncidentDetail.priority?.name || "KHẨN CẤP"}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-xs text-gray-600 block">
+                            📍 Vị trí
                           </span>
-                        </p>
-                        <p className="text-gray-700">
-                          Thời điểm nhận tín hiệu:{" "}
-                          <span className="font-semibold text-gray-900">
+                          <p className="text-gray-900">
+                            {selectedIncidentDetail.location?.addressText ||
+                              "Chưa có thông tin vị trí"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-gray-600 block">
+                            👤 Người gửi tín hiệu
+                          </span>
+                          <p className="text-gray-900">
+                            {selectedIncidentDetail.reporter?.name ||
+                              "Chưa cập nhật"}{" "}
+                            -{" "}
+                            {selectedIncidentDetail.reporter?.phone ||
+                              "Chưa cập nhật"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-gray-600 block">
+                            ⏰ Thời gian tạo yêu cầu
+                          </span>
+                          <p className="text-gray-900">
                             {new Date(
                               selectedIncidentDetail.reportedAt,
                             ).toLocaleTimeString("vi-VN", {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
-                          </span>
-                        </p>
-                        <p className="text-gray-700">
-                          Số người cần hỗ trợ:{" "}
-                          <span className="font-semibold text-gray-900">
-                            {selectedIncidentDetail.victimCountEstimate ?? 0}
-                          </span>
-                        </p>
-                        <p className="text-gray-700">
-                          Trạng thái xác minh:{" "}
-                          <span
-                            className={`inline-block mt-1 font-semibold px-3 py-1 rounded text-xs ${getStatusColor(selectedRequest.status)}`}
-                          >
-                            {selectedIncidentDetail.status?.name ||
-                              getStatusBadge(selectedRequest.status)}
-                          </span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="border border-blue-100 bg-blue-50 rounded-lg p-3">
+                        <h4
+                          className="text-sm font-bold mb-2 text-blue-950"
+                          style={{ color: "var(--color-blue-950)" }}
+                        >
+                          Thông tin tín hiệu nhận được
+                        </h4>
+                        <div className="space-y-1 text-sm">
+                          <p className="text-gray-700">
+                            Kênh tiếp nhận:{" "}
+                            <span className="font-semibold text-gray-900">
+                              {selectedIncidentDetail.channel?.name ||
+                                "Chưa cập nhật"}
+                            </span>
+                          </p>
+                          <p className="text-gray-700">
+                            Thời điểm nhận tín hiệu:{" "}
+                            <span className="font-semibold text-gray-900">
+                              {new Date(
+                                selectedIncidentDetail.reportedAt,
+                              ).toLocaleTimeString("vi-VN", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </p>
+                          <p className="text-gray-700">
+                            Số người cần hỗ trợ:{" "}
+                            <span className="font-semibold text-gray-900">
+                              {selectedIncidentDetail.victimCountEstimate ?? 0}
+                            </span>
+                          </p>
+                          <p className="text-gray-700">
+                            Trạng thái xác minh:{" "}
+                            <span
+                              className={`inline-block mt-1 font-semibold px-3 py-1 rounded text-xs ${getStatusColor(selectedRequest.status)}`}
+                            >
+                              {selectedIncidentDetail.status?.name ||
+                                getStatusBadge(selectedRequest.status)}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="border-t pt-4">
+                        <span className="text-xs text-gray-600 block mb-2">
+                          Mô tả chi tiết
+                        </span>
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          {selectedIncidentDetail.description ||
+                            "Chưa có mô tả"}
                         </p>
                       </div>
-                    </div>
 
-                    <div className="border-t pt-4">
-                      <span className="text-xs text-gray-600 block mb-2">
-                        Mô tả chi tiết
-                      </span>
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        {selectedIncidentDetail.description || "Chưa có mô tả"}
-                      </p>
-                    </div>
+                      <div className="border-t pt-4">
+                        <span className="text-xs text-gray-600 block mb-2">
+                          Ghi chú xác minh
+                        </span>
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          {selectedIncidentDetail.latestAssessment
+                            ? "Đã có thông tin đánh giá mới nhất."
+                            : "Đang chờ cập nhật ghi chú xác minh từ hệ thống."}
+                        </p>
+                      </div>
+                    </>
+                  ) : null}
 
-                    <div className="border-t pt-4">
-                      <span className="text-xs text-gray-600 block mb-2">
-                        Ghi chú xác minh
-                      </span>
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        {selectedIncidentDetail.latestAssessment
-                          ? "Đã có thông tin đánh giá mới nhất."
-                          : "Đang chờ cập nhật ghi chú xác minh từ hệ thống."}
-                      </p>
-                    </div>
-                  </>
-                ) : null}
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowVerificationModal(true)}
-                    className="flex-1 text-white font-bold py-2 rounded text-sm transition-colors hover:opacity-90"
-                    style={{ backgroundColor: "var(--color-blue-950)" }}
-                  >
-                    Xác minh thông tin
-                  </button>
-                  <button
-                    onClick={() => setShowDispatchModal(true)}
-                    className="flex-1 text-white font-bold py-2 rounded text-sm transition-colors hover:opacity-90"
-                    style={{ backgroundColor: "var(--color-blue-950)" }}
-                  >
-                    Điều phối ngay
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowVerificationModal(true)}
+                      className="flex-1 text-white font-bold py-2 rounded text-sm transition-colors hover:opacity-90"
+                      style={{ backgroundColor: "var(--color-blue-950)" }}
+                    >
+                      Xác minh thông tin
+                    </button>
+                    <button
+                      onClick={() => setShowDispatchModal(true)}
+                      className="flex-1 text-white font-bold py-2 rounded text-sm transition-colors hover:opacity-90"
+                      style={{ backgroundColor: "var(--color-blue-950)" }}
+                    >
+                      Điều phối ngay
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-8">
-                Chọn một yêu cầu để xem chi tiết
-              </p>
-            )}
-          </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">
+                  Chọn một yêu cầu để xem chi tiết
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </main>
 

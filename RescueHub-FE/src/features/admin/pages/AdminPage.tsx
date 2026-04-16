@@ -11,7 +11,7 @@ import SystemSettingsPage from "../components/SystemSettingsPage";
 
 
 export const AdminPage = () => {
-  const [activeMenu, setActiveMenu] = useState("dashboard");
+  const [activeMenu, setActiveMenu] = useState("reports");
 
   const renderContent = () => {
     switch (activeMenu) {
@@ -31,7 +31,7 @@ export const AdminPage = () => {
         return <SystemSettingsPage />;
       case "reports":
         return <ReportDashboard />;
-        default: return <Dashboard />;
+        default: return <ReportDashboard />;
     }
   };
 

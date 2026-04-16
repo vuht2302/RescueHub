@@ -7,6 +7,7 @@ import {
   SquareMenu,
   BarChart3,
   ChevronRight,
+  CarTaxiFront,
 } from "lucide-react";
 
 export const adminMenu = [
@@ -14,6 +15,7 @@ export const adminMenu = [
   { id: "users", label: "Tài khoản", icon: Users },
   { id: "roles", label: "Vai trò", icon: Shield },
   { id: "master-data", label: "Danh mục hệ thống", icon: Settings },
+  { id: "catalog", label: "Danh mục sản phẩm", icon: CarTaxiFront },
   { id: "workflow", label: "Workflow", icon: SquareMenu },
   { id: "reports", label: "Báo cáo", icon: BarChart3 },
 ];

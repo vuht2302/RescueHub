@@ -77,14 +77,14 @@ const teamMembers: TeamMember[] = [
     id: "tm-1",
     name: "Nguyễn Văn An",
     role: "Trưởng đội Alpha-2",
-    status: "On Mission",
+    status: "Unavailable",
     avatar: "NA",
   },
   {
     id: "tm-2",
     name: "Trần Minh Tuấn",
     role: "Thành viên Bravo-1",
-    status: "On Mission",
+    status: "Unavailable",
     avatar: "TT",
   },
   {
@@ -105,7 +105,7 @@ const teamMembers: TeamMember[] = [
     id: "tm-5",
     name: "Đỗ Quốc Huy",
     role: "Lái xe cứu hộ",
-    status: "Rest",
+    status: "Unavailable",
     avatar: "DQ",
   },
 ];
@@ -387,7 +387,9 @@ export const RescueTeamMission: React.FC = () => {
             />
           )}
 
-          {activeMenu === "team" && <TeamView teamMembers={teamMembers} />}
+          {activeMenu === "team" && (
+            <TeamView teamMembers={teamMembers} isLeader />
+          )}
 
           {activeMenu === "reports" && <ReportsView />}
         </div>

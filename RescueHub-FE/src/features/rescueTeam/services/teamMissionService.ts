@@ -133,3 +133,57 @@ export const getTeamMissionDetail = async (
     `/api/v1/team/missions/${missionId}`,
   );
 };
+
+export interface UpdateMissionStatusRequest {
+  actionCode: string;
+  notes: string;
+}
+
+export interface UpdateMissionStatusResponse {
+  missionId: string;
+  message: string;
+}
+
+const requestTeamApiWithBody = async <T>(
+  path: string,
+  method: "POST" | "PUT" | "PATCH",
+  body: Record<string, unknown>,
+): Promise<T> => {
+  const session = getAuthSession();
+  if (!session?.accessToken) {
+    throw new Error("Ban can dang nhap de cap nhat trang thai nhiem vu");
+  }
+
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${session.accessToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const result = (await response.json()) as ApiResponse<T>;
+
+  if (!response.ok || !result.success) {
+    const backendError = result.errors?.[0] ?? result.message;
+    throw new Error(backendError || "Cap nhat trang thai nhiem vu that bai");
+  }
+
+  return result.data;
+};
+
+export const updateMissionStatus = async (
+  missionId: string,
+  request: UpdateMissionStatusRequest,
+): Promise<UpdateMissionStatusResponse> => {
+  return requestTeamApiWithBody<UpdateMissionStatusResponse>(
+    `/api/v1/team/missions/${missionId}/status`,
+    "POST",
+    {
+      actionCode: request.actionCode,
+      notes: request.notes,
+    },
+  );
+};

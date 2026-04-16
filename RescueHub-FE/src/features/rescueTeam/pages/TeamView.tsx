@@ -4,39 +4,85 @@ import { TeamMember } from "../types/mission";
 
 interface TeamViewProps {
   teamMembers: TeamMember[];
+  isLeader?: boolean;
 }
 
-export const TeamView: React.FC<TeamViewProps> = ({ teamMembers }) => {
+export const TeamView: React.FC<TeamViewProps> = ({
+  teamMembers,
+  isLeader = false,
+}) => {
+  const [members, setMembers] = React.useState<TeamMember[]>(teamMembers);
+
+  React.useEffect(() => {
+    setMembers(teamMembers);
+  }, [teamMembers]);
+
+  const availableCount = members.filter((m) => m.status === "Available").length;
+  const unavailableCount = members.length - availableCount;
+  const allAvailable = members.length > 0 && unavailableCount === 0;
+
+  const handleUpdateAllStatuses = () => {
+    const nextStatus: TeamMember["status"] = allAvailable
+      ? "Unavailable"
+      : "Available";
+
+    setMembers((prev) =>
+      prev.map((member) => ({ ...member, status: nextStatus })),
+    );
+  };
+
   return (
     <div className="col-span-1 xl:col-span-2 rounded-2xl bg-white border border-[#c8ced6] p-6 overflow-auto">
-      <div className="mb-6">
-        <h2 className="text-2xl font-black text-blue-950 font-primary flex items-center gap-2">
-          <Users size={24} />
-          Trạng thái đội ngũ
-        </h2>
-        <p className="text-sm text-on-surface-variant mt-2">
-          Quản lý và theo dõi tình trạng của các thành viên trong đội
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-black text-blue-950 font-primary flex items-center gap-2">
+            <Users size={24} />
+            Trạng thái đội ngũ
+          </h2>
+          <p className="text-sm text-on-surface-variant mt-2">
+            Quản lý và theo dõi tình trạng của các thành viên trong đội
+          </p>
+        </div>
+
+        {isLeader && (
+          <button
+            type="button"
+            onClick={handleUpdateAllStatuses}
+            aria-pressed={allAvailable}
+            className={`group inline-flex items-center gap-2 rounded-full px-2 py-1.5 text-xs font-bold font-primary text-white whitespace-nowrap transition-colors ${
+              allAvailable
+                ? "bg-emerald-600 hover:bg-emerald-700"
+                : "bg-slate-600 hover:bg-slate-700"
+            }`}
+          >
+            <span className="px-1">{allAvailable ? "ON" : "OFF"}</span>
+            <span
+              className={`h-5 w-9 rounded-full p-0.5 transition-colors ${
+                allAvailable ? "bg-emerald-400/70" : "bg-white/30"
+              }`}
+            >
+              <span
+                className={`block h-4 w-4 rounded-full bg-white transition-transform ${
+                  allAvailable ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Team Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
           <p className="text-sm font-semibold text-emerald-900">Sẵn sàng</p>
           <p className="text-3xl font-black text-emerald-600 mt-1">
-            {teamMembers.filter((m) => m.status === "Available").length}
+            {availableCount}
           </p>
         </div>
-        <div className="rounded-xl bg-purple-50 border border-purple-200 p-4">
-          <p className="text-sm font-semibold text-purple-900">Đang nhiệm vụ</p>
-          <p className="text-3xl font-black text-purple-600 mt-1">
-            {teamMembers.filter((m) => m.status === "On Mission").length}
-          </p>
-        </div>
-        <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
-          <p className="text-sm font-semibold text-blue-900">Đang nghỉ ngơi</p>
-          <p className="text-3xl font-black text-blue-600 mt-1">
-            {teamMembers.filter((m) => m.status === "Rest").length}
+        <div className="rounded-xl bg-rose-50 border border-rose-200 p-4">
+          <p className="text-sm font-semibold text-rose-900">Không sẵn sàng</p>
+          <p className="text-3xl font-black text-rose-600 mt-1">
+            {unavailableCount}
           </p>
         </div>
       </div>
@@ -53,7 +99,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ teamMembers }) => {
             </tr>
           </thead>
           <tbody>
-            {teamMembers.map((member) => (
+            {members.map((member) => (
               <tr
                 key={member.id}
                 className="border-t border-[#c7ced7] hover:bg-[#f9fafb]"
@@ -76,16 +122,12 @@ export const TeamView: React.FC<TeamViewProps> = ({ teamMembers }) => {
                     className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
                       member.status === "Available"
                         ? "bg-emerald-100 text-emerald-700"
-                        : member.status === "On Mission"
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-blue-100 text-blue-700"
+                        : "bg-rose-100 text-rose-700"
                     }`}
                   >
                     {member.status === "Available"
                       ? "Sẵn sàng"
-                      : member.status === "On Mission"
-                        ? "Đang nhiệm vụ"
-                        : "Đang nghỉ"}
+                      : "Không sẵn sàng"}
                   </span>
                 </td>
                 <td className="px-4 py-3">

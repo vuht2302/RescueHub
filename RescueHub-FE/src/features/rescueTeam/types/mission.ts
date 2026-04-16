@@ -1,7 +1,7 @@
 export type MissionPriority = "Khẩn cấp" | "Cao" | "Trung bình";
 export type MissionStatus =
   | "Chờ nhận"
-  | "Đang di chuyển"
+  | "Đã tới hiện trường"
   | "Đang xử lý"
   | "Đã hoàn tất"
   | "Tạm dừng";
@@ -36,6 +36,6 @@ export type TeamMember = {
   id: string;
   name: string;
   role: string;
-  status: "Available" | "On Mission" | "Rest";
+  status: "Available" | "Unavailable";
   avatar: string;
 };

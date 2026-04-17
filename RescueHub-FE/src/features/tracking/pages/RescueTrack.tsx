@@ -179,14 +179,14 @@ export const RescueTrack: React.FC = () => {
           response.trackingToken,
         );
       }
-      setOtpMessage("Xac thuc OTP thanh cong. Ban co the tra cuu ma theo doi.");
+      setOtpMessage("Xác thực OTP thành công. Bạn có thể tra cứu mã theo dõi.");
     } catch (error) {
       setTrackingToken("");
       if (typeof window !== "undefined") {
         localStorage.removeItem(TRACKING_TOKEN_STORAGE_KEY);
       }
       setOtpMessage(
-        error instanceof Error ? error.message : "Xac thuc OTP that bai",
+        error instanceof Error ? error.message : "Xác thực OTP thất bại",
       );
     } finally {
       setIsVerifyingOtp(false);
@@ -261,7 +261,7 @@ export const RescueTrack: React.FC = () => {
     <div className="max-w-6xl mx-auto space-y-8">
       <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-5 md:p-6 space-y-3">
         <h2 className="text-lg font-bold text-on-surface">
-          Xac thuc OTP theo doi
+          Xác thực OTP theo dõi
         </h2>
 
         <form
@@ -271,7 +271,7 @@ export const RescueTrack: React.FC = () => {
           <input
             value={trackingPhone}
             onChange={(event) => setTrackingPhone(event.target.value)}
-            placeholder="Nhap so dien thoai de nhan OTP"
+            placeholder="Nhập số điện thoại để nhận OTP"
             className="w-full bg-surface-container-low rounded-xl px-4 py-3 outline-none text-on-surface"
           />
           <button
@@ -279,7 +279,7 @@ export const RescueTrack: React.FC = () => {
             disabled={isRequestingOtp}
             className="h-12 px-5 rounded-xl bg-primary text-on-primary font-bold disabled:opacity-60"
           >
-            {isRequestingOtp ? "Dang gui OTP..." : "Gui OTP"}
+            {isRequestingOtp ? "Đang gửi OTP..." : "Gửi OTP"}
           </button>
         </form>
 
@@ -304,21 +304,21 @@ export const RescueTrack: React.FC = () => {
 
         {otpExpiresAt ? (
           <p className="text-xs text-on-surface-variant">
-            OTP het han luc: {new Date(otpExpiresAt).toLocaleString("vi-VN")}
+            OTP hết hạn lúc: {new Date(otpExpiresAt).toLocaleString("vi-VN")}
           </p>
         ) : null}
 
         {trackingToken ? (
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-green-700">
-              Da co tracking token hop le.
+              Đã có tracking token hợp lệ.
             </p>
             <button
               type="button"
               onClick={handleClearTrackingAuth}
               className="text-xs font-semibold text-on-surface-variant hover:underline"
             >
-              Xoa xac thuc
+              Xóa xác thực
             </button>
           </div>
         ) : null}
@@ -338,7 +338,7 @@ export const RescueTrack: React.FC = () => {
             <input
               value={trackingCode}
               onChange={(event) => setTrackingCode(event.target.value)}
-              placeholder="Nhap ma theo doi, vi du SC-20260416-001"
+              placeholder="Nhập mã theo dõi, vi du SC-20260416-001"
               className="w-full bg-transparent outline-none text-on-surface"
             />
           </label>
@@ -350,7 +350,7 @@ export const RescueTrack: React.FC = () => {
             {isLoading ? (
               <LoaderCircle size={18} className="animate-spin" />
             ) : null}
-            Tra cuu
+            Tra cứu
           </button>
         </form>
         {errorMessage ? (
@@ -361,10 +361,10 @@ export const RescueTrack: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <span className="text-primary font-bold text-sm tracking-widest uppercase">
-            Ma theo doi: {trackingData?.incidentCode ?? "Chua co"}
+            Mã theo dõi: {trackingData?.incidentCode ?? "Chưa có"}
           </span>
           <h1 className="text-4xl md:text-5xl font-headline font-bold text-on-surface mt-2 tracking-tight">
-            {trackingData ? "Tien trinh cuu ho" : "Theo doi cuu ho"}
+            {trackingData ? "Tiến trình cứu hộ" : "Theo dõi cứu hộ"}
           </h1>
           {trackingData?.latestUpdate ? (
             <p className="text-on-surface-variant mt-2">
@@ -387,7 +387,7 @@ export const RescueTrack: React.FC = () => {
             ></div>
           </div>
           <span className="text-sm font-semibold">
-            {trackingData?.status?.name ?? "Cho nhap ma theo doi"}
+            {trackingData?.status?.name ?? "Cho nhập mã theo dõi"}
           </span>
         </div>
       </div>
@@ -417,7 +417,7 @@ export const RescueTrack: React.FC = () => {
           </div>
         ) : (
           <p className="text-on-surface-variant">
-            Nhap ma theo doi de xem tien trinh cuu ho.
+            Nhập mã theo dõi để xem tiến trình cứu hộ
           </p>
         )}
       </section>
@@ -425,36 +425,36 @@ export const RescueTrack: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         <div className="bg-surface-container-lowest rounded-3xl p-8 shadow-sm border border-outline-variant/10 space-y-4">
           <h3 className="text-2xl font-headline font-extrabold text-on-surface">
-            Trang thai hien tai
+            Trạng thái hiện tại
           </h3>
           {trackingData ? (
             <>
               <div className="rounded-xl bg-surface-container-low p-4">
-                <p className="text-xs text-on-surface-variant">Ma su co</p>
+                <p className="text-xs text-on-surface-variant">Mã sự cố</p>
                 <p className="font-bold text-on-surface mt-1">
                   {trackingData.incidentCode}
                 </p>
               </div>
               <div className="rounded-xl bg-surface-container-low p-4">
-                <p className="text-xs text-on-surface-variant">Trang thai</p>
+                <p className="text-xs text-on-surface-variant">Trạng thái</p>
                 <p className="font-bold text-on-surface mt-1">
                   {trackingData.status.name}
                 </p>
               </div>
               <div className="rounded-xl bg-surface-container-low p-4">
                 <p className="text-xs text-on-surface-variant">
-                  Cuu tro lien quan
+                  Cứu trợ liên quan
                 </p>
                 <p className="font-bold text-on-surface mt-1">
                   {trackingData.relatedRelief.needed
-                    ? "Co yeu cau cuu tro"
-                    : "Chua can cuu tro"}
+                    ? "Có yêu cầu cứu trợ"
+                    : "Chưa cần cứu trợ"}
                 </p>
               </div>
             </>
           ) : (
             <p className="text-on-surface-variant">
-              Chua co du lieu, vui long nhap ma theo doi.
+              Chưa có dữ liệu, vui lòng nhập mã theo dõi.
             </p>
           )}
         </div>
@@ -473,9 +473,9 @@ export const RescueTrack: React.FC = () => {
               <ShieldCheck size={30} />
             )}
             <div className="text-center">
-              <span className="block text-lg">Toi da an toan</span>
+              <span className="block text-lg">Tôi đã an toàn</span>
               <span className="text-xs opacity-80 font-medium">
-                Gui xac nhan da duoc cuu
+                Gửi xác nhận đã được cứu
               </span>
             </div>
           </motion.button>
@@ -483,11 +483,10 @@ export const RescueTrack: React.FC = () => {
           <div className="p-6 bg-error-container text-error rounded-3xl border border-error/20">
             <div className="inline-flex items-center gap-2 font-bold">
               <AlertTriangle size={18} />
-              <span>Cap nhat SOS</span>
+              <span>Cập nhật SOS</span>
             </div>
             <p className="text-sm mt-2 opacity-80">
-              Neu tinh huong xau hon, ban co the quay lai trang chu de gui SOS
-              moi.
+              Nếu tình huống xấu hơn, bạn có thể quay lại trang chủ để gửi SOS
             </p>
           </div>
         </aside>

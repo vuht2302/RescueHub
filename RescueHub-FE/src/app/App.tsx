@@ -11,7 +11,6 @@ import { ManagerProvider } from "../shared/context/ManagerContext";
 import { CoordinatorProvider } from "../shared/context/CoordinatorContext";
 import { RescueTeamProvider } from "../shared/context/RescueTeamContext";
 import { HomeView } from "../features/home/pages/HomeView";
-import { AlertCenter } from "../features/alerts/pages/AlertCenter";
 import { RescueTrack } from "../features/tracking/pages/RescueTrack";
 import { SupportConfirmed } from "../features/request/pages/SupportConfirmed";
 import { RescueTeamMission } from "../features/rescueTeam/pages/RescueTeamMission";
@@ -153,7 +152,6 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
             <Route path="/home" element={<HomeView />} />
-            <Route path="/alerts" element={<AlertCenter />} />
             <Route path="/track" element={<RescueTrack />} />
             <Route path="/rescue-team" element={<RescueTeamMission />} />
             <Route path="/confirmed" element={<SupportConfirmed />} />

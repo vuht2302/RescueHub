@@ -13,6 +13,8 @@ public static class IncidentsModuleServiceCollectionExtensions
         services.AddScoped<IIncidentService, IncidentService>();
         services.AddScoped<ITeamManagementRepository, DbTeamManagementRepository>();
         services.AddScoped<ITeamManagementService, TeamManagementService>();
+        services.AddScoped<IWarehouseManagementRepository, DbWarehouseManagementRepository>();
+        services.AddScoped<IWarehouseManagementService, WarehouseManagementService>();
         services.AddHostedService<IncidentProjectionWorker>();
         return services;
     }

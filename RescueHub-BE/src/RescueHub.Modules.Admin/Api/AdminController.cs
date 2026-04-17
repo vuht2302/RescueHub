@@ -126,6 +126,67 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    [HttpGet("admin-areas")]
+    public async Task<ActionResult<ApiResponse<object>>> ListAdminAreas(
+        [FromQuery] string? keyword,
+        [FromQuery] string? levelCode,
+        [FromQuery] Guid? parentId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+        => OkResponse<object>(await service.ListAdminAreas(keyword, levelCode, parentId, page, pageSize), "Lay danh sach dia ban hanh chinh thanh cong");
+
+    [HttpGet("admin-areas/{adminAreaId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> GetAdminArea([FromRoute] Guid adminAreaId)
+    {
+        try
+        {
+            return OkResponse<object>(await service.GetAdminArea(adminAreaId), "Lay chi tiet dia ban hanh chinh thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    [HttpPost("admin-areas")]
+    public async Task<ActionResult<ApiResponse<object>>> CreateAdminArea([FromBody] CreateAdminAreaRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.CreateAdminArea(request), "Tao dia ban hanh chinh thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    [HttpPut("admin-areas/{adminAreaId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> UpdateAdminArea([FromRoute] Guid adminAreaId, [FromBody] UpdateAdminAreaRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.UpdateAdminArea(adminAreaId, request), "Cap nhat dia ban hanh chinh thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    [HttpDelete("admin-areas/{adminAreaId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteAdminArea([FromRoute] Guid adminAreaId)
+    {
+        try
+        {
+            return OkResponse<object>(await service.DeleteAdminArea(adminAreaId), "Xoa dia ban hanh chinh thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
     [HttpGet("catalogs")]
     public async Task<ActionResult<ApiResponse<object>>> GetAllCatalogs([FromQuery] string? keyword)
         => OkResponse<object>(await service.GetAllCatalogs(keyword), "Lay toan bo danh muc thanh cong");

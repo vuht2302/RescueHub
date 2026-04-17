@@ -23,6 +23,18 @@ public sealed record CreateRoleRequest(string Code, string Name, string? Descrip
 
 public sealed record UpdateRoleRequest(string Code, string Name, string? Description);
 
+public sealed record CreateAdminAreaRequest(
+    string Code,
+    string Name,
+    string LevelCode,
+    Guid? ParentId);
+
+public sealed record UpdateAdminAreaRequest(
+    string Code,
+    string Name,
+    string LevelCode,
+    Guid? ParentId);
+
 public sealed record UpsertCatalogItemRequest(string Code, string Name, string? Description);
 
 public sealed record UpdateSystemSettingsRequest(

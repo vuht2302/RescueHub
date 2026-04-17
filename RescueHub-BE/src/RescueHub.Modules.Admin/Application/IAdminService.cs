@@ -22,6 +22,16 @@ public interface IAdminService
 
     Task<object> DeleteRole(Guid roleId);
 
+    Task<object> ListAdminAreas(string? keyword, string? levelCode, Guid? parentId, int page, int pageSize);
+
+    Task<object> GetAdminArea(Guid adminAreaId);
+
+    Task<object> CreateAdminArea(CreateAdminAreaRequest request);
+
+    Task<object> UpdateAdminArea(Guid adminAreaId, UpdateAdminAreaRequest request);
+
+    Task<object> DeleteAdminArea(Guid adminAreaId);
+
     Task<object> GetAllCatalogs(string? keyword);
 
     Task<object> ListCatalogItems(string catalogType, string? keyword);

@@ -390,6 +390,251 @@ public sealed class DbAdminRepository(
         return new { roleId };
     }
 
+    public async Task<object> ListAdminAreas(string? keyword, string? levelCode, Guid? parentId, int page, int pageSize)
+    {
+        var normalizedPage = page <= 0 ? 1 : page;
+        var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 200);
+        var normalizedLevelCode = NormalizeAdminAreaLevelCode(levelCode, required: false);
+
+        var query = dbContext.admin_areas
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var normalizedKeyword = keyword.Trim();
+            query = query.Where(x => x.code.Contains(normalizedKeyword) || x.name.Contains(normalizedKeyword));
+        }
+
+        if (normalizedLevelCode is not null)
+        {
+            query = query.Where(x => x.level_code == normalizedLevelCode);
+        }
+
+        if (parentId.HasValue)
+        {
+            query = query.Where(x => x.parent_id == parentId.Value);
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderBy(x => x.level_code)
+            .ThenBy(x => x.code)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                levelCode = x.level_code,
+                parentId = x.parent_id,
+                createdAt = x.created_at
+            })
+            .ToListAsync();
+
+        var parentIds = items
+            .Where(x => x.parentId.HasValue)
+            .Select(x => x.parentId!.Value)
+            .Distinct()
+            .ToArray();
+
+        var parentLookup = await dbContext.admin_areas
+            .AsNoTracking()
+            .Where(x => parentIds.Contains(x.id))
+            .ToDictionaryAsync(
+                x => x.id,
+                x => new { x.code, x.name, levelCode = x.level_code });
+
+        var mappedItems = items.Select(x => new
+        {
+            id = x.id,
+            code = x.code,
+            name = x.name,
+            levelCode = x.levelCode,
+            parent = x.parentId.HasValue && parentLookup.TryGetValue(x.parentId.Value, out var parent)
+                ? new { id = x.parentId, code = parent.code, name = parent.name, levelCode = parent.levelCode }
+                : null,
+            createdAt = x.createdAt
+        }).ToArray();
+
+        var totalPages = totalItems == 0
+            ? 0
+            : (int)Math.Ceiling(totalItems / (double)normalizedPageSize);
+
+        return new
+        {
+            items = mappedItems,
+            page = normalizedPage,
+            pageSize = normalizedPageSize,
+            totalItems,
+            totalPages
+        };
+    }
+
+    public async Task<object> GetAdminArea(Guid adminAreaId)
+    {
+        var entity = await dbContext.admin_areas
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.id == adminAreaId)
+            ?? throw new InvalidOperationException("Khong tim thay admin area.");
+
+        var childCount = await dbContext.admin_areas.CountAsync(x => x.parent_id == adminAreaId);
+        var warehouseCount = await dbContext.warehouses.CountAsync(x => x.admin_area_id == adminAreaId);
+        var householdCount = await dbContext.households.CountAsync(x => x.admin_area_id == adminAreaId);
+
+        object? parent = null;
+        if (entity.parent_id.HasValue)
+        {
+            var parentEntity = await dbContext.admin_areas
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.id == entity.parent_id.Value);
+
+            if (parentEntity is not null)
+            {
+                parent = new
+                {
+                    id = parentEntity.id,
+                    code = parentEntity.code,
+                    name = parentEntity.name,
+                    levelCode = parentEntity.level_code
+                };
+            }
+        }
+
+        return new
+        {
+            id = entity.id,
+            code = entity.code,
+            name = entity.name,
+            levelCode = entity.level_code,
+            parent,
+            createdAt = entity.created_at,
+            stats = new
+            {
+                childCount,
+                warehouseCount,
+                householdCount
+            }
+        };
+    }
+
+    public async Task<object> CreateAdminArea(CreateAdminAreaRequest request)
+    {
+        ValidateAdminAreaRequest(request.Code, request.Name, request.LevelCode);
+
+        var normalizedCode = request.Code.Trim().ToUpperInvariant();
+        var normalizedName = request.Name.Trim();
+        var normalizedLevelCode = NormalizeAdminAreaLevelCode(request.LevelCode, required: true)!;
+
+        await EnsureAdminAreaParentIsValid(normalizedLevelCode, request.ParentId, null);
+
+        var duplicateCode = await dbContext.admin_areas.AnyAsync(x => x.code == normalizedCode);
+        if (duplicateCode)
+        {
+            throw new InvalidOperationException("Admin area code da ton tai.");
+        }
+
+        var duplicateNameInScope = await dbContext.admin_areas
+            .AnyAsync(x => x.parent_id == request.ParentId && x.level_code == normalizedLevelCode && x.name == normalizedName);
+        if (duplicateNameInScope)
+        {
+            throw new InvalidOperationException("Ten admin area da ton tai trong cung cap cha.");
+        }
+
+        var entity = new admin_area
+        {
+            id = Guid.NewGuid(),
+            code = normalizedCode,
+            name = normalizedName,
+            level_code = normalizedLevelCode,
+            parent_id = request.ParentId,
+            created_at = DateTime.UtcNow
+        };
+
+        dbContext.admin_areas.Add(entity);
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            adminAreaId = entity.id
+        };
+    }
+
+    public async Task<object> UpdateAdminArea(Guid adminAreaId, UpdateAdminAreaRequest request)
+    {
+        ValidateAdminAreaRequest(request.Code, request.Name, request.LevelCode);
+
+        var entity = await dbContext.admin_areas.FirstOrDefaultAsync(x => x.id == adminAreaId)
+            ?? throw new InvalidOperationException("Khong tim thay admin area.");
+
+        var normalizedCode = request.Code.Trim().ToUpperInvariant();
+        var normalizedName = request.Name.Trim();
+        var normalizedLevelCode = NormalizeAdminAreaLevelCode(request.LevelCode, required: true)!;
+
+        await EnsureAdminAreaParentIsValid(normalizedLevelCode, request.ParentId, adminAreaId);
+
+        var duplicateCode = await dbContext.admin_areas
+            .AnyAsync(x => x.id != adminAreaId && x.code == normalizedCode);
+        if (duplicateCode)
+        {
+            throw new InvalidOperationException("Admin area code da ton tai.");
+        }
+
+        var duplicateNameInScope = await dbContext.admin_areas
+            .AnyAsync(x => x.id != adminAreaId && x.parent_id == request.ParentId && x.level_code == normalizedLevelCode && x.name == normalizedName);
+        if (duplicateNameInScope)
+        {
+            throw new InvalidOperationException("Ten admin area da ton tai trong cung cap cha.");
+        }
+
+        entity.code = normalizedCode;
+        entity.name = normalizedName;
+        entity.level_code = normalizedLevelCode;
+        entity.parent_id = request.ParentId;
+
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            adminAreaId = entity.id
+        };
+    }
+
+    public async Task<object> DeleteAdminArea(Guid adminAreaId)
+    {
+        var entity = await dbContext.admin_areas.FirstOrDefaultAsync(x => x.id == adminAreaId)
+            ?? throw new InvalidOperationException("Khong tim thay admin area.");
+
+        var hasChildren = await dbContext.admin_areas.AnyAsync(x => x.parent_id == adminAreaId);
+        if (hasChildren)
+        {
+            throw new InvalidOperationException("Admin area dang co dia ban con, khong the xoa.");
+        }
+
+        var inUse = await dbContext.warehouses.AnyAsync(x => x.admin_area_id == adminAreaId)
+            || await dbContext.teams.AnyAsync(x => x.home_admin_area_id == adminAreaId)
+            || await dbContext.relief_points.AnyAsync(x => x.admin_area_id == adminAreaId)
+            || await dbContext.relief_campaigns.AnyAsync(x => x.admin_area_id == adminAreaId)
+            || await dbContext.relief_requests.AnyAsync(x => x.admin_area_id == adminAreaId)
+            || await dbContext.households.AnyAsync(x => x.admin_area_id == adminAreaId)
+            || await dbContext.incident_locations.AnyAsync(x => x.admin_area_id == adminAreaId)
+            || await dbContext.flood_risk_zones.AnyAsync(x => x.admin_area_id == adminAreaId);
+
+        if (inUse)
+        {
+            throw new InvalidOperationException("Admin area dang duoc su dung, khong the xoa.");
+        }
+
+        dbContext.admin_areas.Remove(entity);
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            adminAreaId
+        };
+    }
+
     public async Task<object> GetAllCatalogs(string? keyword)
     {
         var normalized = string.IsNullOrWhiteSpace(keyword) ? null : keyword.Trim();
@@ -1280,6 +1525,76 @@ public sealed class DbAdminRepository(
         if (string.IsNullOrWhiteSpace(name))
         {
             throw new InvalidOperationException("Role name khong duoc rong.");
+        }
+    }
+
+    private static void ValidateAdminAreaRequest(string code, string name, string levelCode)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            throw new InvalidOperationException("Admin area code khong duoc rong.");
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new InvalidOperationException("Admin area name khong duoc rong.");
+        }
+
+        _ = NormalizeAdminAreaLevelCode(levelCode, required: true);
+    }
+
+    private static string? NormalizeAdminAreaLevelCode(string? levelCode, bool required)
+    {
+        if (string.IsNullOrWhiteSpace(levelCode))
+        {
+            if (required)
+            {
+                throw new InvalidOperationException("LevelCode khong hop le. Chi ho tro PROVINCE, DISTRICT, WARD.");
+            }
+
+            return null;
+        }
+
+        var normalized = levelCode.Trim().ToUpperInvariant();
+        if (normalized is not ("PROVINCE" or "DISTRICT" or "WARD"))
+        {
+            throw new InvalidOperationException("LevelCode khong hop le. Chi ho tro PROVINCE, DISTRICT, WARD.");
+        }
+
+        return normalized;
+    }
+
+    private async Task EnsureAdminAreaParentIsValid(string levelCode, Guid? parentId, Guid? currentAdminAreaId)
+    {
+        if (levelCode == "PROVINCE")
+        {
+            if (parentId.HasValue)
+            {
+                throw new InvalidOperationException("Cap PROVINCE khong duoc co parent.");
+            }
+
+            return;
+        }
+
+        if (!parentId.HasValue)
+        {
+            throw new InvalidOperationException($"Cap {levelCode} bat buoc co parent.");
+        }
+
+        if (currentAdminAreaId.HasValue && parentId.Value == currentAdminAreaId.Value)
+        {
+            throw new InvalidOperationException("Parent khong hop le.");
+        }
+
+        var parent = await dbContext.admin_areas
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.id == parentId.Value)
+            ?? throw new InvalidOperationException("Khong tim thay parent admin area.");
+
+        var expectedParentLevel = levelCode == "DISTRICT" ? "PROVINCE" : "DISTRICT";
+        if (parent.level_code != expectedParentLevel)
+        {
+            throw new InvalidOperationException($"Parent khong hop le. {levelCode} phai thuoc {expectedParentLevel}.");
         }
     }
 

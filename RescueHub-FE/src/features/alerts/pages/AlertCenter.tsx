@@ -144,7 +144,7 @@ export const AlertCenter: React.FC = () => {
           Trung tâm cảnh báo
         </h1>
         <p className="text-on-surface-variant font-medium text-lg">
-          Cap nhat dieu phoi cuu ho va he thong theo thoi gian thuc.
+          Cập nhật điều phối cứu hộ và hệ thống theo thời gian thực.
         </p>
       </header>
 

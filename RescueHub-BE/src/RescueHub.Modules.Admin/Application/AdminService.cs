@@ -34,6 +34,21 @@ public sealed class AdminService(IAdminRepository repository) : IAdminService
     public async Task<object> DeleteRole(Guid roleId)
         => await repository.DeleteRole(roleId);
 
+    public Task<object> ListAdminAreas(string? keyword, string? levelCode, Guid? parentId, int page, int pageSize)
+        => repository.ListAdminAreas(keyword, levelCode, parentId, page, pageSize);
+
+    public Task<object> GetAdminArea(Guid adminAreaId)
+        => repository.GetAdminArea(adminAreaId);
+
+    public Task<object> CreateAdminArea(CreateAdminAreaRequest request)
+        => repository.CreateAdminArea(request);
+
+    public Task<object> UpdateAdminArea(Guid adminAreaId, UpdateAdminAreaRequest request)
+        => repository.UpdateAdminArea(adminAreaId, request);
+
+    public Task<object> DeleteAdminArea(Guid adminAreaId)
+        => repository.DeleteAdminArea(adminAreaId);
+
     public Task<object> GetAllCatalogs(string? keyword)
         => repository.GetAllCatalogs(keyword);
 

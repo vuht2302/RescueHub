@@ -4,12 +4,18 @@ import {
   createPublicIncident,
   getPublicRescueForm,
   type BootstrapIncidentType,
-  uploadIncidentMedia,
 } from "../../../shared/services/publicApi";
+import { uploadIncidentMedia } from "../../tracking/services/upload.services";
 
 type Coordinate = {
   lat: number;
   lng: number;
+};
+
+type AddressSuggestion = {
+  id: string;
+  label: string;
+  value: string;
 };
 
 interface RescueRequestModalProps {
@@ -28,6 +34,7 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
   onSubmitted,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const addressSearchDebounceRef = useRef<number | null>(null);
 
   const [incidentTypes, setIncidentTypes] = useState<BootstrapIncidentType[]>(
     [],
@@ -44,6 +51,11 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [addressSuggestions, setAddressSuggestions] = useState<
+    AddressSuggestion[]
+  >([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const [isAddressDropdownOpen, setIsAddressDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -105,6 +117,102 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
     reporterName.trim().length > 0 &&
     reporterPhone.trim().length > 0 &&
     description.trim().length > 0;
+
+  const currentLocationAddress = useMemo(() => {
+    if (defaultAddress && defaultAddress.trim().length > 0) {
+      return defaultAddress.trim();
+    }
+
+    return `${defaultLocation.lat.toFixed(5)}, ${defaultLocation.lng.toFixed(5)}`;
+  }, [defaultAddress, defaultLocation.lat, defaultLocation.lng]);
+
+  const currentLocationOption = useMemo<AddressSuggestion>(
+    () => ({
+      id: "current-location",
+      label: `Vị trí hiện tại của bạn`,
+      value: currentLocationAddress,
+    }),
+    [currentLocationAddress, defaultLocation.lat, defaultLocation.lng],
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const query = addressText.trim();
+
+    if (addressSearchDebounceRef.current) {
+      window.clearTimeout(addressSearchDebounceRef.current);
+      addressSearchDebounceRef.current = null;
+    }
+
+    if (query.length < 3) {
+      setAddressSuggestions([]);
+      setIsSearchingAddress(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsSearchingAddress(true);
+
+    addressSearchDebounceRef.current = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=vn&q=${encodeURIComponent(query)}`,
+          {
+            signal: controller.signal,
+            headers: {
+              "Accept-Language": "vi",
+            },
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error("Search address failed");
+        }
+
+        const data = (await response.json()) as Array<{
+          place_id: number;
+          display_name: string;
+        }>;
+
+        const nextSuggestions = data
+          .filter((item) => item.display_name)
+          .map((item) => ({
+            id: String(item.place_id),
+            label: item.display_name,
+            value: item.display_name,
+          }));
+
+        setAddressSuggestions(nextSuggestions);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        setAddressSuggestions([]);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 350);
+
+    return () => {
+      controller.abort();
+      if (addressSearchDebounceRef.current) {
+        window.clearTimeout(addressSearchDebounceRef.current);
+        addressSearchDebounceRef.current = null;
+      }
+    };
+  }, [addressText, isOpen]);
+
+  const mergedAddressSuggestions = useMemo(
+    () => [
+      currentLocationOption,
+      ...addressSuggestions.filter(
+        (item) => item.value !== currentLocationOption.value,
+      ),
+    ],
+    [addressSuggestions, currentLocationOption],
+  );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -182,7 +290,7 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
-          <div>
+          {/* <div>
             <label className="block text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">
               Loại sự cố
             </label>
@@ -198,7 +306,7 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
                 </option>
               ))}
             </select>
-          </div>
+          </div> */}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -225,7 +333,7 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">
                 Số nạn nhân
@@ -268,30 +376,69 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
                 className="w-full bg-surface-container-high border-none rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-primary"
               />
             </div>
-          </div>
+          </div> */}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1  gap-4">
             <div>
               <label className="block text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">
                 Địa chỉ
               </label>
-              <input
-                value={addressText}
-                onChange={(event) => setAddressText(event.target.value)}
-                className="w-full bg-surface-container-high border-none rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-primary"
-                placeholder="Số nhà, đường, phường/xã"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">
-                Mốc để nhận diện
-              </label>
-              <input
-                value={landmark}
-                onChange={(event) => setLandmark(event.target.value)}
-                className="w-full bg-surface-container-high border-none rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-primary"
-                placeholder="Gần cầu, trường học..."
-              />
+              <div className="relative">
+                <input
+                  value={addressText}
+                  onChange={(event) => {
+                    setAddressText(event.target.value);
+                    setIsAddressDropdownOpen(true);
+                  }}
+                  onFocus={() => setIsAddressDropdownOpen(true)}
+                  onBlur={() => {
+                    window.setTimeout(
+                      () => setIsAddressDropdownOpen(false),
+                      120,
+                    );
+                  }}
+                  className="w-full bg-surface-container-high border-none rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-primary"
+                  placeholder="Nhập địa chỉ để tìm kiếm..."
+                />
+
+                {isAddressDropdownOpen && (
+                  <div className="absolute z-30 mt-2 w-full rounded-xl border border-outline-variant/20 bg-surface-container shadow-lg overflow-hidden">
+                    {isSearchingAddress && (
+                      <div className="px-4 py-3 text-sm text-on-surface-variant">
+                        Đang tìm địa chỉ...
+                      </div>
+                    )}
+
+                    {!isSearchingAddress &&
+                      mergedAddressSuggestions.length === 0 && (
+                        <div className="px-4 py-3 text-sm text-on-surface-variant">
+                          Nhập ít nhất 3 ký tự để tìm địa chỉ
+                        </div>
+                      )}
+
+                    {!isSearchingAddress &&
+                      mergedAddressSuggestions.length > 0 && (
+                        <ul className="max-h-60 overflow-y-auto py-1">
+                          {mergedAddressSuggestions.map((item) => (
+                            <li key={item.id}>
+                              <button
+                                type="button"
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  setAddressText(item.value);
+                                  setIsAddressDropdownOpen(false);
+                                }}
+                                className="w-full px-4 py-2.5 text-left text-sm text-on-surface hover:bg-surface-container-high"
+                              >
+                                {item.label}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

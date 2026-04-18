@@ -11,9 +11,33 @@ export default defineConfig(({mode}) => {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },
     resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-      },
+      alias: [
+        {
+          find: '@vietmap/vietmap-gl-js/dist/vietmap-gl.css',
+          replacement: path.resolve(
+            __dirname,
+            'node_modules/@vietmap/vietmap-gl-js/dist/vietmap-gl.css'
+          ),
+        },
+        {
+          find: '@vietmap/vietmap-gl-js/dist/vietmap-gl',
+          replacement: path.resolve(
+            __dirname,
+            'node_modules/@vietmap/vietmap-gl-js/dist/vietmap-gl.js'
+          ),
+        },
+        {
+          find: '@vietmap/vietmap-gl-js',
+          replacement: path.resolve(
+            __dirname,
+            'node_modules/@vietmap/vietmap-gl-js/dist/vietmap-gl.js'
+          ),
+        },
+        {
+          find: '@',
+          replacement: path.resolve(__dirname, '.'),
+        },
+      ],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

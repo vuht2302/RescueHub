@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
+    "@react-google-maps/api": "^2.20.8",
     "@tailwindcss/vite": "^4.1.14",
     "@vietmap/vietmap-gl-js": "^7.0.0-pre.1",
     "@vitejs/plugin-react": "^5.0.4",

@@ -365,7 +365,7 @@ const RescueCoordinatorPage: React.FC = () => {
   return (
     <>
       <main
-        className="p-6 bg-gray-50 min-h-screen"
+        className={`p-6 bg-gray-50 ${activeMenu === "map" || activeMenu === "current" ? "h-screen" : "min-h-screen"}`}
         style={{ fontFamily: "var(--font-primary)" }}
       >
         {/* Header */}
@@ -479,12 +479,12 @@ const RescueCoordinatorPage: React.FC = () => {
             activeMenu === "map" || activeMenu === "current"
               ? "grid grid-cols-1 gap-6"
               : "grid grid-cols-3 gap-6"
-          }`}
+          } ${activeMenu === "map" || activeMenu === "current" ? "h-screen" : ""}`}
         >
           {/* Main Content */}
           <div
             className={`${
-              activeMenu === "map" ? "col-span-1" : "col-span-2"
+              activeMenu === "map" ? "col-span-1 h-full" : "col-span-2"
             } space-y-6`}
           >
             {activeMenu === "map" && <MissionMapSection />}
@@ -845,8 +845,8 @@ const RescueCoordinatorPage: React.FC = () => {
 
       {/* Map Modal */}
       {showMapModal && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 z-100 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
             <div
               className="bg-blue-950 px-6 py-4 flex justify-between items-center"
               style={{ backgroundColor: "var(--color-blue-950)" }}
@@ -861,12 +861,8 @@ const RescueCoordinatorPage: React.FC = () => {
                 <X size={24} />
               </button>
             </div>
-            <div className="p-6">
-              <div className="w-full h-96 bg-gray-200 rounded-lg flex items-center justify-center">
-                <p className="text-gray-600">
-                  Bản đồ OpenStreetMap sẽ hiển thị tại đây
-                </p>
-              </div>
+            <div className="flex-1 overflow-hidden h-full">
+              <MissionMapSection />
             </div>
           </div>
         </div>

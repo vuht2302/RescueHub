@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Twilio" Version="7.4.0" />
     <ProjectReference Include="..\RescueHub.BuildingBlocks\RescueHub.BuildingBlocks.csproj" />
     <ProjectReference Include="..\RescueHub.Modules.Media\RescueHub.Modules.Media.csproj" />
     <ProjectReference Include="..\RescueHub.Persistence\RescueHub.Persistence.csproj" />

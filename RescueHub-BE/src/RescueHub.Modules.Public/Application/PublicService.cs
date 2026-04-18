@@ -11,6 +11,8 @@ using RescueHub.BuildingBlocks.Application;
 using RescueHub.Modules.Media.Application;
 using RescueHub.Persistence;
 using RescueHub.Persistence.Entities.Scaffolded;
+using Twilio;
+using Twilio.Rest.Verify.V2.Service;
 
 namespace RescueHub.Modules.Public.Application;
 
@@ -22,6 +24,7 @@ public sealed class PublicService(
     ILogger<PublicService> logger) : IPublicService
 {
     private static readonly ConcurrentDictionary<string, LocalOtpEntry> LocalOtpStore = new();
+    private const string DefaultTwilioFixedPhone = "+84968675585";
 
     private sealed record LocalOtpEntry(string OtpCode, DateTime ExpiredAtUtc);
 
@@ -176,6 +179,7 @@ public sealed class PublicService(
     public async Task<object> RequestTrackingOtp(RequestTrackingOtpRequest request)
     {
         var purpose = request.Purpose.Trim().ToUpperInvariant();
+        var normalizedPhone = NormalizePhoneForOtp(request.Phone);
         if (!string.Equals(purpose, "TRACKING", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Purpose khong hop le cho tracking.");
@@ -184,7 +188,20 @@ public sealed class PublicService(
         var otpCode = GenerateOtp();
         var expiredAt = DateTime.UtcNow.AddMinutes(5);
 
-        await SaveOtpAsync(request.Phone, purpose, otpCode, expiredAt);
+        await SaveOtpAsync(normalizedPhone, purpose, otpCode, expiredAt);
+
+        if (IsTwilioVerifyEnabled())
+        {
+            var sent = await SendOtpViaTwilioVerifyAsync(normalizedPhone, purpose);
+            if (sent)
+            {
+                return new
+                {
+                    expiredAt,
+                    channel = "SMS"
+                };
+            }
+        }
 
         return new
         {
@@ -196,17 +213,22 @@ public sealed class PublicService(
     public async Task<object> VerifyTrackingOtp(VerifyTrackingOtpRequest request)
     {
         var purpose = request.Purpose.Trim().ToUpperInvariant();
+        var normalizedPhone = NormalizePhoneForOtp(request.Phone);
         if (!string.Equals(purpose, "TRACKING", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Purpose khong hop le cho tracking.");
         }
 
-        if (!await ValidateOtpAsync(request.Phone, purpose, request.OtpCode))
+        var valid = IsTwilioVerifyEnabled()
+            ? await ValidateOtpByTwilioVerifyAsync(normalizedPhone, purpose, request.OtpCode)
+            : await ValidateOtpAsync(normalizedPhone, purpose, request.OtpCode);
+
+        if (!valid)
         {
             throw new InvalidOperationException("OTP khong hop le hoac da het han.");
         }
 
-        var trackingToken = BuildSignedTrackingToken(request.Phone);
+        var trackingToken = BuildSignedTrackingToken(normalizedPhone);
 
         return new { trackingToken };
     }
@@ -784,7 +806,150 @@ public sealed class PublicService(
     }
 
     private static string BuildOtpCacheKey(string phone, string purpose)
-        => $"otp:{purpose.Trim().ToUpperInvariant()}:{phone.Trim()}";
+        => $"otp:{purpose.Trim().ToUpperInvariant()}:{NormalizePhoneForOtp(phone)}";
+
+    private static string NormalizePhoneForOtp(string phone)
+    {
+        var input = phone?.Trim() ?? string.Empty;
+        if (input.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if (input.StartsWith("+", StringComparison.Ordinal))
+        {
+            var digitsAfterPlus = Regex.Replace(input[1..], "[^0-9]", string.Empty);
+            if (digitsAfterPlus.StartsWith("84", StringComparison.Ordinal))
+            {
+                var local = digitsAfterPlus[2..];
+                if (local.Length > 0 && !local.StartsWith("0", StringComparison.Ordinal))
+                {
+                    return "0" + local;
+                }
+            }
+
+            return "+" + digitsAfterPlus;
+        }
+
+        return Regex.Replace(input, "[^0-9]", string.Empty);
+    }
+
+    private bool IsTwilioVerifyEnabled()
+        => !string.IsNullOrWhiteSpace(configuration["Twilio:Verify:AccountSid"])
+            && !string.IsNullOrWhiteSpace(configuration["Twilio:Verify:AuthToken"])
+            && !string.IsNullOrWhiteSpace(configuration["Twilio:Verify:ServiceSid"]);
+
+    private async Task<bool> SendOtpViaTwilioVerifyAsync(string inputPhone, string purpose)
+    {
+        try
+        {
+            TwilioClient.Init(
+                configuration["Twilio:Verify:AccountSid"],
+                configuration["Twilio:Verify:AuthToken"]);
+
+            var verification = await VerificationResource.CreateAsync(
+                to: ResolveTwilioDestinationPhone(),
+                channel: "sms",
+                pathServiceSid: configuration["Twilio:Verify:ServiceSid"]);
+
+            logger.LogInformation(
+                "Twilio tracking OTP request sent for purpose {Purpose}. Input phone {InputPhone}. Twilio SID: {Sid}",
+                purpose,
+                inputPhone,
+                verification.Sid);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Cannot send tracking OTP by Twilio Verify. Fallback to local OTP mode.");
+            return false;
+        }
+    }
+
+    private async Task<bool> ValidateOtpByTwilioVerifyAsync(string phone, string purpose, string otpCode)
+    {
+        var hasRequested = await HasCachedOtpRequestAsync(phone, purpose);
+        if (!hasRequested)
+        {
+            return false;
+        }
+
+        try
+        {
+            TwilioClient.Init(
+                configuration["Twilio:Verify:AccountSid"],
+                configuration["Twilio:Verify:AuthToken"]);
+
+            var check = await VerificationCheckResource.CreateAsync(
+                to: ResolveTwilioDestinationPhone(),
+                code: otpCode,
+                pathServiceSid: configuration["Twilio:Verify:ServiceSid"]);
+
+            var approved = string.Equals(check.Status, "approved", StringComparison.OrdinalIgnoreCase);
+            if (approved)
+            {
+                await RemoveCachedOtpRequestAsync(phone, purpose);
+            }
+
+            return approved;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Cannot verify tracking OTP by Twilio Verify.");
+            return false;
+        }
+    }
+
+    private async Task<bool> HasCachedOtpRequestAsync(string phone, string purpose)
+    {
+        var key = BuildOtpCacheKey(phone, purpose);
+
+        try
+        {
+            var cachedOtp = await distributedCache.GetStringAsync(key);
+            if (!string.IsNullOrWhiteSpace(cachedOtp))
+            {
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Redis unavailable when checking tracking OTP request marker. Falling back to local memory cache.");
+        }
+
+        if (!LocalOtpStore.TryGetValue(key, out var entry))
+        {
+            return false;
+        }
+
+        if (entry.ExpiredAtUtc <= DateTime.UtcNow)
+        {
+            LocalOtpStore.TryRemove(key, out _);
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task RemoveCachedOtpRequestAsync(string phone, string purpose)
+    {
+        var key = BuildOtpCacheKey(phone, purpose);
+
+        try
+        {
+            await distributedCache.RemoveAsync(key);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Redis unavailable when removing tracking OTP request marker.");
+        }
+
+        LocalOtpStore.TryRemove(key, out _);
+    }
+
+    private string ResolveTwilioDestinationPhone()
+        => configuration["Twilio:Verify:FixedDestinationPhone"]?.Trim() ?? DefaultTwilioFixedPhone;
 
     private string BuildSignedTrackingToken(string phone)
     {

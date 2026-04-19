@@ -2,7 +2,13 @@ namespace RescueHub.Modules.AI.Application;
 
 public interface IAiService
 {
-    object CreateIncidentTriageJob(Guid incidentId);
+    Task<object> AnalyzeIncident(AnalyzeIncidentRequest request, Guid? requestedByUserId, CancellationToken cancellationToken);
 
-    object GetJob(Guid jobId);
+    Task<object> AnalyzeReliefCampaign(AnalyzeReliefCampaignRequest request, Guid? requestedByUserId, CancellationToken cancellationToken);
+
+    Task<object> ListSuggestions(ListAiSuggestionsQuery query, CancellationToken cancellationToken);
+
+    Task<object> ApproveSuggestion(Guid suggestionId, Guid? approvedByUserId, CancellationToken cancellationToken);
+
+    Task<object> IgnoreSuggestion(Guid suggestionId, Guid? ignoredByUserId, CancellationToken cancellationToken);
 }

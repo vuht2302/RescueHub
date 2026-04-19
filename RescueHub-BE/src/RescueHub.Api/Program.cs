@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RescueHub.BuildingBlocks.Application;
 using RescueHub.Modules.Admin;
+using RescueHub.Modules.AI;
 using RescueHub.Modules.Auth;
 using RescueHub.Modules.Incidents;
 using RescueHub.Modules.Incidents.Realtime;
@@ -24,6 +25,7 @@ builder.Services
     .AddApplicationPart(typeof(RescueHub.Modules.Public.Api.PublicController).Assembly)
     .AddApplicationPart(typeof(RescueHub.Modules.MasterData.Api.MasterDataController).Assembly)
     .AddApplicationPart(typeof(RescueHub.Modules.Incidents.Api.IncidentsController).Assembly)
+    .AddApplicationPart(typeof(RescueHub.Modules.AI.Api.AiController).Assembly)
     .AddApplicationPart(typeof(RescueHub.Modules.Media.Api.MediaController).Assembly)
     .AddJsonOptions(options =>
     {
@@ -128,6 +130,7 @@ if (swaggerEnabled)
             "RescueHub.Modules.Public.xml",
             "RescueHub.Modules.MasterData.xml",
             "RescueHub.Modules.Incidents.xml",
+            "RescueHub.Modules.AI.xml",
             "RescueHub.Modules.Media.xml"
         };
 
@@ -180,6 +183,7 @@ builder.Services.AddAdminModule();
 builder.Services.AddPublicModule();
 builder.Services.AddMasterDataModule();
 builder.Services.AddIncidentsModule();
+builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddMediaModule(builder.Configuration);
 
 var app = builder.Build();

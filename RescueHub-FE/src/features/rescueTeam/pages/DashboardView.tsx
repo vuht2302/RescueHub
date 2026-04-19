@@ -64,72 +64,74 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-            <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90 font-semibold">
-                    Chờ phản hồi
-                  </p>
-                  <p className="text-4xl font-black mt-2">
-                    {dashboard?.pendingResponseCount ?? 0}
-                  </p>
+            <div className="rounded-2xl bg-white border border-[#c8ced6] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-bold text-on-surface-variant">
+                  Chờ phản hồi
+                </p>
+                <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
+                  <FolderKanban size={20} strokeWidth={2.5} />
                 </div>
-                <FolderKanban size={40} className="opacity-20" />
               </div>
+              <p className="text-3xl font-black text-blue-950">
+                {dashboard?.pendingResponseCount ?? 0}
+              </p>
             </div>
 
-            <div className="rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-white p-6 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90 font-semibold">
-                    Nhiệm vụ đang hoạt động
-                  </p>
-                  <p className="text-4xl font-black mt-2">
-                    {dashboard?.activeMissionCount ?? 0}
-                  </p>
+            <div className="rounded-2xl bg-white border border-[#c8ced6] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-bold text-on-surface-variant">
+                  Đang hoạt động
+                </p>
+                <div className="rounded-lg bg-amber-50 p-2 text-amber-600">
+                  <AlertCircle size={20} strokeWidth={2.5} />
                 </div>
-                <AlertCircle size={40} className="opacity-20" />
               </div>
+              <p className="text-3xl font-black text-blue-950">
+                {dashboard?.activeMissionCount ?? 0}
+              </p>
             </div>
 
-            <div className="rounded-2xl bg-gradient-to-br from-green-500 to-green-600 text-white p-6 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90 font-semibold">
-                    Hoàn thành hôm nay
-                  </p>
-                  <p className="text-4xl font-black mt-2">
-                    {dashboard?.completedTodayCount ?? 0}
-                  </p>
+            <div className="rounded-2xl bg-white border border-[#c8ced6] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-bold text-on-surface-variant">
+                  H.thành hôm nay
+                </p>
+                <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+                  <CheckCircle size={20} strokeWidth={2.5} />
                 </div>
-                <CheckCircle size={40} className="opacity-20" />
               </div>
+              <p className="text-3xl font-black text-blue-950">
+                {dashboard?.completedTodayCount ?? 0}
+              </p>
             </div>
 
-            <div className="rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90 font-semibold">Chờ hủy</p>
-                  <p className="text-4xl font-black mt-2">
-                    {dashboard?.pendingAbortCount ?? 0}
-                  </p>
+            <div className="rounded-2xl bg-white border border-[#c8ced6] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-bold text-on-surface-variant">
+                  Chờ hủy
+                </p>
+                <div className="rounded-lg bg-rose-50 p-2 text-rose-600">
+                  <Clock size={20} strokeWidth={2.5} />
                 </div>
-                <Clock size={40} className="opacity-20" />
               </div>
+              <p className="text-3xl font-black text-blue-950">
+                {dashboard?.pendingAbortCount ?? 0}
+              </p>
             </div>
 
-            <div className="rounded-2xl bg-gradient-to-br from-sky-500 to-sky-600 text-white p-6 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90 font-semibold">
-                    Chờ chi viện
-                  </p>
-                  <p className="text-4xl font-black mt-2">
-                    {dashboard?.pendingSupportCount ?? 0}
-                  </p>
+            <div className="rounded-2xl bg-white border border-[#c8ced6] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-bold text-on-surface-variant">
+                  Chờ chi viện
+                </p>
+                <div className="rounded-lg bg-indigo-50 p-2 text-indigo-600">
+                  <Activity size={20} strokeWidth={2.5} />
                 </div>
-                <Activity size={40} className="opacity-20" />
               </div>
+              <p className="text-3xl font-black text-blue-950">
+                {dashboard?.pendingSupportCount ?? 0}
+              </p>
             </div>
           </div>
 

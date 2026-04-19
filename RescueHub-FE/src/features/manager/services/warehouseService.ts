@@ -33,7 +33,8 @@ export interface CodeName {
 
 export interface PagedResponse<T> {
   items: T[];
-  total: number;
+  totalItems: number;
+  totalPages: number;
   page: number;
   pageSize: number;
 }
@@ -126,13 +127,12 @@ export async function deleteWarehouse(id: string, token: string): Promise<void> 
 // ─── MAN-02  Stock ────────────────────────────────────────────────────────────
 export interface StockLine {
   id: string;
-  warehouse: { id: string; warehouseName: string };
-  item: { id: string; itemCode: string; itemName: string };
-  lot: { id: string; lotNo: string } | null;
+  warehouse: { id: string; code: string; name: string };
+  item: { id: string; code: string; name: string; unitCode: string };
+  lot: { id: string; lotNo: string; expDate: string | null; statusCode: string } | null;
   qtyOnHand: number;
   qtyReserved: number;
   qtyAvailable: number;
-  unitCode: string;
 }
 
 export interface StockListParams {

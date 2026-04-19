@@ -5,6 +5,8 @@
 
 import React from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { TopBar } from "../shared/components/TopBar";
 import { Sidebar } from "../shared/components/Sidebar";
 import { ManagerProvider } from "../shared/context/ManagerContext";
@@ -159,6 +161,18 @@ export default function App() {
           </Routes>
         </main>
       </div>
+
+      <ToastContainer
+        position="top-right"
+        autoClose={4000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+      />
     </div>
   );
 }

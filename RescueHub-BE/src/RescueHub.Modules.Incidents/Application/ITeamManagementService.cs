@@ -41,4 +41,14 @@ public interface ITeamManagementService
     Task<object> UpdateTeamMemberSkill(Guid teamId, Guid memberId, Guid teamMemberSkillId, UpdateTeamMemberSkillRequest request);
 
     Task<object> DeleteTeamMemberSkill(Guid teamId, Guid memberId, Guid teamMemberSkillId);
+
+    Task<object> ListVehicles(string? keyword, string? statusCode, Guid? teamId);
+
+    Task<object> GetVehicle(Guid vehicleId);
+
+    Task<object> CreateVehicle(CreateVehicleRequest request);
+
+    Task<object> UpdateVehicle(Guid vehicleId, UpdateVehicleRequest request);
+
+    Task<object> DeleteVehicle(Guid vehicleId);
 }

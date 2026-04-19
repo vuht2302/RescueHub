@@ -304,4 +304,78 @@ public sealed class ManagerTeamsController(ITeamManagementService service) : Bas
             return BadRequestResponse<object>(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Lay danh sach phuong tien.
+    /// </summary>
+    [HttpGet("vehicles")]
+    public async Task<ActionResult<ApiResponse<object>>> ListVehicles(
+        [FromQuery] string? keyword,
+        [FromQuery] string? statusCode,
+        [FromQuery] Guid? teamId)
+        => OkResponse<object>(await service.ListVehicles(keyword, statusCode, teamId), "Lay danh sach vehicle thanh cong");
+
+    /// <summary>
+    /// Lay chi tiet phuong tien.
+    /// </summary>
+    [HttpGet("vehicles/{vehicleId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> GetVehicle([FromRoute] Guid vehicleId)
+    {
+        try
+        {
+            return OkResponse<object>(await service.GetVehicle(vehicleId), "Lay chi tiet vehicle thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Tao phuong tien moi.
+    /// </summary>
+    [HttpPost("vehicles")]
+    public async Task<ActionResult<ApiResponse<object>>> CreateVehicle([FromBody] CreateVehicleRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.CreateVehicle(request), "Tao vehicle thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Cap nhat phuong tien.
+    /// </summary>
+    [HttpPut("vehicles/{vehicleId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> UpdateVehicle([FromRoute] Guid vehicleId, [FromBody] UpdateVehicleRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.UpdateVehicle(vehicleId, request), "Cap nhat vehicle thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Xoa phuong tien.
+    /// </summary>
+    [HttpDelete("vehicles/{vehicleId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteVehicle([FromRoute] Guid vehicleId)
+    {
+        try
+        {
+            return OkResponse<object>(await service.DeleteVehicle(vehicleId), "Xoa vehicle thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
 }

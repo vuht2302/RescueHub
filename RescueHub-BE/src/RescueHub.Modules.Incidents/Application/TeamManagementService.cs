@@ -62,4 +62,19 @@ public sealed class TeamManagementService(ITeamManagementRepository repository) 
 
     public Task<object> DeleteTeamMemberSkill(Guid teamId, Guid memberId, Guid teamMemberSkillId)
         => repository.DeleteTeamMemberSkill(teamId, memberId, teamMemberSkillId);
+
+    public Task<object> ListVehicles(string? keyword, string? statusCode, Guid? teamId)
+        => repository.ListVehicles(keyword, statusCode, teamId);
+
+    public Task<object> GetVehicle(Guid vehicleId)
+        => repository.GetVehicle(vehicleId);
+
+    public Task<object> CreateVehicle(CreateVehicleRequest request)
+        => repository.CreateVehicle(request);
+
+    public Task<object> UpdateVehicle(Guid vehicleId, UpdateVehicleRequest request)
+        => repository.UpdateVehicle(vehicleId, request);
+
+    public Task<object> DeleteVehicle(Guid vehicleId)
+        => repository.DeleteVehicle(vehicleId);
 }

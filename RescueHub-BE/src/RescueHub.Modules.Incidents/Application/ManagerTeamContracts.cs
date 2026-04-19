@@ -59,3 +59,29 @@ public sealed record UpdateTeamMemberSkillRequest(
     Guid SkillId,
     string LevelCode,
     bool IsPrimary);
+
+public sealed record CreateVehicleRequest(
+    string Code,
+    Guid VehicleTypeId,
+    string DisplayName,
+    string? PlateNo,
+    Guid? TeamId,
+    string StatusCode,
+    int CapacityPerson,
+    decimal CapacityWeightKg,
+    GeoPointRequest? CurrentLocation,
+    IReadOnlyCollection<Guid>? CapabilityIds,
+    string? Notes);
+
+public sealed record UpdateVehicleRequest(
+    string Code,
+    Guid VehicleTypeId,
+    string DisplayName,
+    string? PlateNo,
+    Guid? TeamId,
+    string StatusCode,
+    int CapacityPerson,
+    decimal CapacityWeightKg,
+    GeoPointRequest? CurrentLocation,
+    IReadOnlyCollection<Guid>? CapabilityIds,
+    string? Notes);

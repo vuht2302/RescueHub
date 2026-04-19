@@ -46,21 +46,7 @@ const statusProgression: MissionStatus[] = [
 const pauseStatus: MissionStatus = "Tạm dừng";
 
 const getAllowedStatusOptions = (currentStatus: MissionStatus) => {
-  const currentIndex = statusProgression.indexOf(currentStatus);
-
-  if (currentStatus === pauseStatus) {
-    return [pauseStatus, "Đang xử lý", "Đã hoàn tất"];
-  }
-
-  if (currentIndex === -1) {
-    return [currentStatus];
-  }
-
-  if (currentStatus === "Đã hoàn tất") {
-    return ["Đã hoàn tất"];
-  }
-
-  return [...statusProgression.slice(currentIndex), pauseStatus];
+  return []; // Not used anymore, kept for backwards compatibility if needed
 };
 
 export const MapView: React.FC<MapViewProps> = ({
@@ -114,23 +100,7 @@ export const MapView: React.FC<MapViewProps> = ({
   const canUseVietmap = hasVietmapKey && hasValidCoords;
 
   const persistedMissionStatus = statusMap[selectedMission.id] ?? reportStatus;
-  const allowedStatusOptions = getAllowedStatusOptions(persistedMissionStatus);
-  const selectedReportStatus = allowedStatusOptions.includes(reportStatus)
-    ? reportStatus
-    : persistedMissionStatus;
-
-  useEffect(() => {
-    if (allowedStatusOptions.includes(reportStatus)) {
-      return;
-    }
-
-    onStatusChange(persistedMissionStatus);
-  }, [
-    allowedStatusOptions,
-    onStatusChange,
-    persistedMissionStatus,
-    reportStatus,
-  ]);
+  const nextStatusOpt = statusProgression[statusProgression.indexOf(persistedMissionStatus) + 1] || null;
 
   useEffect(() => {
     if (!canUseVietmap || !mapContainerRef.current || mapRef.current) {
@@ -328,50 +298,55 @@ export const MapView: React.FC<MapViewProps> = ({
     .slice()
     .reverse();
 
-  const handleSubmitReport = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-    if (!reportText.trim()) {
-      return;
-    }
-
+  const handleAdvanceStatus = async () => {
+    if (!nextStatusOpt) return;
     setIsSubmitting(true);
     setSubmitError(null);
-
     try {
-      const statusCodeMap: Record<MissionStatus, string> = {
+      const statusCodeMap: Record<string, string> = {
         "Chờ nhận": "DEPART",
         "Đang di chuyển": "ARRIVED",
         "Đang xử lý": "START_RESCUE",
         "Đã hoàn tất": "COMPLETE",
         "Tạm dừng": "ABORTED",
       };
-
-      const actionCode = statusCodeMap[selectedReportStatus] || "START_RESCUE";
-
-      console.log("[MapView] Gửi cập nhật nhiệm vụ:", {
-        missionId: selectedMission.id,
-        reportStatus: selectedReportStatus,
+      const actionCode = statusCodeMap[nextStatusOpt] || "START_RESCUE";
+      await updateMissionStatus(selectedMission.id, {
         actionCode,
+        note: `Hệ thống: Chuyển sang ${nextStatusOpt}`,
+      });
+      onSubmitReport(nextStatusOpt as MissionStatus, `Đã chuyển sang: ${nextStatusOpt}`);
+    } catch (error) {
+      console.error("[MapView] Lỗi cập nhật trạng thái:", error);
+      setSubmitError(error instanceof Error ? error.message : "Chuyển trạng thái thất bại.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitReport = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    if (!reportText.trim()) return;
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      await updateMissionStatus(selectedMission.id, {
+        actionCode: "FIELD_REPORT",
         note: reportText,
       });
-
-      const response = await updateMissionStatus(selectedMission.id, {
-        actionCode,
-        note: reportText,
-      });
-
-      console.log("[MapView] Phản hồi từ server:", response);
-      onSubmitReport(selectedReportStatus, reportText);
+      onSubmitReport(persistedMissionStatus, reportText);
       setReportText("");
     } catch (error) {
-      console.error("[MapView] Lỗi cập nhật nhiệm vụ:", error);
-      const errorMessage =
+      console.error("[MapView] Lỗi báo cáo:", error);
+      setSubmitError(
         error instanceof Error
           ? error.message
-          : "Gửi cập nhật thất bại. Vui lòng kiểm tra lại.";
-      setSubmitError(errorMessage);
+          : "Gửi báo cáo thất bại. Vui lòng kiểm tra lại."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -447,30 +422,30 @@ export const MapView: React.FC<MapViewProps> = ({
         </div>
       </article>
 
-      <aside className="rounded-2xl bg-[#d7dce2] border border-[#c8ced6] p-5 md:p-6 overflow-auto">
+      <aside className="rounded-2xl bg-[#d7dce2] border border-[#c8ced6] p-4 md:p-5 overflow-auto">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm uppercase tracking-[0.18em] font-bold text-on-surface-variant font-primary">
+          <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary">
             Nhiệm vụ hiện tại
           </h3>
         </div>
 
-        <div className="mt-5 rounded-2xl bg-[#e7ebef] border border-[#d4dbe3] p-4">
+        <div className="mt-3 rounded-xl bg-[#e7ebef] border border-[#d4dbe3] p-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-lg font-black text-[#1f2329] font-primary">
+            <h3 className="text-sm font-bold text-[#1f2329] font-primary">
               Chi tiết yêu cầu
             </h3>
             <span
-              className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase ${priorityStyles[selectedMission.priority]}`}
+              className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase ${priorityStyles[selectedMission.priority]}`}
             >
               {selectedMission.priority}
             </span>
           </div>
 
-          <h4 className="text-2xl font-black text-[#1f2329] mt-2 font-primary">
+          <h4 className="text-base font-black text-[#1f2329] mt-2 font-primary leading-tight">
             {selectedMission.title}
           </h4>
 
-          <div className="space-y-2 mt-3 text-sm text-[#3f4650]">
+          <div className="space-y-1.5 mt-2.5 text-xs text-[#3f4650]">
             <p className="flex items-start gap-2">
               <MapPin size={15} className="text-blue-950 mt-0.5" />
               {selectedMission.address}
@@ -489,14 +464,36 @@ export const MapView: React.FC<MapViewProps> = ({
             </p>
           </div>
 
-          <p className="mt-3 text-sm text-[#3f4650] leading-relaxed">
+          <p className="mt-2.5 text-xs text-[#3f4650] leading-relaxed">
             {selectedMission.summary}
           </p>
         </div>
 
-        <form className="mt-5 space-y-3" onSubmit={handleSubmitReport}>
-          <h3 className="text-sm uppercase tracking-[0.16em] font-bold text-on-surface-variant font-primary">
-            Cập nhật trạng thái và báo cáo kết quả
+        <div className="mt-4 space-y-2.5">
+          <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary mb-2">
+            Cập nhật trạng thái
+          </h3>
+          
+          <div className="flex items-center justify-between rounded-lg border border-[#c7ced7] bg-white px-4 py-3">
+            <span className="text-sm font-semibold text-[#1f2329]"> <span className="text-blue-700">{persistedMissionStatus}</span></span>
+            {nextStatusOpt ? (
+              <button
+                type="button"
+                onClick={handleAdvanceStatus}
+                disabled={isSubmitting}
+                className="rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-4 py-1.5 text-xs font-bold shadow-sm transition-colors"
+              >
+                Chuyển sang: {nextStatusOpt}
+              </button>
+            ) : (
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded border border-emerald-200">Đã hoàn tất</span>
+            )}
+          </div>
+        </div>
+
+        <form className="mt-4 space-y-2.5" onSubmit={handleSubmitReport}>
+          <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary mb-2">
+            Báo cáo hiện trường
           </h3>
 
           {submitError && (
@@ -509,45 +506,25 @@ export const MapView: React.FC<MapViewProps> = ({
             </div>
           )}
 
-          <label className="block text-xs font-semibold text-on-surface-variant">
-            Trạng thái thực hiện
-            <select
-              value={selectedReportStatus}
-              onChange={(event) =>
-                onStatusChange(event.target.value as MissionStatus)
-              }
-              className="w-full mt-1 rounded-lg border border-[#c7ced7] bg-[#eef2f5] px-3 py-2 text-sm"
-            >
-              {allowedStatusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block text-xs font-semibold text-on-surface-variant">
-            Báo cáo hiện trường
-            <textarea
-              value={reportText}
-              onChange={(event) => setReportText(event.target.value)}
-              rows={3}
-              placeholder="Nhập diễn biến, kết quả xử lý, nhu cầu hỗ trợ bổ sung..."
-              className="w-full mt-1 rounded-lg border border-[#c7ced7] bg-[#eef2f5] px-3 py-2 text-sm resize-none"
-            />
-          </label>
+          <textarea
+            value={reportText}
+            onChange={(event) => setReportText(event.target.value)}
+            rows={3}
+            placeholder="Nhập diễn biến, kết quả xử lý, nhu cầu hỗ trợ bổ sung..."
+            className="w-full rounded-lg border border-[#c7ced7] bg-[#eef2f5] px-3 py-2 text-sm resize-none"
+          />
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-xl bg-[#007399] hover:bg-[#006483] disabled:bg-slate-400 text-white py-3 font-black font-primary text-lg shadow-md transition-colors"
+            className="w-full rounded-lg bg-[#007399] hover:bg-[#006483] disabled:bg-slate-400 text-white py-2 font-bold font-primary text-sm shadow-sm transition-colors mt-1"
           >
-            {isSubmitting ? "Đang gửi..." : "Gửi cập nhật cứu hộ"}
+            {isSubmitting ? "Đang gửi báo cáo..." : "Gửi báo cáo"}
           </button>
         </form>
 
-        <div className="mt-5 space-y-3">
-          <h3 className="text-sm uppercase tracking-[0.16em] font-bold text-on-surface-variant font-primary">
+        <div className="mt-4 space-y-2.5 border-t border-[#8e9aa5] border-dashed pt-4">
+          <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary mb-2">
             Yêu cầu hủy nhiệm vụ
           </h3>
 
@@ -596,14 +573,14 @@ export const MapView: React.FC<MapViewProps> = ({
             type="button"
             onClick={handleSubmitAbortRequest}
             disabled={isAbortSubmitting}
-            className="w-full rounded-xl bg-[#ba1a1a] hover:bg-[#8f1515] disabled:bg-slate-400 text-white py-3 font-black font-primary text-lg shadow-md transition-colors"
+            className="w-full rounded-lg bg-[#ba1a1a] hover:bg-[#8f1515] disabled:bg-slate-400 text-white py-2 font-bold font-primary text-sm shadow-sm transition-colors mt-1"
           >
             {isAbortSubmitting ? "Đang gửi yêu cầu..." : "Gửi yêu cầu hủy"}
           </button>
         </div>
 
-        <div className="mt-5">
-          <h3 className="text-sm uppercase tracking-[0.16em] font-bold text-on-surface-variant font-primary mb-3">
+        <div className="mt-4 border-t border-[#8e9aa5] border-dashed pt-4">
+          <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary mb-2">
             Nhật ký cập nhật
           </h3>
           <div className="space-y-2 max-h-48 overflow-y-auto">

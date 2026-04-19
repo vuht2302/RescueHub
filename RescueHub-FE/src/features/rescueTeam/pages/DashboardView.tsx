@@ -14,6 +14,8 @@ interface DashboardViewProps {
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+  onReloadData: () => void;
+  isReloadingData: boolean;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -21,11 +23,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   isLoading,
   error,
   onRetry,
+  onReloadData,
+  isReloadingData,
 }) => {
   const recentMissions = dashboard?.recentMissions ?? [];
 
   return (
     <div className="col-span-1 xl:col-span-2 space-y-4 overflow-auto">
+      <div className="rounded-2xl bg-white border border-[#c8ced6] p-3 flex justify-end">
+        <button
+          type="button"
+          onClick={onReloadData}
+          disabled={isReloadingData}
+          className="inline-flex items-center gap-2 rounded-lg border border-[#c7ced7] bg-white px-3 py-2 text-sm font-semibold text-on-surface hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCw
+            size={14}
+            className={isReloadingData ? "animate-spin" : undefined}
+          />
+          {isReloadingData ? "Đang tải..." : "Load data"}
+        </button>
+      </div>
+
       {isLoading ? (
         <div className="rounded-2xl bg-white border border-[#c8ced6] p-6 shadow-md min-h-[420px] flex items-center justify-center text-sm text-on-surface-variant">
           Đang tải dữ liệu dashboard...

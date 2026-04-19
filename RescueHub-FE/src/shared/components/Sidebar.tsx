@@ -102,7 +102,7 @@ const coordinatorMenuItems: CoordinatorMenuItem[] = [
   },
   {
     id: "current",
-    label: "Nhiệm vụ hiện tại",
+    label: "Nhiệm vụ",
     icon: AlertCircle,
   },
   {
@@ -139,9 +139,8 @@ interface RescueTeamMenuItem {
 const rescueTeamMenuItems: RescueTeamMenuItem[] = [
   { icon: LayoutGrid, label: "Trung tâm điều hành", id: "dashboard" },
   { icon: Map, label: "Bản đồ nhiệm vụ", id: "map" },
-  { icon: FolderKanban, label: "Nhiệm vụ hiện tại", id: "missions" },
+  { icon: FolderKanban, label: "Nhiệm vụ", id: "missions" },
   { icon: UserRound, label: "Trạng thái đội ngũ", id: "team" },
-  { icon: BookText, label: "Báo cáo", id: "reports" },
 ];
 
 export const Sidebar: React.FC = () => {

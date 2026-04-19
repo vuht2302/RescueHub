@@ -147,7 +147,7 @@ const requestTeamApi = async <T>(path: string): Promise<T> => {
 
   return result.data;
 };
-
+// Lấy danh sách nhiệm vụ của đội cứu hộ hiện tại
 export const getTeamMissions = async (): Promise<TeamMissionListData> => {
   return requestTeamApi<TeamMissionListData>("/api/v1/team/missions");
 };

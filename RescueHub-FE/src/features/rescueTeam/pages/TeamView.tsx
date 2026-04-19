@@ -8,6 +8,8 @@ interface TeamViewProps {
   isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  onReloadData?: () => void;
+  isReloadingData?: boolean;
 }
 
 export const TeamView: React.FC<TeamViewProps> = ({
@@ -16,6 +18,8 @@ export const TeamView: React.FC<TeamViewProps> = ({
   isLoading = false,
   error = null,
   onRetry,
+  onReloadData,
+  isReloadingData = false,
 }) => {
   const [members, setMembers] = React.useState<TeamMember[]>(teamMembers);
 
@@ -50,31 +54,48 @@ export const TeamView: React.FC<TeamViewProps> = ({
           </p>
         </div>
 
-        {isLeader && (
-          <button
-            type="button"
-            onClick={handleUpdateAllStatuses}
-            aria-pressed={allAvailable}
-            className={`group inline-flex items-center gap-2 rounded-full px-2 py-1.5 text-xs font-bold font-primary text-white whitespace-nowrap transition-colors ${
-              allAvailable
-                ? "bg-emerald-600 hover:bg-emerald-700"
-                : "bg-slate-600 hover:bg-slate-700"
-            }`}
-          >
-            <span className="px-1">{allAvailable ? "ON" : "OFF"}</span>
-            <span
-              className={`h-5 w-9 rounded-full p-0.5 transition-colors ${
-                allAvailable ? "bg-emerald-400/70" : "bg-white/30"
+        <div className="flex items-center gap-2">
+          {onReloadData && (
+            <button
+              type="button"
+              onClick={onReloadData}
+              disabled={isReloadingData}
+              className="inline-flex items-center gap-2 rounded-lg border border-[#c7ced7] bg-white px-3 py-2 text-sm font-semibold text-on-surface hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw
+                size={14}
+                className={isReloadingData ? "animate-spin" : undefined}
+              />
+              {isReloadingData ? "Đang tải..." : "Load data"}
+            </button>
+          )}
+
+          {isLeader && (
+            <button
+              type="button"
+              onClick={handleUpdateAllStatuses}
+              aria-pressed={allAvailable}
+              className={`group inline-flex items-center gap-2 rounded-full px-2 py-1.5 text-xs font-bold font-primary text-white whitespace-nowrap transition-colors ${
+                allAvailable
+                  ? "bg-emerald-600 hover:bg-emerald-700"
+                  : "bg-slate-600 hover:bg-slate-700"
               }`}
             >
+              <span className="px-1">{allAvailable ? "ON" : "OFF"}</span>
               <span
-                className={`block h-4 w-4 rounded-full bg-white transition-transform ${
-                  allAvailable ? "translate-x-4" : "translate-x-0"
+                className={`h-5 w-9 rounded-full p-0.5 transition-colors ${
+                  allAvailable ? "bg-emerald-400/70" : "bg-white/30"
                 }`}
-              />
-            </span>
-          </button>
-        )}
+              >
+                <span
+                  className={`block h-4 w-4 rounded-full bg-white transition-transform ${
+                    allAvailable ? "translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Team Stats */}

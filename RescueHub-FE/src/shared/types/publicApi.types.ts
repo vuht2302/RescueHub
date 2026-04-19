@@ -238,3 +238,27 @@ export type UploadedMedia = {
   id?: string;
   Id?: string;
 };
+export interface BootstrapData {
+  hotline: string;
+  defaultMapCenter: {
+    lat: number;
+    lng: number;
+  };
+  quickIncidentTypes: quickIncidentTypes[];
+  quickActions: quickActions[];
+}
+export interface quickIncidentTypes {
+  code: string;
+  name: string;
+}
+export interface quickActions {
+  code: string;
+  label: string;
+}
+
+export interface getPublicBootstrapResponse {
+  success: boolean;
+  message: string;
+  data: BootstrapData;
+  errors: null | string[];
+}

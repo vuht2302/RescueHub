@@ -5,7 +5,6 @@ import { DashboardView } from "./DashboardView";
 import { MapView } from "./MapView";
 import { MissionsView } from "./MissionsView";
 import { TeamView } from "./TeamView";
-import { ReportsView } from "./ReportsView";
 import {
   getTeamDashboard,
   TeamDashboardData,
@@ -26,94 +25,7 @@ import {
   TeamMember,
 } from "../types/mission";
 
-const missions: Mission[] = [
-  {
-    id: "rg-4492-d",
-    code: "RG-4492-D",
-    type: "Cứu hộ",
-    title: "Cứu hộ khe nứt băng hà",
-    requester: "Arthur Miller",
-    phone: "(+84) 909 228 721",
-    address: "North-West Ridge, Delta 7",
-    priority: "Khẩn cấp",
-    summary:
-      "Nạn nhân bị ngã vào khe nứt nông, có dấu hiệu hạ thân nhiệt. Tín hiệu định vị còn hoạt động.",
-    assignedTeam: "Đội phản ứng nhanh Alpha-2",
-    assignedMembers: ["Nguyễn Văn An", "Trần Minh Tuấn", "Phạm Thị Linh"],
-    assignedVehicles: ["Xe cứu hộ RH-21", "Mô tô tuyết ST-07"],
-    coord: { lat: 10.7769, lng: 106.7009 },
-  },
-  {
-    id: "rg-4510-b",
-    code: "RG-4510-B",
-    type: "Cứu hộ",
-    title: "Sơ tán nhóm leo núi mắc kẹt",
-    requester: "Lê Khánh Hà",
-    phone: "(+84) 901 712 198",
-    address: "Sườn Đông Glacier Pass, Delta 5",
-    priority: "Cao",
-    summary:
-      "Nhóm 3 người mắc kẹt do gió lớn, không thể tự di chuyển xuống trạm an toàn.",
-    assignedTeam: "Đội cứu nạn Bravo-1",
-    assignedMembers: ["Lý Trung Kiên", "Đỗ Quốc Huy"],
-    assignedVehicles: ["Xe địa hình BR-11"],
-    coord: { lat: 16.0471, lng: 108.2068 },
-  },
-  {
-    id: "rg-4522-a",
-    code: "RG-4522-A",
-    type: "Cứu trợ",
-    title: "Tiếp tế y tế khẩn cấp",
-    requester: "Trạm y tế Delta",
-    phone: "(+84) 283 811 2299",
-    address: "Khu nhà tạm tuyến 3, Delta 2",
-    priority: "Trung bình",
-    summary:
-      "Yêu cầu cấp phát thuốc chống lạnh và oxy cho nhóm cư dân đang trú ẩn.",
-    assignedTeam: "Đội hậu cần Charlie",
-    assignedMembers: ["Phạm Thị Linh", "Lý Trung Kiên"],
-    assignedVehicles: ["Xe tải y tế CL-03", "Xe bán tải CL-09"],
-    coord: { lat: 21.0285, lng: 105.8542 },
-  },
-];
-
-const teamMembersFallback: TeamMember[] = [
-  {
-    id: "tm-1",
-    name: "Nguyễn Văn An",
-    role: "Trưởng đội Alpha-2",
-    status: "Unavailable",
-    avatar: "NA",
-  },
-  {
-    id: "tm-2",
-    name: "Trần Minh Tuấn",
-    role: "Thành viên Bravo-1",
-    status: "Unavailable",
-    avatar: "TT",
-  },
-  {
-    id: "tm-3",
-    name: "Phạm Thị Linh",
-    role: "Chuyên viên y tế",
-    status: "Available",
-    avatar: "PL",
-  },
-  {
-    id: "tm-4",
-    name: "Lý Trung Kiên",
-    role: "Thành viên Charlie",
-    status: "Available",
-    avatar: "LK",
-  },
-  {
-    id: "tm-5",
-    name: "Đỗ Quốc Huy",
-    role: "Lái xe cứu hộ",
-    status: "Unavailable",
-    avatar: "DQ",
-  },
-];
+const DEFAULT_MISSION_COORD = { lat: 10.7769, lng: 106.7009 };
 
 const getInitialsFromName = (name: string) => {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -234,25 +146,29 @@ export const RescueTeamMission: React.FC = () => {
   const [teamMissionsError, setTeamMissionsError] = useState<string | null>(
     null,
   );
-  const [teamMembers, setTeamMembers] =
-    useState<TeamMember[]>(teamMembersFallback);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isTeamMembersLoading, setIsTeamMembersLoading] = useState(false);
   const [teamMembersError, setTeamMembersError] = useState<string | null>(null);
-  const [selectedMissionId, setSelectedMissionId] = useState(missions[0].id);
-  const [statusMap, setStatusMap] = useState<Record<string, MissionStatus>>({
-    "rg-4492-d": "Chờ nhận",
-    "rg-4510-b": "Đang di chuyển",
-    "rg-4522-a": "Chờ nhận",
-  });
-  const [logs, setLogs] = useState<MissionLog[]>([
-    {
-      id: "log-1",
-      missionId: "rg-4510-b",
-      time: "10:22",
-      content: "Đội Bravo-1 đã rời trạm và đang di chuyển đến điểm tập kết.",
-    },
-  ]);
+  const [selectedMissionId, setSelectedMissionId] = useState("");
+  const [statusMap, setStatusMap] = useState<Record<string, MissionStatus>>({});
+  const [logs, setLogs] = useState<MissionLog[]>([]);
   const [reportStatus, setReportStatus] = useState<MissionStatus>("Đang xử lý");
+
+  const loadDashboard = async () => {
+    setIsDashboardLoading(true);
+    setDashboardError(null);
+
+    try {
+      const response = await getTeamDashboard();
+      setDashboard(response);
+    } catch (error) {
+      setDashboardError(
+        error instanceof Error ? error.message : "Khong tai duoc dashboard doi",
+      );
+    } finally {
+      setIsDashboardLoading(false);
+    }
+  };
 
   const loadTeamMissions = async () => {
     setIsTeamMissionsLoading(true);
@@ -387,44 +303,22 @@ export const RescueTeamMission: React.FC = () => {
   }, [missionDetailsById, selectedMissionId]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadDashboard = async () => {
-      setIsDashboardLoading(true);
-      setDashboardError(null);
-
-      try {
-        const response = await getTeamDashboard();
-        if (!isMounted) {
-          return;
-        }
-
-        setDashboard(response);
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        setDashboardError(
-          error instanceof Error
-            ? error.message
-            : "Khong tai duoc dashboard doi",
-        );
-      } finally {
-        if (isMounted) {
-          setIsDashboardLoading(false);
-        }
-      }
-    };
-
     void loadDashboard();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
-  const mappedApiMissions: Mission[] = teamMissions.map((mission, index) => {
+  const reloadAllRescueTeamData = async () => {
+    await Promise.all([loadDashboard(), loadTeamMissions(), loadTeamMembers()]);
+  };
+
+  const reloadMapData = async () => {
+    await loadTeamMissions();
+    if (selectedMissionId) {
+      await loadTeamMissionDetail(selectedMissionId, true);
+    }
+  };
+
+  // Chuẩn hóa dữ liệu API sang mô hình UI dùng chung cho các view.
+  const mappedApiMissions: Mission[] = teamMissions.map((mission) => {
     const detail = missionDetailsById[mission.missionId];
     const etaMinutes = detail?.etaMinutes ?? mission.etaMinutes;
     const missionSummary =
@@ -451,12 +345,11 @@ export const RescueTeamMission: React.FC = () => {
         "Chưa có đội",
       assignedMembers: [],
       assignedVehicles: [],
-      coord: missions[index % missions.length].coord,
+      coord: DEFAULT_MISSION_COORD,
     };
   });
 
-  const sourceMissions =
-    mappedApiMissions.length > 0 ? mappedApiMissions : missions;
+  const sourceMissions = mappedApiMissions;
 
   const selectedMission =
     sourceMissions.find((mission) => mission.id === selectedMissionId) ??
@@ -506,6 +399,10 @@ export const RescueTeamMission: React.FC = () => {
   };
 
   const handleSubmitReport = (status: MissionStatus, reportText: string) => {
+    if (!selectedMission) {
+      return;
+    }
+
     setStatusMap((prev) => ({ ...prev, [selectedMission.id]: status }));
     void loadTeamMissionDetail(selectedMission.id, true);
     setLogs((prev) => [
@@ -526,6 +423,10 @@ export const RescueTeamMission: React.FC = () => {
     reasonCode: string,
     detailNote: string,
   ) => {
+    if (!selectedMission) {
+      return;
+    }
+
     void loadTeamMissionDetail(selectedMission.id, true);
     setLogs((prev) => [
       ...prev,
@@ -569,7 +470,6 @@ export const RescueTeamMission: React.FC = () => {
       },
     ]);
     setSelectedMissionId(missionId);
-    setActiveMenu("map");
   };
 
   return (
@@ -603,41 +503,38 @@ export const RescueTeamMission: React.FC = () => {
               isLoading={isDashboardLoading}
               error={dashboardError}
               onRetry={() => {
-                void (async () => {
-                  setIsDashboardLoading(true);
-                  setDashboardError(null);
-
-                  try {
-                    const response = await getTeamDashboard();
-                    setDashboard(response);
-                  } catch (error) {
-                    setDashboardError(
-                      error instanceof Error
-                        ? error.message
-                        : "Khong tai duoc dashboard doi",
-                    );
-                  } finally {
-                    setIsDashboardLoading(false);
-                  }
-                })();
+                void loadDashboard();
               }}
+              onReloadData={() => {
+                void loadDashboard();
+              }}
+              isReloadingData={isDashboardLoading}
             />
           )}
 
-          {activeMenu === "map" && (
-            <MapView
-              selectedMission={selectedMission}
-              statusMap={statusMap}
-              logs={missionLogs}
-              priorityStyles={priorityStyles}
-              missions={sourceMissions}
-              onMissionSelect={setSelectedMissionId}
-              reportStatus={reportStatus}
-              onStatusChange={setReportStatus}
-              onSubmitReport={handleSubmitReport}
-              onAbortRequestSubmitted={handleAbortRequestSubmitted}
-            />
-          )}
+          {activeMenu === "map" &&
+            (selectedMission ? (
+              <MapView
+                selectedMission={selectedMission}
+                statusMap={statusMap}
+                logs={missionLogs}
+                priorityStyles={priorityStyles}
+                missions={sourceMissions}
+                onMissionSelect={setSelectedMissionId}
+                reportStatus={reportStatus}
+                onStatusChange={setReportStatus}
+                onSubmitReport={handleSubmitReport}
+                onAbortRequestSubmitted={handleAbortRequestSubmitted}
+                onReloadData={() => {
+                  void reloadMapData();
+                }}
+                isReloadingData={isTeamMissionsLoading}
+              />
+            ) : (
+              <article className="rounded-2xl border border-[#c8ced6] bg-white p-6 text-sm text-on-surface-variant">
+                Chưa có nhiệm vụ để hiển thị bản đồ.
+              </article>
+            ))}
 
           {activeMenu === "missions" && (
             <MissionsView
@@ -645,6 +542,14 @@ export const RescueTeamMission: React.FC = () => {
               statusMap={statusMap}
               priorityStyles={priorityStyles}
               statusStyles={statusStyles}
+              missionDetailsById={missionDetailsById}
+              onLoadMissionDetail={(missionId) => {
+                void loadTeamMissionDetail(missionId, true);
+              }}
+              onReloadData={() => {
+                void loadTeamMissions();
+              }}
+              isReloadingData={isTeamMissionsLoading}
               onAcceptMission={(missionId) => {
                 handleAcceptMission(missionId);
                 setSelectedMissionId(missionId);
@@ -662,13 +567,15 @@ export const RescueTeamMission: React.FC = () => {
               isLeader
               isLoading={isTeamMembersLoading}
               error={teamMembersError}
+              onReloadData={() => {
+                void loadTeamMembers();
+              }}
+              isReloadingData={isTeamMembersLoading}
               onRetry={() => {
                 void loadTeamMembers();
               }}
             />
           )}
-
-          {activeMenu === "reports" && <ReportsView />}
         </div>
       </section>
     </div>

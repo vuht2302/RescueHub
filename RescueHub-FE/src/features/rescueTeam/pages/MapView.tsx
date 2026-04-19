@@ -1,7 +1,14 @@
 import React, { useEffect, useRef } from "react";
 import vietmapgl from "@vietmap/vietmap-gl-js/dist/vietmap-gl";
 import "@vietmap/vietmap-gl-js/dist/vietmap-gl.css";
-import { MapPin, UserRound, Phone, Users, AlertCircle } from "lucide-react";
+import {
+  AlertCircle,
+  MapPin,
+  Phone,
+  RefreshCw,
+  UserRound,
+  Users,
+} from "lucide-react";
 import { Mission, MissionStatus, MissionLog } from "../types/mission";
 import {
   requestMissionAbort,
@@ -14,6 +21,8 @@ interface MapViewProps {
   logs: MissionLog[];
   priorityStyles: Record<string, string>;
   missions: Mission[];
+  onReloadData: () => void;
+  isReloadingData: boolean;
   onMissionSelect: (missionId: string) => void;
   onStatusChange: (status: MissionStatus) => void;
   onSubmitReport: (status: MissionStatus, text: string) => void;
@@ -21,10 +30,40 @@ interface MapViewProps {
   reportStatus: MissionStatus;
 }
 
+const statusProgression: MissionStatus[] = [
+  "Chờ nhận",
+  "Đang di chuyển",
+  "Đang xử lý",
+  "Đã hoàn tất",
+];
+
+const pauseStatus: MissionStatus = "Tạm dừng";
+
+const getAllowedStatusOptions = (currentStatus: MissionStatus) => {
+  const currentIndex = statusProgression.indexOf(currentStatus);
+
+  if (currentStatus === pauseStatus) {
+    return [pauseStatus, "Đang xử lý", "Đã hoàn tất"];
+  }
+
+  if (currentIndex === -1) {
+    return [currentStatus];
+  }
+
+  if (currentStatus === "Đã hoàn tất") {
+    return ["Đã hoàn tất"];
+  }
+
+  return [...statusProgression.slice(currentIndex), pauseStatus];
+};
+
 export const MapView: React.FC<MapViewProps> = ({
   selectedMission,
   priorityStyles,
+  statusMap,
   missions,
+  onReloadData,
+  isReloadingData,
   onMissionSelect,
   reportStatus,
   onStatusChange,
@@ -56,6 +95,25 @@ export const MapView: React.FC<MapViewProps> = ({
   const canUseVietmap =
     hasVietmapKey &&
     isWithinVietnamBounds(selectedMission.coord.lat, selectedMission.coord.lng);
+
+  const persistedMissionStatus = statusMap[selectedMission.id] ?? reportStatus;
+  const allowedStatusOptions = getAllowedStatusOptions(persistedMissionStatus);
+  const selectedReportStatus = allowedStatusOptions.includes(reportStatus)
+    ? reportStatus
+    : persistedMissionStatus;
+
+  useEffect(() => {
+    if (allowedStatusOptions.includes(reportStatus)) {
+      return;
+    }
+
+    onStatusChange(persistedMissionStatus);
+  }, [
+    allowedStatusOptions,
+    onStatusChange,
+    persistedMissionStatus,
+    reportStatus,
+  ]);
 
   useEffect(() => {
     if (!canUseVietmap || !mapContainerRef.current || mapRef.current) {
@@ -146,11 +204,11 @@ export const MapView: React.FC<MapViewProps> = ({
         "Tạm dừng": "ABORTED",
       };
 
-      const actionCode = statusCodeMap[reportStatus] || "START_RESCUE";
+      const actionCode = statusCodeMap[selectedReportStatus] || "START_RESCUE";
 
       console.log("[MapView] Gửi cập nhật nhiệm vụ:", {
         missionId: selectedMission.id,
-        reportStatus,
+        reportStatus: selectedReportStatus,
         actionCode,
         note: reportText,
       });
@@ -161,7 +219,7 @@ export const MapView: React.FC<MapViewProps> = ({
       });
 
       console.log("[MapView] Phản hồi từ server:", response);
-      onSubmitReport(reportStatus, reportText);
+      onSubmitReport(selectedReportStatus, reportText);
       setReportText("");
     } catch (error) {
       console.error("[MapView] Lỗi cập nhật nhiệm vụ:", error);
@@ -246,9 +304,11 @@ export const MapView: React.FC<MapViewProps> = ({
       </article>
 
       <aside className="rounded-2xl bg-[#d7dce2] border border-[#c8ced6] p-5 md:p-6 overflow-auto">
-        <h3 className="text-sm uppercase tracking-[0.18em] font-bold text-on-surface-variant font-primary">
-          Nhiệm vụ hiện tại
-        </h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm uppercase tracking-[0.18em] font-bold text-on-surface-variant font-primary">
+            Nhiệm vụ hiện tại
+          </h3>
+        </div>
 
         <div className="mt-5 rounded-2xl bg-[#e7ebef] border border-[#d4dbe3] p-4">
           <div className="flex items-center justify-between gap-3">
@@ -308,16 +368,17 @@ export const MapView: React.FC<MapViewProps> = ({
           <label className="block text-xs font-semibold text-on-surface-variant">
             Trạng thái thực hiện
             <select
-              value={reportStatus}
+              value={selectedReportStatus}
               onChange={(event) =>
                 onStatusChange(event.target.value as MissionStatus)
               }
               className="w-full mt-1 rounded-lg border border-[#c7ced7] bg-[#eef2f5] px-3 py-2 text-sm"
             >
-              <option>Đang di chuyển</option>
-              <option>Đang xử lý</option>
-              <option>Đã hoàn tất</option>
-              <option>Tạm dừng</option>
+              {allowedStatusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
             </select>
           </label>
 

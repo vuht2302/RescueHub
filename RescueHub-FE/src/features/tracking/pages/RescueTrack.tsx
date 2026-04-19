@@ -142,7 +142,7 @@ export const RescueTrack: React.FC = () => {
       if (response.otpCode) {
         setTrackingOtp(response.otpCode);
       }
-      setOtpMessage("Da gui OTP. Vui long nhap OTP de xac thuc.");
+      setOtpMessage("Đã gửi OTP. Vui lòng nhập OTP để xác thực.");
     } catch (error) {
       setOtpMessage(
         error instanceof Error ? error.message : "Khong the gui OTP",

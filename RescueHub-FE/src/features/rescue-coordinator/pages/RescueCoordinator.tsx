@@ -12,9 +12,15 @@ import {
   getIncidents,
   getIncidentDetail,
   verifyIncident,
+  rejectIncident,
   type IncidentItem,
   type IncidentDetail,
 } from "../services/incidentServices";
+import {
+  toastSuccess,
+  toastError,
+  toastWarning,
+} from "../../../shared/utils/toast";
 
 interface RescueRequest {
   id: string;
@@ -59,7 +65,9 @@ const RescueCoordinatorPage: React.FC = () => {
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
   const [requestsError, setRequestsError] = useState<string | null>(null);
   // Cache location info from detail calls so we can show it in list without re-fetching
-  const [detailCache, setDetailCache] = useState<Record<string, IncidentDetail>>({});
+  const [detailCache, setDetailCache] = useState<
+    Record<string, IncidentDetail>
+  >({});
 
   const [selectedIncidentDetail, setSelectedIncidentDetail] =
     useState<IncidentDetail | null>(null);
@@ -101,12 +109,15 @@ const RescueCoordinatorPage: React.FC = () => {
           minute: "2-digit",
         });
 
+    const hasHandlingTeam =
+      incident.handlingTeams && incident.handlingTeams.length > 0;
+
     return {
       id: incident.id,
       incidentCode: incident.incidentCode,
-      reportedAt: incident.reportedAt, // keep ISO string for sort
+      reportedAt: incident.reportedAt,
       title: `Sự cố ${incident.incidentCode}`,
-      location: "Đang tải vị trí...",
+      location: incident.location?.addressText ?? "Chưa có vị trí",
       requesterPhone: "Chưa cập nhật",
       requesterName: "Chưa cập nhật",
       signalChannel: "app",
@@ -114,12 +125,11 @@ const RescueCoordinatorPage: React.FC = () => {
       time: timeLabel,
       urgency: "high",
       status: normalizedStatus,
-      description:
-        "Dữ liệu mô tả chi tiết chưa được cung cấp từ endpoint incidents.",
-      verificationNote: "Đang chờ cập nhật ghi chú xác minh từ hệ thống.",
+      description: "",
+      verificationNote: "",
       victimCount: 0,
-      latitude: 0,
-      longitude: 0,
+      latitude: incident.location?.lat ?? 0,
+      longitude: incident.location?.lng ?? 0,
       incidentDetail: null,
     };
   };
@@ -204,7 +214,7 @@ const RescueCoordinatorPage: React.FC = () => {
         );
         setSelectedIncidentDetail(detail);
         // Cache location info for display in list
-        setDetailCache(prev => ({ ...prev, [detail.id]: detail }));
+        setDetailCache((prev) => ({ ...prev, [detail.id]: detail }));
       } catch (error) {
         const message =
           error instanceof Error
@@ -283,17 +293,25 @@ const RescueCoordinatorPage: React.FC = () => {
 
   const filteredRequests = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return requests
-      .filter((req) => {
-        const matchesSearch =
-          req.title.toLowerCase().includes(q) ||
-          req.id.toLowerCase().includes(q) ||
-          (detailCache[req.id]?.location?.addressText ?? "").toLowerCase().includes(q);
-        const matchesStatus = statusFilter === "" || req.status === statusFilter;
-        return matchesSearch && matchesStatus;
-      })
-      // Sort newest first by reportedAt ISO timestamp
-      .sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime());
+    return (
+      requests
+        .filter((req) => {
+          const matchesSearch =
+            req.title.toLowerCase().includes(q) ||
+            req.id.toLowerCase().includes(q) ||
+            (detailCache[req.id]?.location?.addressText ?? "")
+              .toLowerCase()
+              .includes(q);
+          const matchesStatus =
+            statusFilter === "" || req.status === statusFilter;
+          return matchesSearch && matchesStatus;
+        })
+        // Sort newest first by reportedAt ISO timestamp
+        .sort(
+          (a, b) =>
+            new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime(),
+        )
+    );
   }, [requests, searchQuery, statusFilter, detailCache]);
 
   const handleVerifyConfirm = async () => {
@@ -318,7 +336,9 @@ const RescueCoordinatorPage: React.FC = () => {
       );
 
       setVerificationSuccess(true);
-      // Update request status to verified
+      toastSuccess(
+        `Sự cố ${selectedRequest.incidentCode} đã được xác minh thành công!`,
+      );
       setRequests((prev) =>
         prev.map((req) =>
           req.id === selectedRequest.id
@@ -330,13 +350,13 @@ const RescueCoordinatorPage: React.FC = () => {
       setTimeout(() => {
         setShowVerificationModal(false);
         setVerificationSuccess(false);
-        // Auto open assessment modal
         setShowAssessmentModal(true);
       }, 1500);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Lỗi không xác định";
       setVerificationError(message);
+      toastError(`Xác minh thất bại: ${message}`);
     } finally {
       setIsVerifying(false);
     }
@@ -352,7 +372,6 @@ const RescueCoordinatorPage: React.FC = () => {
         throw new Error("Không có token xác thực");
       }
 
-      // Update request status to dispatched after assessment
       setRequests((prev) =>
         prev.map((req) =>
           req.id === incidentId
@@ -362,6 +381,9 @@ const RescueCoordinatorPage: React.FC = () => {
       );
 
       setAssessmentSuccess(true);
+      toastSuccess(
+        "Đánh giá mức độ thành công! Đang chuyển sang bước điều phối...",
+      );
 
       setTimeout(() => {
         setShowAssessmentModal(false);
@@ -371,6 +393,7 @@ const RescueCoordinatorPage: React.FC = () => {
       const message =
         error instanceof Error ? error.message : "Lỗi không xác định";
       setAssessmentError(message);
+      toastError(`Đánh giá thất bại: ${message}`);
     } finally {
       setIsAssessing(false);
     }
@@ -545,7 +568,8 @@ const RescueCoordinatorPage: React.FC = () => {
                         Danh sách sự cố
                       </h2>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {filteredRequests.length} / {requests.length} sự cố • Mới nhất trước
+                        {filteredRequests.length} / {requests.length} sự cố •
+                        Mới nhất trước
                       </p>
                     </div>
                     <select
@@ -565,7 +589,9 @@ const RescueCoordinatorPage: React.FC = () => {
                   {isLoadingRequests && (
                     <div className="flex items-center gap-3 py-4">
                       <div className="w-5 h-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-                      <p className="text-sm text-gray-500">Đang tải dữ liệu sự cố...</p>
+                      <p className="text-sm text-gray-500">
+                        Đang tải dữ liệu sự cố...
+                      </p>
                     </div>
                   )}
 
@@ -586,12 +612,17 @@ const RescueCoordinatorPage: React.FC = () => {
                   <div className="space-y-2.5">
                     {filteredRequests.length === 0 && !isLoadingRequests && (
                       <p className="text-sm text-gray-400 py-6 text-center">
-                        {statusFilter ? "Không có sự cố nào ở trạng thái này." : "Chưa có sự cố nào."}
+                        {statusFilter
+                          ? "Không có sự cố nào ở trạng thái này."
+                          : "Chưa có sự cố nào."}
                       </p>
                     )}
                     {filteredRequests.map((request) => {
                       const cached = detailCache[request.id];
-                      const locationText = cached?.location?.addressText || null;
+                      const locationText =
+                        request.location ||
+                        cached?.location?.addressText ||
+                        null;
                       const isSelected = selectedRequest?.id === request.id;
                       return (
                         <div
@@ -602,7 +633,11 @@ const RescueCoordinatorPage: React.FC = () => {
                               ? "border-blue-700 bg-blue-50 shadow-sm"
                               : "border-gray-100 hover:border-blue-200 hover:shadow-sm bg-white"
                           }`}
-                          style={isSelected ? { borderColor: "var(--color-blue-950)" } : {}}
+                          style={
+                            isSelected
+                              ? { borderColor: "var(--color-blue-950)" }
+                              : {}
+                          }
                         >
                           <div className="flex justify-between items-start gap-2">
                             <div className="min-w-0 flex-1">
@@ -612,17 +647,24 @@ const RescueCoordinatorPage: React.FC = () => {
                                 </h3>
                                 {/* SOS badge from cache */}
                                 {cached?.isSOS && (
-                                  <span className="flex-shrink-0 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-black rounded animate-pulse">SOS</span>
+                                  <span className="flex-shrink-0 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-black rounded animate-pulse">
+                                    SOS
+                                  </span>
                                 )}
                               </div>
                               <div className="flex items-start gap-1 text-xs text-gray-500 mt-1.5">
-                                <MapPin size={12} className="flex-shrink-0 mt-0.5" />
+                                <MapPin
+                                  size={12}
+                                  className="flex-shrink-0 mt-0.5"
+                                />
                                 <span className="truncate">
                                   {locationText ?? "Đang tải vị trí..."}
                                 </span>
                               </div>
                               <div className="flex items-center gap-3 mt-2">
-                                <span className="text-xs text-gray-400">{request.time}</span>
+                                <span className="text-xs text-gray-400">
+                                  {request.time}
+                                </span>
                                 {cached?.incidentType?.name && (
                                   <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded font-medium">
                                     {cached.incidentType.name}
@@ -725,7 +767,11 @@ const RescueCoordinatorPage: React.FC = () => {
           {activeMenu !== "current" && activeMenu !== "map" && (
             <div
               className="bg-white rounded-xl shadow-sm border border-gray-100 sticky top-6 overflow-hidden"
-              style={{ maxHeight: "calc(100vh - 120px)", display: "flex", flexDirection: "column" }}
+              style={{
+                maxHeight: "calc(100vh - 120px)",
+                display: "flex",
+                flexDirection: "column",
+              }}
             >
               {/* Panel Header */}
               <div className="px-5 py-3 border-b border-gray-100 flex-shrink-0">
@@ -739,15 +785,22 @@ const RescueCoordinatorPage: React.FC = () => {
                   {isLoadingDetail && (
                     <div className="flex items-center justify-center py-12">
                       <div className="flex flex-col items-center gap-3">
-                        <div className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin" style={{ borderWidth: 3 }} />
-                        <p className="text-sm text-gray-500">Đang tải chi tiết sự cố...</p>
+                        <div
+                          className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin"
+                          style={{ borderWidth: 3 }}
+                        />
+                        <p className="text-sm text-gray-500">
+                          Đang tải chi tiết sự cố...
+                        </p>
                       </div>
                     </div>
                   )}
 
                   {detailError && (
                     <div className="mx-5 mt-4 border border-red-200 bg-red-50 rounded-xl p-4">
-                      <p className="text-sm text-red-700 font-medium">{detailError}</p>
+                      <p className="text-sm text-red-700 font-medium">
+                        {detailError}
+                      </p>
                     </div>
                   )}
 
@@ -816,9 +869,36 @@ const RescueCoordinatorPage: React.FC = () => {
           location={selectedRequest.location}
           description={selectedRequest.description}
           onConfirm={handleVerifyConfirm}
-          onReject={() => {
-            console.log(`Rejected request ${selectedRequest.id} as fake`);
-            // TODO: Gọi API để đánh dấu tin giả
+          onReject={async () => {
+            try {
+              const authSession = getAuthSession();
+              if (!authSession?.accessToken) {
+                toastError("Không có token xác thực");
+                return;
+              }
+              await rejectIncident(
+                selectedRequest.id,
+                { verified: false, note: "Đã xác minh là tín hiệu giả" },
+                authSession.accessToken,
+              );
+              toastWarning(
+                `Sự cố ${selectedRequest.incidentCode} đã bị đánh dấu là tín hiệu giả`,
+              );
+              setRequests((prev) =>
+                prev.map((req) =>
+                  req.id === selectedRequest.id
+                    ? { ...req, status: "pending" as const }
+                    : req,
+                ),
+              );
+              setShowVerificationModal(false);
+            } catch (error) {
+              toastError(
+                error instanceof Error
+                  ? `Từ chối thất bại: ${error.message}`
+                  : "Từ chối thất bại",
+              );
+            }
           }}
           isVerifying={isVerifying}
           error={verificationError}
@@ -846,6 +926,14 @@ const RescueCoordinatorPage: React.FC = () => {
             console.log(
               `Dispatching team ${teamId} to request ${selectedRequest.id}`,
             );
+            setRequests((prev) =>
+              prev.map((req) =>
+                req.id === selectedRequest.id
+                  ? { ...req, status: "dispatched" as const }
+                  : req,
+              ),
+            );
+            toastSuccess(`Nhiệm vụ đã được điều phối cho đội ${teamId}.`);
           }}
         />
       )}

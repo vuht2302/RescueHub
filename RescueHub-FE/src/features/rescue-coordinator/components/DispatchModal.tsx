@@ -7,6 +7,7 @@ import {
   type DispatchMissionRequest,
 } from "../services/dispatchService";
 import { getAuthSession } from "@/src/features/auth/services/authStorage";
+import { toastSuccess, toastError } from "@/src/shared/utils/toast";
 
 interface Team {
   id: string;
@@ -157,12 +158,13 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
       };
 
       await dispatchMission(requestId, session.accessToken, missionPayload);
+      toastSuccess(`Điều phối thành công! Đội cứu hộ đã được phân công đến sự cố.`);
       onDispatch(selectedTeamId);
       onClose();
     } catch (err) {
-      setDispatchError(
-        err instanceof Error ? err.message : "Co loi khi dieu phoi team",
-      );
+      const msg = err instanceof Error ? err.message : "Co loi khi dieu phoi team";
+      setDispatchError(msg);
+      toastError(`Điều phối thất bại: ${msg}`);
     } finally {
       setDispatching(false);
     }

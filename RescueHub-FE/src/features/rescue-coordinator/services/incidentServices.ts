@@ -32,6 +32,29 @@ export interface IncidentFile {
   url: string;
 }
 
+export interface IncidentItem {
+  id: string;
+  incidentCode: string;
+  status: IncidentStatus;
+  location: {
+    lat: number;
+    lng: number;
+    addressText: string;
+    landmark: string;
+  };
+  handlingTeams: Array<{
+    teamId: string;
+    teamCode: string;
+    teamName: string;
+    isPrimaryTeam: boolean;
+    missionId: string;
+    missionCode: string;
+    missionStatusCode: string;
+    assignedAt: string;
+  }>;
+  reportedAt: string;
+}
+
 export interface IncidentDetail {
   id: string;
   incidentCode: string;
@@ -59,13 +82,6 @@ export interface IncidentDetailResponse {
   message: string;
   data: IncidentDetail;
   errors: unknown;
-}
-
-export interface IncidentItem {
-  id: string;
-  incidentCode: string;
-  status: IncidentStatus;
-  reportedAt: string;
 }
 
 export interface IncidentsApiResponse {
@@ -133,13 +149,17 @@ export async function getIncidents(accessToken: string): Promise<IncidentItem[]>
     throw new Error(`Không thể tải danh sách sự cố: HTTP ${response.status}`);
   }
 
-  const payload: IncidentsApiResponse = await response.json();
+  const payload = await response.json();
 
   if (!payload.success) {
     throw new Error(payload.message || "API trả về thất bại khi lấy sự cố");
   }
 
-  return payload.data ?? [];
+  const items: IncidentItem[] = Array.isArray(payload.data)
+    ? payload.data
+    : [];
+
+  return items;
 }
 
 export async function getIncidentDetail(id: string, accessToken: string): Promise<IncidentDetail> {
@@ -230,3 +250,30 @@ export const getIncidentDetailWithAuth = async (
   }
   return getIncidentDetail(incidentId, session.accessToken);
 };
+
+export async function rejectIncident(
+  incidentId: string,
+  request: VerifyIncidentRequest,
+  accessToken: string
+): Promise<void> {
+  const url = `${INCIDENTS_API_URL}/${incidentId}/verify`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Không thể từ chối sự cố ${incidentId}: HTTP ${response.status}`);
+  }
+
+  const payload = await response.json();
+
+  if (!payload.success) {
+    throw new Error(payload.message || "API từ chối thất bại");
+  }
+}

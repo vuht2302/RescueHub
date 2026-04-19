@@ -26,6 +26,7 @@
     "react-dom": "^19.0.0",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.14.0",
+    "react-toastify": "^11.0.5",
     "recharts": "^3.8.1",
     "svg.js": "^2.7.1",
     "vite": "^6.2.0"

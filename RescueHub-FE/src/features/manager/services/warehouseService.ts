@@ -357,30 +357,59 @@ export interface ReliefIssuePayload {
   lines: ReliefIssueLine[];
 }
 
+// List item shape (no lines array, has lineCount)
+export interface ReliefIssueListItem {
+  id: string;
+  code: string;
+  status: { code: string; name: string; color: string | null };
+  campaign:      { id: string; code: string; name: string } | null;
+  reliefPoint:   { id: string; code: string; name: string } | null;
+  fromWarehouse: { id: string; code: string; name: string };
+  note: string;
+  lineCount: number;
+  createdAt: string;
+}
+
+// Detail shape (has lines array)
 export interface ReliefIssue {
   id: string;
-  issueCode: string;
-  campaign: { id: string; name: string } | null;
-  reliefPoint: { id: string; name: string } | null;
-  fromWarehouse: { id: string; warehouseName: string };
+  code: string;
+  status: { code: string; name: string; color: string | null };
+  campaign:      { id: string; code: string; name: string } | null;
+  reliefPoint:   { id: string; code: string; name: string } | null;
+  fromWarehouse: { id: string; code: string; name: string };
   note: string;
   lines: Array<{
-    item: { id: string; itemCode: string; itemName: string };
-    lot: { id: string; lotNo: string } | null;
+    id: string;
+    item: { id: string; code: string; name: string };
+    lot:  { id: string; lotNo: string } | null;
     issueQty: number;
     unitCode: string;
   }>;
   createdAt: string;
 }
 
-export async function getReliefIssues(token: string): Promise<ReliefIssue[]> {
-  const data = await apiFetch<ReliefIssue[] | PagedResponse<ReliefIssue>>(
-    `${BASE}/relief-issues`,
-    { headers: authHeaders(token) },
-  );
-  return Array.isArray(data)
-    ? data
-    : (data as PagedResponse<ReliefIssue>).items;
+export interface ReliefIssueListParams {
+  campaignId?:    string;
+  reliefPointId?: string;
+  statusCode?:    string;
+  page?:          number;
+  pageSize?:      number;
+}
+
+export async function getReliefIssues(
+  token: string,
+  params: ReliefIssueListParams = {},
+): Promise<PagedResponse<ReliefIssueListItem>> {
+  const q = new URLSearchParams();
+  if (params.campaignId)    q.set("campaignId",    params.campaignId);
+  if (params.reliefPointId) q.set("reliefPointId", params.reliefPointId);
+  if (params.statusCode)    q.set("statusCode",    params.statusCode);
+  if (params.page != null)     q.set("page",     String(params.page));
+  if (params.pageSize != null) q.set("pageSize", String(params.pageSize));
+  return apiFetch<PagedResponse<ReliefIssueListItem>>(`${BASE}/relief-issues?${q}`, {
+    headers: authHeaders(token),
+  });
 }
 
 export async function getReliefIssue(

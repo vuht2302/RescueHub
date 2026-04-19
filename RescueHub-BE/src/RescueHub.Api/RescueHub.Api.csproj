@@ -7,6 +7,7 @@
     <ProjectReference Include="..\RescueHub.Modules.Public\RescueHub.Modules.Public.csproj" />
     <ProjectReference Include="..\RescueHub.Modules.MasterData\RescueHub.Modules.MasterData.csproj" />
     <ProjectReference Include="..\RescueHub.Modules.Incidents\RescueHub.Modules.Incidents.csproj" />
+    <ProjectReference Include="..\RescueHub.Modules.AI\RescueHub.Modules.AI.csproj" />
     <ProjectReference Include="..\RescueHub.Modules.Media\RescueHub.Modules.Media.csproj" />
     <ProjectReference Include="..\RescueHub.Persistence\RescueHub.Persistence.csproj" />
   </ItemGroup>

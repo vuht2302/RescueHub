@@ -482,7 +482,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             }
         }
 
-        incident.status_code = "DISPATCHED";
+        incident.status_code = "ASSIGNED";
         incident.updated_at = now;
 
         dbContext.incident_status_histories.Add(new incident_status_history
@@ -490,7 +490,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             id = Guid.NewGuid(),
             incident_id = incidentId,
             from_status_code = "ASSESSED",
-            to_status_code = "DISPATCHED",
+            to_status_code = "ASSIGNED",
             action_code = "DISPATCH",
             changed_at = now,
             note = request.Note

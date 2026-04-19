@@ -5,10 +5,16 @@ using RescueHub.Modules.Admin.Application;
 
 namespace RescueHub.Modules.Admin.Api;
 
+/// <summary>
+/// API quan tri he thong: user, role, danh muc, dia ban, cau hinh va bao cao.
+/// </summary>
 [Route("api/v1/admin")]
 [Authorize(Roles = "ADMIN")]
 public sealed class AdminController(IAdminService service) : BaseApiController
 {
+    /// <summary>
+    /// Lay danh sach user theo bo loc va phan trang.
+    /// </summary>
     [HttpGet("users")]
     public async Task<ActionResult<ApiResponse<object>>> ListUsers(
         [FromQuery] string? keyword,
@@ -18,6 +24,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         [FromQuery] int pageSize = 20)
         => OkResponse<object>(await service.ListUsers(keyword, isActive, roleCode, page, pageSize), "Lay danh sach user thanh cong");
 
+    /// <summary>
+    /// Lay chi tiet mot user.
+    /// </summary>
     [HttpGet("users/{userId:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> GetUser([FromRoute] Guid userId)
     {
@@ -31,6 +40,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Tao moi user noi bo.
+    /// </summary>
     [HttpPost("users")]
     public async Task<ActionResult<ApiResponse<object>>> CreateUser([FromBody] CreateAdminUserRequest request)
     {
@@ -44,6 +56,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Cap nhat thong tin user.
+    /// </summary>
     [HttpPut("users/{userId:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateUser([FromRoute] Guid userId, [FromBody] UpdateAdminUserRequest request)
     {
@@ -57,6 +72,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Cap nhat tap role cua user.
+    /// </summary>
     [HttpPut("users/{userId:guid}/roles")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateUserRoles([FromRoute] Guid userId, [FromBody] UpdateUserRolesRequest request)
     {
@@ -70,10 +88,16 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Lay danh sach role.
+    /// </summary>
     [HttpGet("roles")]
     public async Task<ActionResult<ApiResponse<object>>> ListRoles([FromQuery] string? keyword)
         => OkResponse<object>(await service.ListRoles(keyword), "Lay danh sach role thanh cong");
 
+    /// <summary>
+    /// Lay chi tiet role.
+    /// </summary>
     [HttpGet("roles/{roleId:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> GetRole([FromRoute] Guid roleId)
     {
@@ -87,6 +111,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Tao role moi.
+    /// </summary>
     [HttpPost("roles")]
     public async Task<ActionResult<ApiResponse<object>>> CreateRole([FromBody] CreateRoleRequest request)
     {
@@ -100,6 +127,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Cap nhat role.
+    /// </summary>
     [HttpPut("roles/{roleId:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateRole([FromRoute] Guid roleId, [FromBody] UpdateRoleRequest request)
     {
@@ -113,6 +143,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Xoa role.
+    /// </summary>
     [HttpDelete("roles/{roleId:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteRole([FromRoute] Guid roleId)
     {
@@ -126,6 +159,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Lay danh sach dia ban hanh chinh.
+    /// </summary>
     [HttpGet("admin-areas")]
     public async Task<ActionResult<ApiResponse<object>>> ListAdminAreas(
         [FromQuery] string? keyword,
@@ -135,6 +171,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         [FromQuery] int pageSize = 20)
         => OkResponse<object>(await service.ListAdminAreas(keyword, levelCode, parentId, page, pageSize), "Lay danh sach dia ban hanh chinh thanh cong");
 
+    /// <summary>
+    /// Lay chi tiet dia ban hanh chinh.
+    /// </summary>
     [HttpGet("admin-areas/{adminAreaId:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> GetAdminArea([FromRoute] Guid adminAreaId)
     {
@@ -148,6 +187,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Tao dia ban hanh chinh moi.
+    /// </summary>
     [HttpPost("admin-areas")]
     public async Task<ActionResult<ApiResponse<object>>> CreateAdminArea([FromBody] CreateAdminAreaRequest request)
     {
@@ -161,6 +203,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Cap nhat dia ban hanh chinh.
+    /// </summary>
     [HttpPut("admin-areas/{adminAreaId:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateAdminArea([FromRoute] Guid adminAreaId, [FromBody] UpdateAdminAreaRequest request)
     {
@@ -174,6 +219,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Xoa dia ban hanh chinh.
+    /// </summary>
     [HttpDelete("admin-areas/{adminAreaId:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteAdminArea([FromRoute] Guid adminAreaId)
     {
@@ -187,10 +235,16 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Lay toan bo danh muc theo bo loc keyword.
+    /// </summary>
     [HttpGet("catalogs")]
     public async Task<ActionResult<ApiResponse<object>>> GetAllCatalogs([FromQuery] string? keyword)
         => OkResponse<object>(await service.GetAllCatalogs(keyword), "Lay toan bo danh muc thanh cong");
 
+    /// <summary>
+    /// Lay danh sach item cua mot loai danh muc.
+    /// </summary>
     [HttpGet("catalogs/{catalogType}")]
     public async Task<ActionResult<ApiResponse<object>>> ListCatalogItems([FromRoute] string catalogType, [FromQuery] string? keyword)
     {
@@ -204,6 +258,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Tao item danh muc moi.
+    /// </summary>
     [HttpPost("catalogs/{catalogType}")]
     public async Task<ActionResult<ApiResponse<object>>> CreateCatalogItem([FromRoute] string catalogType, [FromBody] UpsertCatalogItemRequest request)
     {
@@ -217,6 +274,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Cap nhat item danh muc.
+    /// </summary>
     [HttpPut("catalogs/{catalogType}/{itemId:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateCatalogItem([FromRoute] string catalogType, [FromRoute] Guid itemId, [FromBody] UpsertCatalogItemRequest request)
     {
@@ -230,6 +290,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Xoa item danh muc.
+    /// </summary>
     [HttpDelete("catalogs/{catalogType}/{itemId:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteCatalogItem([FromRoute] string catalogType, [FromRoute] Guid itemId)
     {
@@ -243,6 +306,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Lay cau hinh workflow theo entity type.
+    /// </summary>
     [HttpGet("workflows/{entityType}")]
     public async Task<ActionResult<ApiResponse<object>>> GetWorkflow([FromRoute] string entityType)
     {
@@ -256,10 +322,16 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Lay system settings.
+    /// </summary>
     [HttpGet("system-settings")]
     public async Task<ActionResult<ApiResponse<object>>> GetSystemSettings()
         => OkResponse<object>(await service.GetSystemSettings(), "Lay system settings thanh cong");
 
+    /// <summary>
+    /// Cap nhat system settings.
+    /// </summary>
     [HttpPut("system-settings")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateSystemSettings([FromBody] UpdateSystemSettingsRequest request)
     {
@@ -273,6 +345,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Bao cao tong quan he thong.
+    /// </summary>
     [HttpGet("reports/overview")]
     public async Task<ActionResult<ApiResponse<object>>> GetOverviewReport([FromQuery] DateTime? fromDateUtc, [FromQuery] DateTime? toDateUtc)
     {
@@ -286,6 +361,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Bao cao incident theo trang thai.
+    /// </summary>
     [HttpGet("reports/incidents/by-status")]
     public async Task<ActionResult<ApiResponse<object>>> GetIncidentsByStatusReport([FromQuery] DateTime? fromDateUtc, [FromQuery] DateTime? toDateUtc)
     {
@@ -299,6 +377,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Bao cao mission theo trang thai.
+    /// </summary>
     [HttpGet("reports/missions/by-status")]
     public async Task<ActionResult<ApiResponse<object>>> GetMissionsByStatusReport([FromQuery] DateTime? fromDateUtc, [FromQuery] DateTime? toDateUtc)
     {
@@ -312,6 +393,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Bao cao relief theo trang thai.
+    /// </summary>
     [HttpGet("reports/relief/by-status")]
     public async Task<ActionResult<ApiResponse<object>>> GetReliefByStatusReport([FromQuery] DateTime? fromDateUtc, [FromQuery] DateTime? toDateUtc)
     {
@@ -325,6 +409,9 @@ public sealed class AdminController(IAdminService service) : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Bao cao diem nong su co.
+    /// </summary>
     [HttpGet("reports/hotspots")]
     public async Task<ActionResult<ApiResponse<object>>> GetHotspotsReport(
         [FromQuery] DateTime? fromDateUtc,

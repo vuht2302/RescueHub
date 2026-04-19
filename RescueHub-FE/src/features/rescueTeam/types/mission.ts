@@ -1,3 +1,28 @@
+export interface MissionLog {
+  id: string;
+  missionId: string;
+  time: string;
+  content: string;
+}
+
+export interface Mission {
+  id: string;
+  code: string;
+  incidentId: string;
+  incidentCode: string;
+  type: string;
+  title: string;
+  requester: string;
+  phone: string;
+  address: string;
+  priority: string;
+  summary: string;
+  assignedTeam: string;
+  assignedMembers: unknown[];
+  assignedVehicles: unknown[];
+  coord: { lat: number; lng: number };
+}
+
 export type MissionStatus =
   | "Chờ nhận"
   | "Đang di chuyển"
@@ -81,6 +106,51 @@ export interface ApiResponse<T> {
   message: string;
   data: T;
   errors: null | string[];
+}
+
+/** Flat member type used by TeamView — derived from TeamMemberItem */
+export interface UiTeamMemberSkill {
+  id: string;
+  code: string;
+  name: string;
+  levelCode: string;
+  isPrimary: boolean;
+}
+
+export interface UiTeamMember {
+  /** Unique member identifier */
+  id: string;
+  /** Full display name */
+  name: string;
+  /** Computed display role (Đội trưởng / skill name) */
+  role: string;
+  /** Available / Unavailable */
+  status: string;
+  /** Avatar initials */
+  avatar: string;
+  phone: string | null;
+  isTeamLeader: boolean;
+  notes: string | null;
+  lastKnownLocation: { lat: number; lng: number } | null;
+  skills: UiTeamMemberSkill[];
+  /** Original fields from API */
+  memberId: string;
+  fullName: string;
+  userId: string | null;
+  username: string | null;
+  displayName: string | null;
+  createdAt: string;
+}
+
+/** Props for the TeamView component */
+export interface TeamViewProps {
+  teamMembers: UiTeamMember[];
+  isLeader?: boolean;
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  onReloadData?: () => void;
+  isReloadingData?: boolean;
 }
 
 export interface TeamMissionStatus {

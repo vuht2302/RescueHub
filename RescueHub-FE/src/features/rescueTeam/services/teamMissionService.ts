@@ -12,6 +12,13 @@ import {
   UpdateMissionStatusResponse,
 } from "../types/mission";
 
+export type {
+  TeamMissionDetail,
+  TeamMissionListItem,
+  TeamMemberItem,
+  TeamMemberSkill,
+} from "../types/mission";
+
 const DEFAULT_API_BASE_URL = "https://rescuehub.onrender.com";
 
 const getApiBaseUrl = () =>

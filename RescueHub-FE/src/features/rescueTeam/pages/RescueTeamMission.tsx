@@ -22,7 +22,7 @@ import {
   Mission,
   MissionLog,
   MissionStatus,
-  TeamMember,
+  UiTeamMember,
 } from "../types/mission";
 import { getIncidentDetailWithAuth } from "../../rescue-coordinator/services/incidentServices";
 
@@ -40,7 +40,7 @@ const getInitialsFromName = (name: string) => {
   return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
 };
 
-const mapMemberSkills = (skills: TeamMemberSkill[]): TeamMember["skills"] => {
+const mapMemberSkills = (skills: TeamMemberSkill[]): UiTeamMember["skills"] => {
   return skills.map((skill) => ({
     id: skill.teamMemberSkillId,
     code: skill.skillCode,
@@ -50,7 +50,7 @@ const mapMemberSkills = (skills: TeamMemberSkill[]): TeamMember["skills"] => {
   }));
 };
 
-const mapApiMemberToUiMember = (member: TeamMemberItem): TeamMember => {
+const mapApiMemberToUiMember = (member: TeamMemberItem): UiTeamMember => {
   const displayName =
     member.displayName ??
     member.fullName ??
@@ -73,6 +73,12 @@ const mapApiMemberToUiMember = (member: TeamMemberItem): TeamMember => {
     notes: member.notes,
     lastKnownLocation: member.lastKnownLocation,
     skills: mapMemberSkills(member.skills),
+    memberId: member.memberId,
+    fullName: member.fullName,
+    userId: member.userId,
+    username: member.username,
+    displayName: member.displayName,
+    createdAt: member.createdAt,
   };
 };
 
@@ -154,7 +160,7 @@ export const RescueTeamMission: React.FC = () => {
   const [teamMissionsError, setTeamMissionsError] = useState<string | null>(
     null,
   );
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamMembers, setTeamMembers] = useState<UiTeamMember[]>([]);
   const [isTeamMembersLoading, setIsTeamMembersLoading] = useState(false);
   const [teamMembersError, setTeamMembersError] = useState<string | null>(null);
   const [selectedMissionId, setSelectedMissionId] = useState("");

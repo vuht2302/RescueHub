@@ -29,6 +29,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
     {
         var items = await dbContext.incidents
             .AsNoTracking()
+            .Include(x => x.incident_location)
             .OrderByDescending(x => x.created_at)
             .Take(100)
             .Select(x => new
@@ -36,11 +37,59 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
                 id = x.id,
                 incidentCode = x.code,
                 status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                location = x.incident_location == null
+                    ? null
+                    : new
+                    {
+                        lat = x.incident_location.lat,
+                        lng = x.incident_location.lng,
+                        addressText = x.incident_location.address_text,
+                        landmark = x.incident_location.landmark
+                    },
                 reportedAt = x.created_at
             })
             .ToListAsync();
 
-        return items;
+        var incidentIds = items.Select(x => x.id).ToArray();
+        var activeAssignments = await dbContext.mission_teams
+            .AsNoTracking()
+            .Where(x =>
+                incidentIds.Contains(x.mission.incident_id) &&
+                x.mission.status_code != "COMPLETED" &&
+                x.mission.status_code != "ABORTED" &&
+                x.mission.status_code != "REJECTED")
+            .OrderByDescending(x => x.is_primary_team)
+            .ThenByDescending(x => x.assigned_at)
+            .Select(x => new
+            {
+                incidentId = x.mission.incident_id,
+                team = new IncidentHandlingTeamInfo(
+                    x.team_id,
+                    x.team.code,
+                    x.team.name,
+                    x.is_primary_team,
+                    x.mission_id,
+                    x.mission.code,
+                    x.mission.status_code,
+                    x.assigned_at)
+            })
+            .ToListAsync();
+
+        var handlingTeamsByIncident = activeAssignments
+            .GroupBy(x => x.incidentId)
+            .ToDictionary(x => x.Key, x => x.Select(v => v.team).ToList());
+
+        return items.Select(x => new
+        {
+            x.id,
+            x.incidentCode,
+            x.status,
+            x.location,
+            handlingTeams = handlingTeamsByIncident.TryGetValue(x.id, out var teams)
+                ? teams
+                : new List<IncidentHandlingTeamInfo>(),
+            x.reportedAt
+        });
     }
 
     public async Task<object> Get(Guid incidentId)
@@ -58,6 +107,25 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         }
 
         var latestAssessment = item.incident_assessments.OrderByDescending(x => x.created_at).FirstOrDefault();
+        var handlingTeams = await dbContext.mission_teams
+            .AsNoTracking()
+            .Where(x =>
+                x.mission.incident_id == incidentId &&
+                x.mission.status_code != "COMPLETED" &&
+                x.mission.status_code != "ABORTED" &&
+                x.mission.status_code != "REJECTED")
+            .OrderByDescending(x => x.is_primary_team)
+            .ThenByDescending(x => x.assigned_at)
+            .Select(x => new IncidentHandlingTeamInfo(
+                x.team_id,
+                x.team.code,
+                x.team.name,
+                x.is_primary_team,
+                x.mission_id,
+                x.mission.code,
+                x.mission.status_code,
+                x.assigned_at))
+            .ToListAsync();
 
         return new
         {
@@ -106,6 +174,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
                     severity = latestAssessment.severity_code,
                     notes = latestAssessment.notes
                 },
+            handlingTeams,
             reportedAt = item.created_at,
             updatedAt = item.updated_at
         };
@@ -498,10 +567,37 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
 
         await dbContext.SaveChangesAsync();
 
+        var handlingTeams = await dbContext.mission_teams
+            .AsNoTracking()
+            .Where(x => x.mission_id == mission.id)
+            .OrderByDescending(x => x.is_primary_team)
+            .ThenByDescending(x => x.assigned_at)
+            .Select(x => new IncidentHandlingTeamInfo(
+                x.team_id,
+                x.team.code,
+                x.team.name,
+                x.is_primary_team,
+                x.mission_id,
+                x.mission.code,
+                x.mission.status_code,
+                x.assigned_at))
+            .ToListAsync();
+
         return new
         {
             missionId = mission.id,
             missionCode = mission.code,
+            incident = new
+            {
+                incidentId = incident.id,
+                status = new
+                {
+                    code = incident.status_code,
+                    name = incident.status_code,
+                    color = "#F59E0B"
+                },
+                handlingTeams
+            },
             status = new
             {
                 code = "ASSIGNED",
@@ -1518,4 +1614,14 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         var dLng = Math.Abs((double)lng1.Value - lng2.Value);
         return (decimal)Math.Sqrt((dLat * dLat) + (dLng * dLng)) * 111m;
     }
+
+    private sealed record IncidentHandlingTeamInfo(
+        Guid TeamId,
+        string TeamCode,
+        string TeamName,
+        bool IsPrimaryTeam,
+        Guid MissionId,
+        string MissionCode,
+        string MissionStatusCode,
+        DateTime AssignedAt);
 }

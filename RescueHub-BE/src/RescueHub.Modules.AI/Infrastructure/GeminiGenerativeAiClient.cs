@@ -120,12 +120,13 @@ public sealed class GeminiGenerativeAiClient(HttpClient httpClient, IOptions<Gem
     {
         var cfg = options.Value;
         var apiKey = ResolveApiKey(cfg.ApiKey);
+        var model = ResolveModel(cfg.Model);
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             throw new InvalidOperationException("AI Gemini ApiKey chua duoc cau hinh. Kiem tra AI:Gemini:ApiKey.");
         }
 
-        if (string.IsNullOrWhiteSpace(cfg.Model))
+        if (string.IsNullOrWhiteSpace(model))
         {
             throw new InvalidOperationException("AI Gemini Model chua duoc cau hinh. Kiem tra AI:Gemini:Model.");
         }
@@ -134,7 +135,7 @@ public sealed class GeminiGenerativeAiClient(HttpClient httpClient, IOptions<Gem
             ? "https://generativelanguage.googleapis.com/v1beta"
             : cfg.BaseUrl.TrimEnd('/');
 
-        var requestUri = $"{baseUrl}/models/{cfg.Model}:generateContent?key={Uri.EscapeDataString(apiKey)}";
+        var requestUri = $"{baseUrl}/models/{model}:generateContent?key={Uri.EscapeDataString(apiKey)}";
 
         var payload = new
         {
@@ -197,10 +198,28 @@ public sealed class GeminiGenerativeAiClient(HttpClient httpClient, IOptions<Gem
             return envApiKey.Trim();
         }
 
-        return TryReadApiKeyFromAppSettingsFiles();
+        return TryReadGeminiSettingFromAppSettingsFiles("ApiKey");
     }
 
-    private static string? TryReadApiKeyFromAppSettingsFiles()
+    private static string? ResolveModel(string? configuredModel)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredModel))
+        {
+            return configuredModel.Trim();
+        }
+
+        var envModel = Environment.GetEnvironmentVariable("AI__Gemini__Model")
+            ?? Environment.GetEnvironmentVariable("GEMINI_MODEL");
+
+        if (!string.IsNullOrWhiteSpace(envModel))
+        {
+            return envModel.Trim();
+        }
+
+        return TryReadGeminiSettingFromAppSettingsFiles("Model");
+    }
+
+    private static string? TryReadGeminiSettingFromAppSettingsFiles(string propertyName)
     {
         var cwd = Directory.GetCurrentDirectory();
         var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
@@ -234,15 +253,15 @@ public sealed class GeminiGenerativeAiClient(HttpClient httpClient, IOptions<Gem
                     continue;
                 }
 
-                if (!geminiSection.TryGetProperty("ApiKey", out var apiKeyElement))
+                if (!geminiSection.TryGetProperty(propertyName, out var settingElement))
                 {
                     continue;
                 }
 
-                var apiKey = apiKeyElement.GetString();
-                if (!string.IsNullOrWhiteSpace(apiKey))
+                var settingValue = settingElement.GetString();
+                if (!string.IsNullOrWhiteSpace(settingValue))
                 {
-                    return apiKey.Trim();
+                    return settingValue.Trim();
                 }
             }
             catch

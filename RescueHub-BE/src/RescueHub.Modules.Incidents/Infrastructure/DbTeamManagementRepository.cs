@@ -32,6 +32,14 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
         "LEVEL_3"
     ];
 
+    private static readonly HashSet<string> VehicleStatusCodes =
+    [
+        "AVAILABLE",
+        "IN_USE",
+        "OUT_OF_SERVICE",
+        "MAINTENANCE"
+    ];
+
     public Task<object> GetStatusOptions()
     {
         var data = new
@@ -826,6 +834,234 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
         };
     }
 
+    public async Task<object> ListVehicles(string? keyword, string? statusCode, Guid? teamId)
+    {
+        var query = dbContext.vehicles
+            .AsNoTracking()
+            .Include(x => x.vehicle_type)
+            .Include(x => x.team)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var q = keyword.Trim();
+            query = query.Where(x =>
+                x.code.Contains(q) ||
+                x.display_name.Contains(q) ||
+                (x.plate_no != null && x.plate_no.Contains(q)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(statusCode))
+        {
+            var normalizedStatusCode = NormalizeCode(statusCode);
+            query = query.Where(x => x.status_code == normalizedStatusCode);
+        }
+
+        if (teamId.HasValue)
+        {
+            query = query.Where(x => x.team_id == teamId.Value);
+        }
+
+        var items = await query
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                displayName = x.display_name,
+                plateNo = x.plate_no,
+                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                vehicleType = new { id = x.vehicle_type.id, code = x.vehicle_type.code, name = x.vehicle_type.name },
+                team = x.team == null
+                    ? null
+                    : new { id = x.team.id, code = x.team.code, name = x.team.name },
+                capacityPerson = x.capacity_person,
+                capacityWeightKg = x.capacity_weight_kg,
+                currentLocation = ToLocationItem(x.current_location),
+                capabilityCount = x.vehicle_capabilities.Count,
+                notes = x.notes,
+                createdAt = x.created_at
+            })
+            .ToListAsync();
+
+        return new { items };
+    }
+
+    public async Task<object> GetVehicle(Guid vehicleId)
+    {
+        var vehicle = await dbContext.vehicles
+            .AsNoTracking()
+            .Include(x => x.vehicle_type)
+            .Include(x => x.team)
+            .Include(x => x.vehicle_capabilities)
+            .FirstOrDefaultAsync(x => x.id == vehicleId);
+
+        if (vehicle is null)
+        {
+            throw new InvalidOperationException("Khong tim thay vehicle.");
+        }
+
+        return new
+        {
+            id = vehicle.id,
+            code = vehicle.code,
+            displayName = vehicle.display_name,
+            plateNo = vehicle.plate_no,
+            status = new { code = vehicle.status_code, name = vehicle.status_code, color = (string?)null },
+            vehicleType = new { id = vehicle.vehicle_type.id, code = vehicle.vehicle_type.code, name = vehicle.vehicle_type.name },
+            team = vehicle.team == null
+                ? null
+                : new { id = vehicle.team.id, code = vehicle.team.code, name = vehicle.team.name },
+            capacityPerson = vehicle.capacity_person,
+            capacityWeightKg = vehicle.capacity_weight_kg,
+            currentLocation = ToLocationItem(vehicle.current_location),
+            capabilities = vehicle.vehicle_capabilities
+                .OrderBy(x => x.code)
+                .Select(x => new { id = x.id, code = x.code, name = x.name })
+                .ToList(),
+            notes = vehicle.notes,
+            createdAt = vehicle.created_at
+        };
+    }
+
+    public async Task<object> CreateVehicle(CreateVehicleRequest request)
+    {
+        var code = NormalizeCode(request.Code);
+        var displayName = NormalizeRequired(request.DisplayName, "DisplayName");
+        var statusCode = NormalizeCode(request.StatusCode);
+        ValidateVehicleStatus(statusCode);
+
+        if (request.CapacityPerson < 0)
+        {
+            throw new InvalidOperationException("CapacityPerson khong hop le.");
+        }
+
+        if (request.CapacityWeightKg < 0)
+        {
+            throw new InvalidOperationException("CapacityWeightKg khong hop le.");
+        }
+
+        var codeExists = await dbContext.vehicles.AnyAsync(x => x.code == code);
+        if (codeExists)
+        {
+            throw new InvalidOperationException($"Ma vehicle da ton tai: {code}");
+        }
+
+        await EnsureVehicleTypeExists(request.VehicleTypeId);
+        await EnsureTeamExistsOptional(request.TeamId);
+
+        var vehicle = new vehicle
+        {
+            id = Guid.NewGuid(),
+            code = code,
+            vehicle_type_id = request.VehicleTypeId,
+            display_name = displayName,
+            plate_no = NormalizeOptional(request.PlateNo),
+            team_id = request.TeamId,
+            status_code = statusCode,
+            capacity_person = request.CapacityPerson,
+            capacity_weight_kg = request.CapacityWeightKg,
+            current_location = ToPointOrNull(request.CurrentLocation),
+            notes = NormalizeOptional(request.Notes),
+            created_at = DateTime.UtcNow
+        };
+
+        dbContext.vehicles.Add(vehicle);
+        await AssignVehicleCapabilities(vehicle, request.CapabilityIds);
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            id = vehicle.id,
+            code = vehicle.code,
+            createdAt = vehicle.created_at
+        };
+    }
+
+    public async Task<object> UpdateVehicle(Guid vehicleId, UpdateVehicleRequest request)
+    {
+        var vehicle = await dbContext.vehicles
+            .Include(x => x.vehicle_capabilities)
+            .FirstOrDefaultAsync(x => x.id == vehicleId);
+
+        if (vehicle is null)
+        {
+            throw new InvalidOperationException("Khong tim thay vehicle.");
+        }
+
+        var code = NormalizeCode(request.Code);
+        var displayName = NormalizeRequired(request.DisplayName, "DisplayName");
+        var statusCode = NormalizeCode(request.StatusCode);
+        ValidateVehicleStatus(statusCode);
+
+        if (request.CapacityPerson < 0)
+        {
+            throw new InvalidOperationException("CapacityPerson khong hop le.");
+        }
+
+        if (request.CapacityWeightKg < 0)
+        {
+            throw new InvalidOperationException("CapacityWeightKg khong hop le.");
+        }
+
+        var codeExists = await dbContext.vehicles.AnyAsync(x => x.id != vehicleId && x.code == code);
+        if (codeExists)
+        {
+            throw new InvalidOperationException($"Ma vehicle da ton tai: {code}");
+        }
+
+        await EnsureVehicleTypeExists(request.VehicleTypeId);
+        await EnsureTeamExistsOptional(request.TeamId);
+
+        vehicle.code = code;
+        vehicle.vehicle_type_id = request.VehicleTypeId;
+        vehicle.display_name = displayName;
+        vehicle.plate_no = NormalizeOptional(request.PlateNo);
+        vehicle.team_id = request.TeamId;
+        vehicle.status_code = statusCode;
+        vehicle.capacity_person = request.CapacityPerson;
+        vehicle.capacity_weight_kg = request.CapacityWeightKg;
+        vehicle.current_location = ToPointOrNull(request.CurrentLocation);
+        vehicle.notes = NormalizeOptional(request.Notes);
+
+        await AssignVehicleCapabilities(vehicle, request.CapabilityIds);
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            id = vehicle.id,
+            updated = true
+        };
+    }
+
+    public async Task<object> DeleteVehicle(Guid vehicleId)
+    {
+        var vehicle = await dbContext.vehicles
+            .Include(x => x.vehicle_capabilities)
+            .FirstOrDefaultAsync(x => x.id == vehicleId);
+
+        if (vehicle is null)
+        {
+            throw new InvalidOperationException("Khong tim thay vehicle.");
+        }
+
+        var hasMissionHistory = await dbContext.mission_vehicles.AnyAsync(x => x.vehicle_id == vehicleId);
+        if (hasMissionHistory)
+        {
+            throw new InvalidOperationException("Vehicle da duoc gan vao mission, khong the xoa.");
+        }
+
+        vehicle.vehicle_capabilities.Clear();
+        dbContext.vehicles.Remove(vehicle);
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            id = vehicleId,
+            deleted = true
+        };
+    }
+
     private async Task EnsureTeamExists(Guid teamId)
     {
         var exists = await dbContext.teams.AnyAsync(x => x.id == teamId);
@@ -850,6 +1086,54 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
         if (!exists)
         {
             throw new InvalidOperationException("Khong tim thay skill.");
+        }
+    }
+
+    private async Task EnsureVehicleTypeExists(Guid vehicleTypeId)
+    {
+        var exists = await dbContext.vehicle_types.AnyAsync(x => x.id == vehicleTypeId);
+        if (!exists)
+        {
+            throw new InvalidOperationException($"Khong tim thay vehicle type: {vehicleTypeId}");
+        }
+    }
+
+    private async Task EnsureTeamExistsOptional(Guid? teamId)
+    {
+        if (!teamId.HasValue)
+        {
+            return;
+        }
+
+        var exists = await dbContext.teams.AnyAsync(x => x.id == teamId.Value);
+        if (!exists)
+        {
+            throw new InvalidOperationException($"Khong tim thay team: {teamId}");
+        }
+    }
+
+    private async Task AssignVehicleCapabilities(vehicle vehicle, IReadOnlyCollection<Guid>? capabilityIds)
+    {
+        vehicle.vehicle_capabilities.Clear();
+
+        if (capabilityIds is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var distinctIds = capabilityIds.Distinct().ToArray();
+        var capabilities = await dbContext.vehicle_capabilities
+            .Where(x => distinctIds.Contains(x.id))
+            .ToListAsync();
+
+        if (capabilities.Count != distinctIds.Length)
+        {
+            throw new InvalidOperationException("Co vehicle capability khong hop le.");
+        }
+
+        foreach (var capability in capabilities)
+        {
+            vehicle.vehicle_capabilities.Add(capability);
         }
     }
 
@@ -983,6 +1267,14 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
         if (!SkillLevelCodes.Contains(code))
         {
             throw new InvalidOperationException($"Skill level khong hop le: {code}");
+        }
+    }
+
+    private static void ValidateVehicleStatus(string code)
+    {
+        if (!VehicleStatusCodes.Contains(code))
+        {
+            throw new InvalidOperationException($"Status vehicle khong hop le: {code}");
         }
     }
 }

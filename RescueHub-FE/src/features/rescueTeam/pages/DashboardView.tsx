@@ -41,7 +41,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             size={14}
             className={isReloadingData ? "animate-spin" : undefined}
           />
-          {isReloadingData ? "Đang tải..." : "Load data"}
+          {isReloadingData ? "Đang tải..." : "Làm mới"}
         </button>
       </div>
 

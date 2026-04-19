@@ -66,7 +66,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
                 size={14}
                 className={isReloadingData ? "animate-spin" : undefined}
               />
-              {isReloadingData ? "Đang tải..." : "Load data"}
+              {isReloadingData ? "Đang tải..." : "Làm mới"}
             </button>
           )}
 

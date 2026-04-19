@@ -1,11 +1,13 @@
 import React from "react";
 import { Clock3, MapPinned, ShieldAlert, UsersRound, X } from "lucide-react";
-import { TeamMissionDetail } from "../services/teamMissionService";
-import { Mission } from "../types/mission";
+import {
+  TeamMissionDetail,
+  TeamMissionListItem,
+} from "../services/teamMissionService";
 
 interface DetailsMissionProps {
   isOpen: boolean;
-  mission: Mission | null;
+  mission: TeamMissionListItem | null;
   detail?: TeamMissionDetail;
   onClose: () => void;
   onRequestAbort: () => void;
@@ -126,10 +128,10 @@ export const DetailsMission: React.FC<DetailsMissionProps> = ({
               Chi tiết nhiệm vụ
             </p>
             <h3 className="mt-1 font-primary text-2xl font-black text-blue-950">
-              {detail?.missionCode ?? mission.code}
+              {detail?.missionCode ?? mission.missionCode}
             </h3>
             <p className="mt-1 text-sm text-on-surface-variant">
-              {detail?.objective ?? mission.title}
+              {detail?.objective ?? mission.objective}
             </p>
           </div>
 

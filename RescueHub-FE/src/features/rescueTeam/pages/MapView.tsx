@@ -9,7 +9,12 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { Mission, MissionStatus, MissionLog } from "../types/mission";
+import {
+  Mission,
+  MissionStatus,
+  MissionLog,
+  TeamMember,
+} from "../types/mission";
 import {
   requestMissionAbort,
   updateMissionStatus,
@@ -21,6 +26,7 @@ interface MapViewProps {
   logs: MissionLog[];
   priorityStyles: Record<string, string>;
   missions: Mission[];
+  teamMembers: TeamMember[];
   onReloadData: () => void;
   isReloadingData: boolean;
   onMissionSelect: (missionId: string) => void;
@@ -62,6 +68,7 @@ export const MapView: React.FC<MapViewProps> = ({
   priorityStyles,
   statusMap,
   missions,
+  teamMembers,
   onReloadData,
   isReloadingData,
   onMissionSelect,
@@ -73,7 +80,13 @@ export const MapView: React.FC<MapViewProps> = ({
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<vietmapgl.Map | null>(null);
-  const markersRef = useRef<vietmapgl.Marker[]>([]);
+  const missionMarkersRef = useRef<vietmapgl.Marker[]>([]);
+  const teamMemberMarkersRef = useRef<vietmapgl.Marker[]>([]);
+  const userMarkerRef = useRef<vietmapgl.Marker | null>(null);
+  const [location, setLocation] = React.useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [reportText, setReportText] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -92,9 +105,13 @@ export const MapView: React.FC<MapViewProps> = ({
   const isWithinVietnamBounds = (lat: number, lng: number) =>
     lat >= 8.0 && lat <= 24.5 && lng >= 102.0 && lng <= 110.0;
 
-  const canUseVietmap =
-    hasVietmapKey &&
+  // Show map only when we have real coordinates inside Vietnam.
+  const hasValidCoords =
+    selectedMission.coord.lat !== 0 &&
+    selectedMission.coord.lng !== 0 &&
     isWithinVietnamBounds(selectedMission.coord.lat, selectedMission.coord.lng);
+
+  const canUseVietmap = hasVietmapKey && hasValidCoords;
 
   const persistedMissionStatus = statusMap[selectedMission.id] ?? reportStatus;
   const allowedStatusOptions = getAllowedStatusOptions(persistedMissionStatus);
@@ -131,8 +148,14 @@ export const MapView: React.FC<MapViewProps> = ({
     mapRef.current = map;
 
     return () => {
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current = [];
+      missionMarkersRef.current.forEach((marker) => marker.remove());
+      missionMarkersRef.current = [];
+      teamMemberMarkersRef.current.forEach((marker) => marker.remove());
+      teamMemberMarkersRef.current = [];
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
       map.remove();
       mapRef.current = null;
     };
@@ -150,8 +173,8 @@ export const MapView: React.FC<MapViewProps> = ({
 
     const map = mapRef.current;
 
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = missions.map((mission) => {
+    missionMarkersRef.current.forEach((marker) => marker.remove());
+    missionMarkersRef.current = missions.map((mission) => {
       const isSelected = mission.id === selectedMission.id;
       const marker = new vietmapgl.Marker({
         color: isSelected ? "#ba1a1a" : "#001f3f",
@@ -178,6 +201,127 @@ export const MapView: React.FC<MapViewProps> = ({
       duration: 900,
     });
   }, [canUseVietmap, selectedMission, missions, onMissionSelect]);
+
+  // Render team member location markers on the map.
+  useEffect(() => {
+    if (!canUseVietmap || !mapRef.current) {
+      return;
+    }
+
+    const map = mapRef.current;
+
+    teamMemberMarkersRef.current.forEach((marker) => marker.remove());
+    teamMemberMarkersRef.current = [];
+
+    teamMembers
+      .filter((member) => member.lastKnownLocation != null)
+      .forEach((member) => {
+        if (!member.lastKnownLocation) return;
+        const marker = new vietmapgl.Marker({
+          color: "#16a34a",
+          scale: 0.7,
+        })
+          .setLngLat([
+            member.lastKnownLocation.lng,
+            member.lastKnownLocation.lat,
+          ])
+          .setPopup(
+            new vietmapgl.Popup({ offset: 10 }).setHTML(
+              `<strong>${member.name}</strong><br/>${member.role}`,
+            ),
+          )
+          .addTo(map);
+
+        teamMemberMarkersRef.current.push(marker);
+      });
+  }, [canUseVietmap, teamMembers]);
+
+  // Get current GPS position from browser.
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      return;
+    }
+
+    let isActive = true;
+    let hasAnySuccess = false;
+    let coarseDone = false;
+    let preciseDone = false;
+
+    setLocation(null);
+
+    const finalizeFailure = () => {
+      if (!isActive || hasAnySuccess) return;
+      if (coarseDone && preciseDone) {
+        setLocation(null);
+      }
+    };
+
+    const applyPosition = (position: GeolocationPosition) => {
+      if (!isActive) return;
+      hasAnySuccess = true;
+      setLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+    };
+
+    // Phase 1: fast approximate location.
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (!isActive) return;
+        coarseDone = true;
+        applyPosition(position);
+      },
+      () => {
+        if (!isActive) return;
+        coarseDone = true;
+        finalizeFailure();
+      },
+      { enableHighAccuracy: false, timeout: 3500, maximumAge: 15000 },
+    );
+
+    // Phase 2: high-accuracy GPS.
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (!isActive) return;
+        preciseDone = true;
+        applyPosition(position);
+      },
+      () => {
+        if (!isActive) return;
+        preciseDone = true;
+        finalizeFailure();
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  // Render my current location marker on the map.
+  useEffect(() => {
+    if (!canUseVietmap || !mapRef.current || !location) {
+      return;
+    }
+
+    const map = mapRef.current;
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove();
+      userMarkerRef.current = null;
+    }
+
+    const userMarker = new vietmapgl.Marker({ color: "#2563eb" })
+      .setLngLat([location.lng, location.lat])
+      .setPopup(
+        new vietmapgl.Popup({ offset: 10 }).setText("Vị trí hiện tại của bạn"),
+      )
+      .addTo(map);
+
+    userMarkerRef.current = userMarker;
+  }, [canUseVietmap, location]);
 
   const currentLogs = logs
     .filter((item) => item.missionId === selectedMission.id)

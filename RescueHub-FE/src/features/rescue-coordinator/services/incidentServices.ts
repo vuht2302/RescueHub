@@ -108,6 +108,8 @@ export interface AssessIncidentResponse {
   errors: unknown;
 }
 
+import { getAuthSession } from "../../auth/services/authStorage";
+
 const INCIDENTS_API_URL = "https://rescuehub.onrender.com/api/v1/incidents";
 
 const INCIDENT_DETAIL_API_URL = (id: string) => `${INCIDENTS_API_URL}/${id}`;
@@ -212,3 +214,13 @@ export async function assessIncident(
 
   return payload;
 }
+
+export const getIncidentDetailWithAuth = async (
+  incidentId: string,
+): Promise<IncidentDetail> => {
+  const session = getAuthSession();
+  if (!session?.accessToken) {
+    throw new Error("Bạn cần đăng nhập để xem chi tiết sự cố");
+  }
+  return getIncidentDetail(incidentId, session.accessToken);
+};

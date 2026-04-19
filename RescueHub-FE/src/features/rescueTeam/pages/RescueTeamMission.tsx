@@ -24,8 +24,7 @@ import {
   MissionStatus,
   TeamMember,
 } from "../types/mission";
-
-const DEFAULT_MISSION_COORD = { lat: 10.7769, lng: 106.7009 };
+import { getIncidentDetailWithAuth } from "../../rescue-coordinator/services/incidentServices";
 
 const getInitialsFromName = (name: string) => {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -142,6 +141,15 @@ export const RescueTeamMission: React.FC = () => {
   const [missionDetailsById, setMissionDetailsById] = useState<
     Record<string, TeamMissionDetail>
   >({});
+  const [incidentCoordsById, setIncidentCoordsById] = useState<
+    Record<string, { lat: number; lng: number }>
+  >({});
+  const [incidentAddressesById, setIncidentAddressesById] = useState<
+    Record<string, string>
+  >({});
+  const [incidentReportersById, setIncidentReportersById] = useState<
+    Record<string, { name: string; phone: string }>
+  >({});
   const [isTeamMissionsLoading, setIsTeamMissionsLoading] = useState(false);
   const [teamMissionsError, setTeamMissionsError] = useState<string | null>(
     null,
@@ -199,6 +207,44 @@ export const RescueTeamMission: React.FC = () => {
         ...prev,
         [missionId]: detail,
       }));
+
+      // Fetch incident detail to get coordinates and reporter info for the map marker.
+      const incidentId =
+        detail.incident?.incidentId ?? detail.incident?.incidentCode;
+      if (incidentId) {
+        try {
+          const incident = await getIncidentDetailWithAuth(incidentId);
+          if (
+            incident.location?.lat != null &&
+            incident.location?.lng != null
+          ) {
+            setIncidentCoordsById((prev) => ({
+              ...prev,
+              [missionId]: {
+                lat: incident.location.lat,
+                lng: incident.location.lng,
+              },
+            }));
+          }
+          if (incident.location?.addressText) {
+            setIncidentAddressesById((prev) => ({
+              ...prev,
+              [missionId]: incident.location.addressText,
+            }));
+          }
+          if (incident.reporter?.name || incident.reporter?.phone) {
+            setIncidentReportersById((prev) => ({
+              ...prev,
+              [missionId]: {
+                name: incident.reporter.name,
+                phone: incident.reporter.phone,
+              },
+            }));
+          }
+        } catch {
+          // Silently ignore — missing incident data won't crash the UI.
+        }
+      }
     } catch {
       // Keep list data as fallback when mission detail endpoint is unavailable.
     }
@@ -326,26 +372,32 @@ export const RescueTeamMission: React.FC = () => {
       detail?.resultSummary ||
       mission.objective;
 
+    const incidentCoord = incidentCoordsById[mission.missionId];
+    const incidentAddress = incidentAddressesById[mission.missionId];
+    const reporter = incidentReportersById[mission.missionId];
+    const primaryTeam =
+      detail?.teams.find((team) => team.isPrimary) ??
+      detail?.teams[0] ??
+      mission.teams.find((team) => team.isPrimary) ??
+      mission.teams[0];
+
     return {
       id: mission.missionId,
       code: mission.missionCode,
+      incidentId: mission.incidentId,
+      incidentCode: mission.incidentCode,
       type: "Cứu hộ",
-      title: detail?.objective ?? mission.objective,
-      requester: "Tổng đài RescueHub",
-      phone: "--",
-      address: detail?.incident?.incidentCode ?? mission.incidentCode,
+      title: mission.objective,
+      requester: reporter?.name ?? "",
+      phone: reporter?.phone ?? "",
+      address: incidentAddress ?? "",
       priority:
         etaMinutes <= 10 ? "Khẩn cấp" : etaMinutes <= 20 ? "Cao" : "Trung bình",
       summary: missionSummary,
-      assignedTeam:
-        detail?.teams.find((team) => team.isPrimary)?.teamName ??
-        detail?.teams[0]?.teamName ??
-        mission.teams.find((team) => team.isPrimary)?.teamName ??
-        mission.teams[0]?.teamName ??
-        "Chưa có đội",
+      assignedTeam: primaryTeam?.teamName ?? "",
       assignedMembers: [],
       assignedVehicles: [],
-      coord: DEFAULT_MISSION_COORD,
+      coord: incidentCoord ?? { lat: 0, lng: 0 },
     };
   });
 
@@ -520,6 +572,7 @@ export const RescueTeamMission: React.FC = () => {
                 logs={missionLogs}
                 priorityStyles={priorityStyles}
                 missions={sourceMissions}
+                teamMembers={teamMembers}
                 onMissionSelect={setSelectedMissionId}
                 reportStatus={reportStatus}
                 onStatusChange={setReportStatus}
@@ -538,26 +591,12 @@ export const RescueTeamMission: React.FC = () => {
 
           {activeMenu === "missions" && (
             <MissionsView
-              missions={sourceMissions}
-              statusMap={statusMap}
-              priorityStyles={priorityStyles}
-              statusStyles={statusStyles}
-              missionDetailsById={missionDetailsById}
-              onLoadMissionDetail={(missionId) => {
-                void loadTeamMissionDetail(missionId, true);
-              }}
-              onReloadData={() => {
-                void loadTeamMissions();
-              }}
-              isReloadingData={isTeamMissionsLoading}
-              onAcceptMission={(missionId) => {
-                handleAcceptMission(missionId);
+              onViewMission={handleViewMission}
+              onMissionAccepted={(missionId) => {
                 setSelectedMissionId(missionId);
                 setReportStatus("Đang di chuyển");
                 setActiveMenu("map");
               }}
-              onViewMission={handleViewMission}
-              onRequestMissionAction={handleRequestMissionAction}
             />
           )}
 

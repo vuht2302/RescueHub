@@ -8,7 +8,6 @@ import { ItemTab } from "./ItemTab";
 import { LotTab } from "./LotTab";
 import { TransactionTab } from "./TransactionTab";
 import { ReliefIssueTab } from "./ReliefIssueTab";
-import { HouseholdTab } from "./HouseholdTab";
 import { DistributionTab } from "./DistributionTab";
 
 type TabId =
@@ -36,7 +35,6 @@ const TABS: Tab[] = [
   { id: "lot", label: "Lô hàng", shortLabel: "Lô", icon: Box, description: "MAN-04 — Quản lý lô, HSD, nhà tài trợ" },
   { id: "transaction", label: "Giao dịch kho", shortLabel: "Giao dịch", icon: ArrowRightLeft, description: "MAN-05 — Nhập/xuất/điều chuyển kho" },
   { id: "relief-issue", label: "Cấp phát", shortLabel: "Cấp phát", icon: Truck, description: "MAN-06 — Phiếu cấp phát từ kho đến điểm cứu trợ" },
-  { id: "household", label: "Hộ dân", shortLabel: "Hộ dân", icon: Home, description: "MAN-07 — Danh sách hộ dân cần hỗ trợ" },
   { id: "distribution", label: "Phân phối", shortLabel: "Phân phối", icon: PackagePlus, description: "MAN-08 — Phiếu phân phối đến hộ dân & xác nhận OTP" },
 ];
 
@@ -96,7 +94,6 @@ export const InventorySection: React.FC = () => {
         {activeTab === "lot" && <LotTab />}
         {activeTab === "transaction" && <TransactionTab />}
         {activeTab === "relief-issue" && <ReliefIssueTab />}
-        {activeTab === "household" && <HouseholdTab />}
         {activeTab === "distribution" && <DistributionTab />}
       </div>
     </div>

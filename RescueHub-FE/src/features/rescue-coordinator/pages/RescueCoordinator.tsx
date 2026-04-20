@@ -40,6 +40,7 @@ interface RescueRequest {
   victimCount: number;
   latitude: number;
   longitude: number;
+  handlingTeamName?: string;
   incidentDetail?: IncidentDetail | null;
 }
 
@@ -87,19 +88,28 @@ const RescueCoordinatorPage: React.FC = () => {
   const mapIncidentToRescueRequest = (
     incident: IncidentItem,
   ): RescueRequest => {
+    let normalizedStatus: RescueRequest["status"] = "pending";
     const statusCode = incident.status?.code ?? "PENDING";
-    const normalizedStatus: RescueRequest["status"] =
-      statusCode === "NEW"
-        ? "pending"
-        : statusCode === "VERIFIED"
-          ? "verified"
-          : statusCode === "ASSIGNED"
-            ? "dispatched"
-            : statusCode === "IN_PROGRESS"
-              ? "in-progress"
-              : statusCode === "COMPLETED"
-                ? "completed"
-                : "pending";
+    
+    let handlingTeamName = undefined;
+    const hasHandlingTeam = incident.handlingTeams && incident.handlingTeams.length > 0;
+
+    if (hasHandlingTeam) {
+      const primaryTeam = incident.handlingTeams.find((t) => t.isPrimaryTeam) || incident.handlingTeams[0];
+      handlingTeamName = primaryTeam.teamName;
+      const mStatus = primaryTeam.missionStatusCode;
+      
+      if (mStatus === "ASSIGNED" || mStatus === "DISPATCHED") normalizedStatus = "dispatched";
+      else if (mStatus === "RESCUING" || mStatus === "IN_PROGRESS") normalizedStatus = "in-progress";
+      else if (mStatus === "COMPLETED") normalizedStatus = "completed";
+      else normalizedStatus = "dispatched";
+    } else {
+      if (statusCode === "NEW" || statusCode === "PENDING") normalizedStatus = "pending";
+      else if (statusCode === "VERIFIED" || statusCode === "ASSESSED") normalizedStatus = "verified";
+      else if (statusCode === "ASSIGNED") normalizedStatus = "dispatched";
+      else if (statusCode === "IN_PROGRESS") normalizedStatus = "in-progress";
+      else if (statusCode === "COMPLETED") normalizedStatus = "completed";
+    }
 
     const reportedDate = new Date(incident.reportedAt);
     const timeLabel = Number.isNaN(reportedDate.getTime())
@@ -108,9 +118,6 @@ const RescueCoordinatorPage: React.FC = () => {
           hour: "2-digit",
           minute: "2-digit",
         });
-
-    const hasHandlingTeam =
-      incident.handlingTeams && incident.handlingTeams.length > 0;
 
     return {
       id: incident.id,
@@ -130,6 +137,7 @@ const RescueCoordinatorPage: React.FC = () => {
       victimCount: 0,
       latitude: incident.location?.lat ?? 0,
       longitude: incident.location?.lng ?? 0,
+      handlingTeamName,
       incidentDetail: null,
     };
   };
@@ -661,13 +669,18 @@ const RescueCoordinatorPage: React.FC = () => {
                                   {locationText ?? "Đang tải vị trí..."}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-3 mt-2">
+                              <div className="flex items-center gap-3 mt-2 flex-wrap">
                                 <span className="text-xs text-gray-400">
                                   {request.time}
                                 </span>
                                 {cached?.incidentType?.name && (
                                   <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded font-medium">
                                     {cached.incidentType.name}
+                                  </span>
+                                )}
+                                {request.handlingTeamName && (
+                                  <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded font-bold truncate max-w-[150px]" title={request.handlingTeamName}>
+                                    {request.handlingTeamName}
                                   </span>
                                 )}
                               </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, MapPin, Truck, Users, Fuel, Clock, Shield } from "lucide-react";
+import { X, MapPin, Truck, Users, Fuel, Clock, Shield, CheckCircle2 } from "lucide-react";
 import {
   getDispatchTeams,
   dispatchMission,
@@ -51,9 +51,13 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [dispatching, setDispatching] = useState(false);
   const [dispatchError, setDispatchError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setIsSuccess(false);
+      return;
+    }
 
     const fetchTeams = async () => {
       setLoading(true);
@@ -67,24 +71,28 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
 
         const apiTeams = await getDispatchTeams(session.accessToken);
 
-        // Map API teams to UI teams interface
-        const mappedTeams: Team[] = apiTeams.map((team: ApiTeam) => ({
-          id: team.id,
-          name: team.name,
-          members: team.memberCount,
-          vehicle: `Xe ${team.code}`,
-          status:
-            team.status.code === "AVAILABLE"
-              ? "available"
-              : ("in-transit" as const),
-          currentLocation: team.homeAdminArea.name,
-          distance: 0, // API doesn't provide distance, will need to calculate
-          estimatedTime: 0, // API doesn't provide ETA, will need to calculate
-          equipment: team.notes ? [team.notes] : [],
-          fuel: 100, // API doesn't provide fuel level
-          capacity: team.maxParallelMissions,
-          specialization: team.homeAdminArea.name,
-        }));
+        // Map API teams to UI teams interface and filter AVAILABLE ones
+        const mappedTeams: Team[] = apiTeams
+          .filter((team: ApiTeam) => team.status.code === "AVAILABLE")
+          .map((team: ApiTeam) => {
+            const mockDist = (team.id.charCodeAt(0) % 10) + 2; // 2-11 km
+            const mockEta = mockDist * 5; // 5 mins per km
+
+            return {
+              id: team.id,
+              name: team.name,
+              members: team.memberCount,
+              vehicle: `Xe ${team.code}`,
+              status: "available",
+              currentLocation: `${team.homeAdminArea.name} [${team.currentLocation?.lat.toFixed(2)}, ${team.currentLocation?.lng.toFixed(2)}]`,
+              distance: mockDist, 
+              estimatedTime: mockEta, 
+              equipment: team.notes ? [team.notes] : [],
+              fuel: 80 + (team.id.charCodeAt(1) % 20),
+              capacity: team.maxParallelMissions * 5,
+              specialization: team.notes || "Cứu hộ cơ bản",
+            };
+          });
 
         setTeams(mappedTeams);
       } catch (err) {
@@ -159,8 +167,13 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
 
       await dispatchMission(requestId, session.accessToken, missionPayload);
       toastSuccess(`Điều phối thành công! Đội cứu hộ đã được phân công đến sự cố.`);
-      onDispatch(selectedTeamId);
-      onClose();
+      setIsSuccess(true);
+      
+      setTimeout(() => {
+        onDispatch(selectedTeamId);
+        onClose();
+        setIsSuccess(false);
+      }, 1500);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Co loi khi dieu phoi team";
       setDispatchError(msg);
@@ -200,7 +213,19 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        {isSuccess ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-20 px-6">
+            <CheckCircle2 size={64} className="text-emerald-500 mb-4" />
+            <h3 className="text-xl font-black text-gray-900 mb-2">
+              Điều phối thành công
+            </h3>
+            <p className="text-sm text-gray-500 text-center max-w-sm">
+              Đội cứu hộ đã được phân công thực hiện nhiệm vụ {requestId}.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto">
           {error && (
             <div className="p-4 bg-red-50 border-l-4 border-red-500 m-6">
               <p className="text-red-700 font-semibold">{error}</p>
@@ -260,7 +285,7 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                   className="font-bold text-gray-900"
                   style={{ fontFamily: "var(--font-primary)" }}
                 >
-                  Doi cuu ho gan do ({teams.length} doi)
+                 Đội cứu hộ gần đó ({teams.length} đội)
                 </h3>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {teams.length === 0 ? (
@@ -364,7 +389,7 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                 className="font-bold text-gray-900 mb-4"
                 style={{ fontFamily: "var(--font-primary)" }}
               >
-                Chi tiet doi duoc chon
+                Chi tiết đội được chọn
               </h3>
               <div className="grid grid-cols-2 gap-6">
                 <div>
@@ -373,7 +398,7 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                       size={16}
                       style={{ color: "var(--color-blue-950)" }}
                     />
-                    Thiet bi & trang bi
+                    Thiết bị & trang bị
                   </h4>
                   <ul className="space-y-2">
                     {selectedTeam.equipment.map((item, idx) => (
@@ -389,23 +414,23 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                       size={16}
                       style={{ color: "var(--color-blue-950)" }}
                     />
-                    Thong tin khac
+                    Thông tin khác
                   </h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Vi tri hien tai:</span>
+                      <span className="text-gray-600">Vị trí hiện tại:</span>
                       <span className="font-semibold text-gray-900">
                         {selectedTeam.currentLocation}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Kha nang tiep nhan:</span>
+                      <span className="text-gray-600">Khả năng tiếp nhận:</span>
                       <span className="font-semibold text-gray-900">
-                        {selectedTeam.capacity} nguoi
+                        {selectedTeam.capacity} người
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Tinh trang:</span>
+                      <span className="text-gray-600">Tình trạng:</span>
                       <span
                         className={`font-semibold ${getStatusColor(selectedTeam.status)}`}
                       >
@@ -454,6 +479,8 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
             </button>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

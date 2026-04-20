@@ -310,7 +310,19 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 requiresExpiryTracking = x.requires_expiry_tracking,
                 issuePolicyCode = x.issue_policy_code,
                 isActive = x.is_active,
-                lotCount = x.item_lots.Count
+                lotCount = x.item_lots.Count,
+                lots = x.item_lots
+                    .OrderByDescending(l => l.received_at)
+                    .Take(5)
+                    .Select(l => new
+                    {
+                        id = l.id,
+                        lotNo = l.lot_no,
+                        expDate = l.exp_date,
+                        statusCode = l.status_code,
+                        receivedAt = l.received_at
+                    })
+                    .ToList()
             })
             .ToListAsync();
 
@@ -322,6 +334,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         var item = await dbContext.items
             .AsNoTracking()
             .Include(x => x.item_category)
+            .Include(x => x.item_lots)
             .FirstOrDefaultAsync(x => x.id == itemId);
 
         if (item is null)
@@ -339,7 +352,20 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             requiresLotTracking = item.requires_lot_tracking,
             requiresExpiryTracking = item.requires_expiry_tracking,
             issuePolicyCode = item.issue_policy_code,
-            isActive = item.is_active
+            isActive = item.is_active,
+            lots = item.item_lots
+                .OrderByDescending(x => x.received_at)
+                .Select(x => new
+                {
+                    id = x.id,
+                    lotNo = x.lot_no,
+                    mfgDate = x.mfg_date,
+                    expDate = x.exp_date,
+                    donorName = x.donor_name,
+                    statusCode = x.status_code,
+                    receivedAt = x.received_at
+                })
+                .ToList()
         };
     }
 
@@ -1088,7 +1114,16 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 status = new { code = x.status_code, name = x.status_code, color = (string?)null },
                 campaign = x.campaign == null ? null : new { id = x.campaign.id, code = x.campaign.code, name = x.campaign.name },
                 reliefPoint = x.relief_point == null ? null : new { id = x.relief_point.id, code = x.relief_point.code, name = x.relief_point.name },
-                household = new { id = x.household.id, code = x.household.code, headName = x.household.head_name },
+                recipient = new
+                {
+                    id = x.household.id,
+                    code = x.household.code,
+                    name = x.household.head_name,
+                    phone = x.household.phone,
+                    address = x.household.address_text,
+                    memberCount = x.household.member_count,
+                    vulnerableCount = x.household.vulnerable_count
+                },
                 ackMethodCode = x.ack_method_code,
                 note = x.note,
                 lineCount = x.distribution_lines.Count,
@@ -1126,7 +1161,16 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             status = new { code = distribution.status_code, name = distribution.status_code, color = (string?)null },
             campaign = distribution.campaign == null ? null : new { id = distribution.campaign.id, code = distribution.campaign.code, name = distribution.campaign.name },
             reliefPoint = distribution.relief_point == null ? null : new { id = distribution.relief_point.id, code = distribution.relief_point.code, name = distribution.relief_point.name },
-            household = new { id = distribution.household.id, code = distribution.household.code, headName = distribution.household.head_name },
+            recipient = new
+            {
+                id = distribution.household.id,
+                code = distribution.household.code,
+                name = distribution.household.head_name,
+                phone = distribution.household.phone,
+                address = distribution.household.address_text,
+                memberCount = distribution.household.member_count,
+                vulnerableCount = distribution.household.vulnerable_count
+            },
             ackMethodCode = distribution.ack_method_code,
             note = distribution.note,
             lines = distribution.distribution_lines.Select(x => new
@@ -1157,12 +1201,50 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             throw new InvalidOperationException("Danh sach lines khong duoc rong.");
         }
 
+        var recipientName = NormalizeRequired(request.RecipientName, nameof(request.RecipientName));
+        var recipientAddress = NormalizeRequired(request.RecipientAddress, nameof(request.RecipientAddress));
+        var recipientMemberCount = request.RecipientMemberCount <= 0 ? 1 : request.RecipientMemberCount;
+        var recipientVulnerableCount = request.RecipientVulnerableCount;
+        if (recipientVulnerableCount < 0 || recipientVulnerableCount > recipientMemberCount)
+        {
+            throw new InvalidOperationException("RecipientVulnerableCount khong hop le.");
+        }
+
+        await EnsureAdminAreaExists(request.RecipientAdminAreaId);
+
         await EnsureCampaignExists(request.CampaignId);
         await EnsureReliefPointExists(request.ReliefPointId);
         await EnsureIncidentExists(request.IncidentId);
 
-        var household = await dbContext.households.FirstOrDefaultAsync(x => x.id == request.HouseholdId)
-            ?? throw new InvalidOperationException("Khong tim thay ho dan.");
+        var normalizedRecipientPhone = NormalizeOptional(request.RecipientPhone);
+        var household = await dbContext.households.FirstOrDefaultAsync(x =>
+            x.head_name == recipientName &&
+            x.address_text == recipientAddress &&
+            x.phone == normalizedRecipientPhone);
+
+        if (household is null)
+        {
+            household = new household
+            {
+                id = Guid.NewGuid(),
+                code = GenerateCode("HH"),
+                head_name = recipientName,
+                phone = normalizedRecipientPhone,
+                admin_area_id = request.RecipientAdminAreaId,
+                address_text = recipientAddress,
+                geom = ToPointOrNull(request.RecipientLocation),
+                member_count = recipientMemberCount,
+                vulnerable_count = recipientVulnerableCount
+            };
+            dbContext.households.Add(household);
+        }
+        else
+        {
+            household.admin_area_id = request.RecipientAdminAreaId;
+            household.member_count = recipientMemberCount;
+            household.vulnerable_count = recipientVulnerableCount;
+            household.geom = ToPointOrNull(request.RecipientLocation);
+        }
 
         var ackMethod = NormalizeCode(request.AckMethodCode);
         EnsureAllowed(ackMethod, AckMethodCodes, nameof(request.AckMethodCode));

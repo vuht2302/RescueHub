@@ -18,6 +18,8 @@ public interface IIncidentService
 
     Task<object> CreateMission(Guid incidentId, CreateMissionRequest request);
 
+    Task<object> CreateReliefRequestFromIncident(Guid incidentId, CreateIncidentReliefRequest request);
+
     Task<object> ListReliefRequestsForCoordinator(string? statusCode, string? keyword, int page, int pageSize);
 
     Task<object> GetReliefRequestForCoordinator(Guid reliefRequestId);

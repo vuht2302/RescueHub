@@ -56,3 +56,13 @@ public sealed record StandardizedReliefItemRequest(
     string? SupportTypeCode,
     decimal ApprovedQty,
     string? UnitCode);
+
+public sealed record CreateIncidentReliefRequest(
+    int HouseholdCount,
+    string? Note,
+    IReadOnlyCollection<IncidentReliefItemRequest>? Items);
+
+public sealed record IncidentReliefItemRequest(
+    string SupportTypeCode,
+    decimal RequestedQty,
+    string? UnitCode);

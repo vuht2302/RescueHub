@@ -6,7 +6,7 @@ using RescueHub.Modules.Incidents.Application;
 namespace RescueHub.Modules.Incidents.Api;
 
 /// <summary>
-/// Nhom API Manager cho quan ly kho, ton kho, cap phat, ho dan va phan phoi cuu tro.
+/// Nhom API Manager cho quan ly kho, ton kho, cap phat va phan phoi cuu tro.
 /// </summary>
 [Route("api/v1/manager")]
 [Authorize]
@@ -199,89 +199,6 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
         }
     }
 
-    /// <summary>
-    /// Lay danh sach lot cua item.
-    /// </summary>
-    /// <param name="itemId">Loc theo item.</param>
-    /// <param name="statusCode">Loc theo trang thai lot.</param>
-    /// <param name="keyword">Tu khoa tim lot.</param>
-    /// <returns>Danh sach lot.</returns>
-    [HttpGet("lots")]
-    public async Task<ActionResult<ApiResponse<object>>> ListLots([FromQuery] Guid? itemId, [FromQuery] string? statusCode, [FromQuery] string? keyword)
-        => OkResponse<object>(await service.ListLots(itemId, statusCode, keyword), "Lay danh sach lot thanh cong");
-
-    /// <summary>
-    /// Lay chi tiet lot.
-    /// </summary>
-    /// <param name="lotId">Dinh danh lot.</param>
-    /// <returns>Thong tin lot.</returns>
-    [HttpGet("lots/{lotId:guid}")]
-    public async Task<ActionResult<ApiResponse<object>>> GetLot([FromRoute] Guid lotId)
-    {
-        try
-        {
-            return OkResponse<object>(await service.GetLot(lotId), "Lay chi tiet lot thanh cong");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequestResponse<object>(ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Tao moi lot.
-    /// </summary>
-    /// <param name="request">Thong tin lot can tao.</param>
-    /// <returns>Id va lotNo vua tao.</returns>
-    [HttpPost("lots")]
-    public async Task<ActionResult<ApiResponse<object>>> CreateLot([FromBody] CreateLotRequest request)
-    {
-        try
-        {
-            return OkResponse<object>(await service.CreateLot(request), "Tao lot thanh cong");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequestResponse<object>(ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Cap nhat lot.
-    /// </summary>
-    /// <param name="lotId">Dinh danh lot.</param>
-    /// <param name="request">Thong tin cap nhat lot.</param>
-    /// <returns>Ket qua cap nhat.</returns>
-    [HttpPut("lots/{lotId:guid}")]
-    public async Task<ActionResult<ApiResponse<object>>> UpdateLot([FromRoute] Guid lotId, [FromBody] UpdateLotRequest request)
-    {
-        try
-        {
-            return OkResponse<object>(await service.UpdateLot(lotId, request), "Cap nhat lot thanh cong");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequestResponse<object>(ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Xoa lot.
-    /// </summary>
-    /// <param name="lotId">Dinh danh lot.</param>
-    /// <returns>Ket qua xoa lot.</returns>
-    [HttpDelete("lots/{lotId:guid}")]
-    public async Task<ActionResult<ApiResponse<object>>> DeleteLot([FromRoute] Guid lotId)
-    {
-        try
-        {
-            return OkResponse<object>(await service.DeleteLot(lotId), "Xoa lot thanh cong");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequestResponse<object>(ex.Message);
-        }
-    }
 
     /// <summary>
     /// Lay danh sach giao dich kho.
@@ -382,95 +299,6 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
         try
         {
             return OkResponse<object>(await service.CreateReliefIssue(request), "Tao phieu cap phat thanh cong");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequestResponse<object>(ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Lay danh sach ho dan nhan cuu tro.
-    /// </summary>
-    /// <param name="keyword">Tu khoa tim theo ma/ten chu ho/sdt/dia chi.</param>
-    /// <param name="adminAreaId">Loc theo don vi hanh chinh.</param>
-    /// <param name="page">Trang hien tai.</param>
-    /// <param name="pageSize">Kich thuoc trang.</param>
-    /// <returns>Danh sach ho dan co phan trang.</returns>
-    [HttpGet("households")]
-    public async Task<ActionResult<ApiResponse<object>>> ListHouseholds(
-        [FromQuery] string? keyword,
-        [FromQuery] Guid? adminAreaId,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
-        => OkResponse<object>(await service.ListHouseholds(keyword, adminAreaId, page, pageSize), "Lay danh sach ho dan thanh cong");
-
-    /// <summary>
-    /// Lay chi tiet mot ho dan.
-    /// </summary>
-    /// <param name="householdId">Dinh danh ho dan.</param>
-    /// <returns>Thong tin chi tiet ho dan.</returns>
-    [HttpGet("households/{householdId:guid}")]
-    public async Task<ActionResult<ApiResponse<object>>> GetHousehold([FromRoute] Guid householdId)
-    {
-        try
-        {
-            return OkResponse<object>(await service.GetHousehold(householdId), "Lay chi tiet ho dan thanh cong");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequestResponse<object>(ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Tao moi ho dan phuc vu nghiep vu phan phoi cuu tro.
-    /// </summary>
-    /// <param name="request">Thong tin ho dan can tao.</param>
-    /// <returns>Id va ma ho dan vua tao.</returns>
-    [HttpPost("households")]
-    public async Task<ActionResult<ApiResponse<object>>> CreateHousehold([FromBody] CreateHouseholdRequest request)
-    {
-        try
-        {
-            return OkResponse<object>(await service.CreateHousehold(request), "Tao ho dan thanh cong");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequestResponse<object>(ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Cap nhat ho so ho dan.
-    /// </summary>
-    /// <param name="householdId">Dinh danh ho dan.</param>
-    /// <param name="request">Thong tin cap nhat ho dan.</param>
-    /// <returns>Ket qua cap nhat.</returns>
-    [HttpPut("households/{householdId:guid}")]
-    public async Task<ActionResult<ApiResponse<object>>> UpdateHousehold([FromRoute] Guid householdId, [FromBody] UpdateHouseholdRequest request)
-    {
-        try
-        {
-            return OkResponse<object>(await service.UpdateHousehold(householdId, request), "Cap nhat ho dan thanh cong");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequestResponse<object>(ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Xoa ho dan.
-    /// </summary>
-    /// <param name="householdId">Dinh danh ho dan.</param>
-    /// <returns>Ket qua xoa ho dan.</returns>
-    [HttpDelete("households/{householdId:guid}")]
-    public async Task<ActionResult<ApiResponse<object>>> DeleteHousehold([FromRoute] Guid householdId)
-    {
-        try
-        {
-            return OkResponse<object>(await service.DeleteHousehold(householdId), "Xoa ho dan thanh cong");
         }
         catch (InvalidOperationException ex)
         {

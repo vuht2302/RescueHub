@@ -149,6 +149,26 @@ public sealed class IncidentsController(IIncidentService service) : BaseApiContr
     }
 
     /// <summary>
+    /// Coordinator tao yeu cau cuu tro tu incident/SOS sau khi danh gia can cuu tro.
+    /// </summary>
+    [HttpPost("{incidentId:guid}/relief-requests")]
+    public async Task<ActionResult<ApiResponse<object>>> CreateReliefRequestFromIncident(
+        [FromRoute] Guid incidentId,
+        [FromBody] CreateIncidentReliefRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(
+                await service.CreateReliefRequestFromIncident(incidentId, request),
+                "Tao yeu cau cuu tro tu incident thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Lay danh sach yeu cau cuu tro cho coordinator xu ly chuan hoa phan phoi.
     /// </summary>
     [HttpGet("relief-requests")]

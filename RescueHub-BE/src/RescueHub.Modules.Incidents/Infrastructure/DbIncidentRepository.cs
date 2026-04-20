@@ -607,6 +607,125 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         };
     }
 
+    public async Task<object> CreateReliefRequestFromIncident(Guid incidentId, CreateIncidentReliefRequest request)
+    {
+        var incident = await dbContext.incidents
+            .Include(x => x.incident_location)
+            .FirstOrDefaultAsync(x => x.id == incidentId);
+
+        if (incident is null)
+        {
+            throw new InvalidOperationException("Khong tim thay incident.");
+        }
+
+        var householdCount = request.HouseholdCount <= 0 ? 1 : request.HouseholdCount;
+        var now = DateTime.UtcNow;
+
+        var codePrefix = $"RR-{now:yyyyMMdd}";
+        var todayCount = await dbContext.relief_requests.CountAsync(x => x.code.StartsWith(codePrefix));
+        var requestCode = $"{codePrefix}-{(todayCount + 1):000}";
+
+        var reliefRequest = new relief_request
+        {
+            id = Guid.NewGuid(),
+            code = requestCode,
+            source_type_code = "INCIDENT_FOLLOWUP",
+            requester_name = incident.reporter_name,
+            requester_phone = incident.reporter_phone,
+            linked_incident_id = incident.id,
+            campaign_id = null,
+            status_code = "NEW",
+            admin_area_id = incident.incident_location?.admin_area_id,
+            address_text = incident.incident_location?.address_text ?? "UNKNOWN",
+            geom = incident.incident_location?.geom,
+            household_count = householdCount,
+            note = string.IsNullOrWhiteSpace(request.Note) ? incident.description : request.Note,
+            created_at = now,
+            updated_at = now
+        };
+
+        dbContext.relief_requests.Add(reliefRequest);
+
+        var incomingItems = request.Items?.ToArray() ?? Array.Empty<IncidentReliefItemRequest>();
+        if (incomingItems.Length > 0)
+        {
+            var supportTypeCodes = incomingItems
+                .Select(x => x.SupportTypeCode?.Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x!.ToUpperInvariant())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var itemMap = supportTypeCodes.Length == 0
+                ? new Dictionary<string, item>(StringComparer.OrdinalIgnoreCase)
+                : await dbContext.items
+                    .Where(x => supportTypeCodes.Contains(x.code))
+                    .ToDictionaryAsync(x => x.code, x => x, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var incoming in incomingItems)
+            {
+                var supportTypeCode = incoming.SupportTypeCode?.Trim().ToUpperInvariant();
+                if (string.IsNullOrWhiteSpace(supportTypeCode))
+                {
+                    throw new InvalidOperationException("SupportTypeCode la bat buoc.");
+                }
+
+                if (incoming.RequestedQty <= 0)
+                {
+                    throw new InvalidOperationException("RequestedQty phai lon hon 0.");
+                }
+
+                if (!itemMap.TryGetValue(supportTypeCode, out var mappedItem))
+                {
+                    throw new InvalidOperationException($"SupportTypeCode khong hop le: {supportTypeCode}");
+                }
+
+                dbContext.relief_request_items.Add(new relief_request_item
+                {
+                    id = Guid.NewGuid(),
+                    relief_request_id = reliefRequest.id,
+                    item_id = mappedItem.id,
+                    requested_qty = incoming.RequestedQty,
+                    approved_qty = null,
+                    unit_code = string.IsNullOrWhiteSpace(incoming.UnitCode)
+                        ? mappedItem.unit_code
+                        : incoming.UnitCode.Trim().ToUpperInvariant()
+                });
+            }
+        }
+
+        incident.need_relief = true;
+        if (incident.status_code != "CANCELLED" && incident.status_code != "CLOSED")
+        {
+            var fromStatus = incident.status_code;
+            incident.status_code = "RELIEF_REQUIRED";
+            incident.updated_at = now;
+
+            dbContext.incident_status_histories.Add(new incident_status_history
+            {
+                id = Guid.NewGuid(),
+                incident_id = incident.id,
+                from_status_code = fromStatus,
+                to_status_code = "RELIEF_REQUIRED",
+                action_code = "REQUEST_RELIEF",
+                note = request.Note,
+                changed_at = now
+            });
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            incidentId = incident.id,
+            incidentCode = incident.code,
+            reliefRequestId = reliefRequest.id,
+            requestCode = reliefRequest.code,
+            status = new { code = reliefRequest.status_code, name = reliefRequest.status_code, color = "#F59E0B" },
+            createdAt = reliefRequest.created_at
+        };
+    }
+
     public async Task<object> ListReliefRequestsForCoordinator(string? statusCode, string? keyword, int page, int pageSize)
     {
         var normalizedPage = page <= 0 ? 1 : page;

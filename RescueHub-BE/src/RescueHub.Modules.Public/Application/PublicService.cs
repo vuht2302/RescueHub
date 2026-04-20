@@ -233,6 +233,106 @@ public sealed class PublicService(
         return new { trackingToken };
     }
 
+    public async Task<object> GetMyRescueRequests(string phone, string trackingToken, int page, int pageSize)
+    {
+        EnsureTrackingAccess(phone, trackingToken);
+
+        var normalizedPhone = NormalizePhoneForOtp(phone);
+        var safePage = page < 1 ? 1 : page;
+        var safePageSize = pageSize is < 1 or > 100 ? 20 : pageSize;
+
+        var query = dbContext.incidents
+            .AsNoTracking()
+            .Include(x => x.incident_location)
+            .Where(x => x.reporter_phone == normalizedPhone)
+            .OrderByDescending(x => x.created_at)
+            .AsQueryable();
+
+        var total = await query.CountAsync();
+        var items = await query
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .Select(x => new
+            {
+                incidentId = x.id,
+                incidentCode = x.code,
+                trackingCode = x.code,
+                incidentTypeCode = x.incident_type_code,
+                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                priority = new { code = x.priority_code, name = x.priority_code, color = (string?)null },
+                description = x.description,
+                location = x.incident_location == null
+                    ? null
+                    : new
+                    {
+                        lat = x.incident_location.lat,
+                        lng = x.incident_location.lng,
+                        addressText = x.incident_location.address_text,
+                        landmark = x.incident_location.landmark
+                    },
+                reportedAt = x.created_at,
+                updatedAt = x.updated_at
+            })
+            .ToListAsync();
+
+        return new
+        {
+            page = safePage,
+            pageSize = safePageSize,
+            total,
+            items
+        };
+    }
+
+    public async Task<object> GetMyReliefRequests(string phone, string trackingToken, int page, int pageSize)
+    {
+        EnsureTrackingAccess(phone, trackingToken);
+
+        var normalizedPhone = NormalizePhoneForOtp(phone);
+        var safePage = page < 1 ? 1 : page;
+        var safePageSize = pageSize is < 1 or > 100 ? 20 : pageSize;
+
+        var query = dbContext.relief_requests
+            .AsNoTracking()
+            .Include(x => x.relief_request_items)
+            .ThenInclude(x => x.item)
+            .Where(x => x.requester_phone == normalizedPhone)
+            .OrderByDescending(x => x.created_at)
+            .AsQueryable();
+
+        var total = await query.CountAsync();
+        var items = await query
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .Select(x => new
+            {
+                reliefRequestId = x.id,
+                requestCode = x.code,
+                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                householdCount = x.household_count,
+                note = x.note,
+                requestedAt = x.created_at,
+                updatedAt = x.updated_at,
+                items = x.relief_request_items.Select(i => new
+                {
+                    supportTypeCode = i.item.code,
+                    supportTypeName = i.item.name,
+                    requestedQty = i.requested_qty,
+                    approvedQty = i.approved_qty,
+                    unitCode = i.unit_code
+                }).ToList()
+            })
+            .ToListAsync();
+
+        return new
+        {
+            page = safePage,
+            pageSize = safePageSize,
+            total,
+            items
+        };
+    }
+
     public async Task<object> GetTrackingRescue(string trackingCode)
     {
         var incident = await ResolveIncidentByTrackingCode(trackingCode);
@@ -962,5 +1062,75 @@ public sealed class PublicService(
         var signature = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
 
         return Convert.ToBase64String(Encoding.UTF8.GetBytes($"{payload}:{signature}"));
+    }
+
+    private void EnsureTrackingAccess(string phone, string trackingToken)
+    {
+        var normalizedPhone = NormalizePhoneForOtp(phone);
+        if (string.IsNullOrWhiteSpace(normalizedPhone))
+        {
+            throw new InvalidOperationException("Phone la bat buoc.");
+        }
+
+        if (string.IsNullOrWhiteSpace(trackingToken))
+        {
+            throw new InvalidOperationException("Tracking token la bat buoc.");
+        }
+
+        var token = ParseTrackingToken(trackingToken);
+        if (!string.Equals(token.Phone, normalizedPhone, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Tracking token khong hop le cho so dien thoai nay.");
+        }
+
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        if (token.ExpiresAtUnix < now)
+        {
+            throw new InvalidOperationException("Tracking token da het han.");
+        }
+    }
+
+    private (string Phone, long ExpiresAtUnix) ParseTrackingToken(string trackingToken)
+    {
+        try
+        {
+            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(trackingToken));
+            var parts = decoded.Split(':');
+            if (parts.Length < 3)
+            {
+                throw new InvalidOperationException("Tracking token khong hop le.");
+            }
+
+            var phone = parts[0];
+            if (!long.TryParse(parts[1], out var expiresAtUnix))
+            {
+                throw new InvalidOperationException("Tracking token khong hop le.");
+            }
+
+            var signature = parts[2];
+            var payload = $"{phone}:{expiresAtUnix}";
+
+            var secret = configuration["Otp:Secret"] ?? configuration["Jwt:Key"]
+                ?? throw new InvalidOperationException("Missing Otp:Secret or Jwt:Key configuration.");
+
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+            var expectedSignature = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
+
+            var providedBytes = Encoding.UTF8.GetBytes(signature);
+            var expectedBytes = Encoding.UTF8.GetBytes(expectedSignature);
+            var isValid = providedBytes.Length == expectedBytes.Length &&
+                CryptographicOperations.FixedTimeEquals(providedBytes, expectedBytes);
+
+            if (!isValid)
+            {
+                throw new InvalidOperationException("Tracking token khong hop le.");
+            }
+
+            return (phone, expiresAtUnix);
+        }
+        catch (FormatException)
+        {
+            throw new InvalidOperationException("Tracking token khong hop le.");
+        }
     }
 }

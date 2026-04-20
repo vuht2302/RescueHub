@@ -115,6 +115,60 @@ public sealed class PublicController(IPublicService publicService) : BaseApiCont
     }
 
     /// <summary>
+    /// Lay lich su cac yeu cau cuu ho do citizen da tao theo so dien thoai.
+    /// </summary>
+    /// <param name="phone">So dien thoai da xac thuc OTP.</param>
+    /// <param name="trackingToken">Tracking token nhan duoc sau verify OTP.</param>
+    /// <param name="page">So trang.</param>
+    /// <param name="pageSize">So ban ghi moi trang.</param>
+    /// <returns>Danh sach yeu cau cuu ho cua citizen.</returns>
+    [HttpGet("tracking/my-rescues")]
+    public async Task<ActionResult<ApiResponse<object>>> GetMyRescues(
+        [FromQuery] string phone,
+        [FromHeader(Name = "X-Tracking-Token")] string trackingToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        try
+        {
+            return OkResponse<object>(
+                await publicService.GetMyRescueRequests(phone, trackingToken, page, pageSize),
+                "Lay lich su yeu cau cuu ho thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Lay lich su cac yeu cau cuu tro do citizen da tao theo so dien thoai.
+    /// </summary>
+    /// <param name="phone">So dien thoai da xac thuc OTP.</param>
+    /// <param name="trackingToken">Tracking token nhan duoc sau verify OTP.</param>
+    /// <param name="page">So trang.</param>
+    /// <param name="pageSize">So ban ghi moi trang.</param>
+    /// <returns>Danh sach yeu cau cuu tro cua citizen.</returns>
+    [HttpGet("tracking/my-relief-requests")]
+    public async Task<ActionResult<ApiResponse<object>>> GetMyReliefRequests(
+        [FromQuery] string phone,
+        [FromHeader(Name = "X-Tracking-Token")] string trackingToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        try
+        {
+            return OkResponse<object>(
+                await publicService.GetMyReliefRequests(phone, trackingToken, page, pageSize),
+                "Lay lich su yeu cau cuu tro thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Theo doi trang thai cuu ho bang tracking code.
     /// </summary>
     /// <param name="trackingCode">Ma theo doi yeu cau.</param>

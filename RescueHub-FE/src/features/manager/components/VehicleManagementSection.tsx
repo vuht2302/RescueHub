@@ -1,136 +1,227 @@
-import React from "react";
-import { MoreVertical, AlertTriangle } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { MoreVertical, AlertTriangle, Truck, MapPin } from "lucide-react";
+import { getAuthSession } from "@/src/features/auth/services/authStorage";
+
+const DEFAULT_API_BASE_URL = "https://rescuehub.onrender.com";
+
+const getApiBaseUrl = () =>
+  (import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL).trim();
+
+interface VehicleStatus {
+  code: string;
+  name: string;
+  color: string | null;
+}
+
+interface VehicleType {
+  id: string;
+  code: string;
+  name: string;
+}
+
+interface Team {
+  id: string;
+  code: string;
+  name: string;
+}
+
+interface Coordinates {
+  lat: number;
+  lng: number;
+}
+
+interface Vehicle {
+  id: string;
+  code: string;
+  displayName: string;
+  plateNo: string;
+  status: VehicleStatus;
+  vehicleType: VehicleType;
+  team: Team | null;
+  capacityPerson: number;
+  capacityWeightKg: number;
+  currentLocation: Coordinates;
+  capabilityCount: number;
+  notes: string;
+  createdAt: string;
+}
 
 export function VehicleManagementSection() {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const session = getAuthSession();
+        if (!session?.accessToken) throw new Error("Vui lòng đăng nhập lại");
+
+        const res = await fetch(`${getApiBaseUrl()}/api/v1/manager/vehicles`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+        });
+        
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.message || "Không thể tải danh sách phương tiện");
+        }
+        
+        setVehicles(data.data.items);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Đã xảy ra lỗi");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchVehicles();
+  }, []);
+
+  const getStatusStyle = (statusCode: string) => {
+    switch (statusCode) {
+      case "AVAILABLE":
+        return "bg-emerald-50 text-emerald-600";
+      case "IN_USE":
+        return "bg-blue-50 text-blue-600";
+      case "MAINTENANCE":
+        return "bg-orange-50 text-orange-600";
+      default:
+        return "bg-gray-50 text-gray-600";
+    }
+  };
+
+  const getStatusPoint = (statusCode: string) => {
+    switch (statusCode) {
+      case "AVAILABLE":
+        return "bg-emerald-600";
+      case "IN_USE":
+        return "bg-blue-600";
+      case "MAINTENANCE":
+        return "bg-orange-600";
+      default:
+        return "bg-gray-600";
+    }
+  };
+
+  const getStatusText = (status: VehicleStatus) => {
+    switch (status.code) {
+        case "AVAILABLE": return "Sẵn sàng";
+        case "IN_USE": return "Đang sử dụng";
+        case "MAINTENANCE": return "Bảo dưỡng";
+        default: return status.name;
+    }
+  };
+
   return (
     <section className="space-y-6">
       <article className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-6">
-          <h3
-            className="text-xl font-bold text-slate-900"
-            style={{ fontFamily: "var(--font-primary)" }}
-          >
-            Quản lý phương tiện cứu hộ
-          </h3>
-          <p className="mt-1 text-sm text-slate-600">
-            Theo dõi tình trạng sử dụng và bảo dưỡng phương tiện
-          </p>
+        <div className="border-b border-slate-200 p-6 flex justify-between items-center">
+          <div>
+            <h3
+              className="text-xl font-bold text-slate-900"
+              style={{ fontFamily: "var(--font-primary)" }}
+            >
+              Quản lý phương tiện cứu hộ
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Danh sách chi tiết phương tiện và trạng thái
+            </p>
+          </div>
+          <div className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
+            {vehicles.length} phương tiện
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                <th className="px-4 py-3">Biển số xe</th>
-                <th className="px-4 py-3">Loại phương tiện</th>
-                <th className="px-4 py-3">Đội sử dụng</th>
-                <th className="px-4 py-3">Tình trạng</th>
-                <th className="px-4 py-3">Nhiên liệu (%)</th>
-                <th className="px-4 py-3">Km hiện tại</th>
-                <th className="px-4 py-3">Bảo dưỡng lần cuối</th>
-                <th className="px-4 py-3">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-slate-100 transition hover:bg-slate-50">
-                <td className="px-4 py-3">
-                  <p className="font-semibold text-slate-900">59A-123456</p>
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-900">
-                  Xe thang nâng
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">
-                  Đội PCCC Q1
-                </td>
-                <td className="px-4 py-3">
-                  <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-600">
-                    <div className="h-2 w-2 rounded-full bg-emerald-600" />
-                    Sẵn sàng
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-12 rounded-full bg-slate-200">
-                      <div className="h-1.5 w-9 rounded-full bg-blue-500" />
-                    </div>
-                    <span className="text-sm text-slate-600">75%</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">12,450 km</td>
-                <td className="px-4 py-3 text-sm text-slate-600">2026-03-20</td>
-                <td className="px-4 py-3">
-                  <button className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100">
-                    <MoreVertical className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-              <tr className="border-b border-slate-100 transition hover:bg-slate-50">
-                <td className="px-4 py-3">
-                  <p className="font-semibold text-slate-900">51B-987654</p>
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-900">
-                  Xe cứu thương
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">
-                  Đội Y tế Q2
-                </td>
-                <td className="px-4 py-3">
-                  <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold bg-blue-50 text-blue-600">
-                    <div className="h-2 w-2 rounded-full bg-blue-600" />
-                    Đang sử dụng
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-12 rounded-full bg-slate-200">
-                      <div className="h-1.5 w-6 rounded-full bg-orange-500" />
-                    </div>
-                    <span className="text-sm text-slate-600">50%</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">8,920 km</td>
-                <td className="px-4 py-3 text-sm text-slate-600">2026-02-10</td>
-                <td className="px-4 py-3">
-                  <button className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100">
-                    <MoreVertical className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-              <tr className="border-b border-slate-100 transition hover:bg-slate-50">
-                <td className="px-4 py-3">
-                  <p className="font-semibold text-slate-900">29C-555666</p>
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-900">
-                  Xe chuyên dụng
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">
-                  Đội Cứu hộ Q3
-                </td>
-                <td className="px-4 py-3">
-                  <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold bg-orange-50 text-orange-600">
-                    <AlertTriangle className="h-4 w-4" />
-                    Cần bảo dưỡng
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-12 rounded-full bg-slate-200">
-                      <div className="h-1.5 w-4 rounded-full bg-red-500" />
-                    </div>
-                    <span className="text-sm text-slate-600">25%</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">15,780 km</td>
-                <td className="px-4 py-3 text-sm text-slate-600">2025-12-05</td>
-                <td className="px-4 py-3">
-                  <button className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100">
-                    <MoreVertical className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        {error && (
+          <div className="p-4 m-6 border border-red-200 bg-red-50 text-red-700 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="p-10 flex flex-col items-center justify-center">
+            <div className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin" style={{ borderWidth: 3 }}></div>
+            <p className="mt-3 text-sm text-gray-500">Đang tải dữ liệu phương tiện...</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  <th className="px-4 py-3">Phương tiện</th>
+                  <th className="px-4 py-3">Loại</th>
+                  <th className="px-4 py-3">Thuộc đội</th>
+                  <th className="px-4 py-3">Tình trạng</th>
+                  <th className="px-4 py-3">Sức chứa</th>
+                  <th className="px-4 py-3">Vị trí</th>
+                  <th className="px-4 py-3">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vehicles.length === 0 && !isLoading && !error && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-500">
+                      Chưa có phương tiện nào trong hệ thống.
+                    </td>
+                  </tr>
+                )}
+                {vehicles.map((v) => (
+                  <tr key={v.id} className="border-b border-slate-100 transition hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <p className="font-bold text-slate-900">{v.plateNo}</p>
+                      <p className="text-xs text-slate-500">{v.displayName}</p>
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium text-slate-700">
+                      {v.vehicleType.name}
+                    </td>
+                    <td className="px-4 py-3">
+                      {v.team ? (
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{v.team.name}</p>
+                          <p className="text-xs text-slate-500">{v.team.code}</p>
+                        </div>
+                      ) : (
+                        <span className="text-sm italic text-slate-400">Chưa phân công</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${getStatusStyle(v.status.code)}`}>
+                        <div className={`h-1.5 w-1.5 rounded-full ${getStatusPoint(v.status.code)}`} />
+                        {getStatusText(v.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-600">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-slate-800">{v.capacityPerson} người</span>
+                        <span className="text-xs text-slate-500">{v.capacityWeightKg} kg</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-600">
+                      {v.currentLocation ? (
+                        <div className="flex items-center gap-1.5">
+                          <MapPin size={14} className="text-slate-400" />
+                          <span className="text-xs">{v.currentLocation.lat.toFixed(3)}, {v.currentLocation.lng.toFixed(3)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">Không xác định</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </article>
     </section>
   );

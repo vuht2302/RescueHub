@@ -185,7 +185,7 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
   onAssess,
   onDispatch,
 }) => {
-  const priority = getPriorityConfig(detail.priority?.code);
+  const priority = getPriorityConfig(detail.severity?.code);
   const hasLocation = detail.location?.lat && detail.location?.lng;
 
   return (

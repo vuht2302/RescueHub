@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { X, AlertCircle, Users, Ambulance, Truck } from "lucide-react";
+import { X, AlertCircle, Users, Ambulance, Truck, CheckCircle2 } from "lucide-react";
 import {
   assessIncident,
   AssessIncidentRequest,
   AssessIncidentResponse,
 } from "../services/incidentServices";
+import { toastSuccess, toastError } from "../../../shared/utils/toast";
 
 interface SeverityAssessmentModalProps {
   incidentId: string;
@@ -52,6 +53,7 @@ export function SeverityAssessmentModal({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   if (!isOpen) return null;
 
@@ -73,10 +75,19 @@ export function SeverityAssessmentModal({
       };
 
       const result = await assessIncident(incidentId, request, accessToken);
-      onAssessed(result);
-      onClose();
+      setIsSuccess(true);
+      toastSuccess(result.message || "Đánh giá sự cố thành công!");
+      
+      setTimeout(() => {
+        onAssessed(result);
+        onClose();
+        setIsSuccess(false);
+        setIsSubmitting(false);
+      }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Lỗi không xác định");
+      const msg = err instanceof Error ? err.message : "Lỗi không xác định";
+      setError(msg);
+      toastError(msg);
       setIsSubmitting(false);
     }
   };
@@ -108,33 +119,45 @@ export function SeverityAssessmentModal({
         </div>
 
         {/* Content */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-6">
-            {/* Error Message */}
-            {error && (
-              <div className="border border-red-200 bg-red-50 rounded-lg p-4 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-red-900">Lỗi đánh giá</p>
-                  <p className="text-sm text-red-700 mt-1">{error}</p>
+        {isSuccess ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-20 px-6">
+            <CheckCircle2 size={64} className="text-emerald-500 mb-4" />
+            <h3 className="text-xl font-black text-gray-900 mb-2">
+              Đánh giá thành công
+            </h3>
+            <p className="text-sm text-gray-500 text-center max-w-sm">
+              Sự cố {incidentCode} đã được đánh giá mức độ nghiêm trọng và lưu vào hệ thống.
+            </p>
+          </div>
+        ) : (
+          <>
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-6">
+              {/* Error Message */}
+              {error && (
+                <div className="border border-red-200 bg-red-50 rounded-lg p-4 flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-red-900">Lỗi đánh giá</p>
+                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Priority and Severity */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
-                  Mức ưu tiên
-                </label>
-                <select
-                  value={formData.priorityCode}
-                  onChange={(e) =>
-                    setFormData({ ...formData, priorityCode: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  style={{ fontFamily: "var(--font-sans)" }}
-                >
+              {/* Priority and Severity */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                    Mức ưu tiên
+                  </label>
+                  <select
+                    value={formData.priorityCode}
+                    onChange={(e) =>
+                      setFormData({ ...formData, priorityCode: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    style={{ fontFamily: "var(--font-sans)" }}
+                  >
                   {PRIORITY_CODES.map((p) => (
                     <option key={p.code} value={p.code}>
                       {p.name}
@@ -285,29 +308,31 @@ export function SeverityAssessmentModal({
             </div>
           </div>
         </form>
-
-        {/* Footer */}
-        <div className="border-t border-gray-200 p-6 flex gap-3 justify-end bg-gray-50">
-          <button
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="px-6 py-2 rounded-lg border-2 border-gray-300 text-gray-900 font-bold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ fontFamily: "var(--font-primary)" }}
-          >
-            Hủy
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="px-6 py-2 rounded-lg text-white font-bold transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              backgroundColor: "var(--color-blue-950)",
-              fontFamily: "var(--font-primary)",
-            }}
-          >
-            {isSubmitting ? "Đang lưu..." : "Lưu đánh giá"}
-          </button>
-        </div>
+          
+          {/* Footer */}
+          <div className="border-t border-gray-200 p-6 flex gap-3 justify-end bg-gray-50">
+            <button
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="px-6 py-2 rounded-lg border-2 border-gray-300 text-gray-900 font-bold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ fontFamily: "var(--font-primary)" }}
+            >
+              Hủy
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="px-6 py-2 rounded-lg text-white font-bold transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: "var(--color-blue-950)",
+                fontFamily: "var(--font-primary)",
+              }}
+            >
+              {isSubmitting ? "Đang lưu..." : "Lưu đánh giá"}
+            </button>
+          </div>
+        </>
+        )}
       </div>
     </div>
   );

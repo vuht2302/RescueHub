@@ -8,6 +8,7 @@ import { SeverityAssessmentModal } from "../components/SeverityAssessmentModal";
 import { CurrentMissionsSection } from "../components/CurrentMissionsSection";
 import { MissionMapSection } from "../components/MissionMapSection";
 import { IncidentDetailPanel } from "../components/IncidentDetailPanel";
+import { TeamManagementSection } from "../components/TeamManagementSection";
 import {
   getIncidents,
   getIncidentDetail,
@@ -447,81 +448,11 @@ const RescueCoordinatorPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-8 border-b border-gray-300 mb-6">
-          <button
-            onClick={() => setActiveMenu("overview")}
-            className={`pb-4 px-2 font-bold transition-colors ${
-              activeMenu === "overview"
-                ? "text-blue-950 border-b-2 border-blue-950"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-            style={
-              activeMenu === "overview"
-                ? { color: "var(--color-blue-950)" }
-                : {}
-            }
-          >
-            Tổng quan
-          </button>
-          <button
-            onClick={() => setActiveMenu("map")}
-            className={`pb-4 px-2 font-bold transition-colors ${
-              activeMenu === "map"
-                ? "text-blue-950 border-b-2 border-blue-950"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-            style={
-              activeMenu === "map" ? { color: "var(--color-blue-950)" } : {}
-            }
-          >
-            Bản đồ
-          </button>
-          <button
-            onClick={() => setActiveMenu("tasks")}
-            className={`pb-4 px-2 font-bold transition-colors ${
-              activeMenu === "tasks"
-                ? "text-blue-950 border-b-2 border-blue-950"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-            style={
-              activeMenu === "tasks" ? { color: "var(--color-blue-950)" } : {}
-            }
-          >
-            Nhiệm vụ
-          </button>
-          <button
-            onClick={() => setActiveMenu("assets")}
-            className={`pb-4 px-2 font-bold transition-colors ${
-              activeMenu === "assets"
-                ? "text-blue-950 border-b-2 border-blue-950"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-            style={
-              activeMenu === "assets" ? { color: "var(--color-blue-950)" } : {}
-            }
-          >
-            Tài sản
-          </button>
-          <button
-            onClick={() => setActiveMenu("current")}
-            className={`pb-4 px-2 font-bold transition-colors ${
-              activeMenu === "current"
-                ? "text-blue-950 border-b-2 border-blue-950"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-            style={
-              activeMenu === "current" ? { color: "var(--color-blue-950)" } : {}
-            }
-          >
-            Nhiệm vụ hiện tại
-          </button>
-        </div>
 
         {/* Content Area */}
         <div
           className={`${
-            activeMenu === "map" || activeMenu === "current"
+            activeMenu === "map" || activeMenu === "current" || activeMenu === "teams"
               ? "grid grid-cols-1 gap-6"
               : "grid grid-cols-3 gap-6"
           } ${activeMenu === "map" || activeMenu === "current" ? "h-screen" : ""}`}
@@ -529,7 +460,7 @@ const RescueCoordinatorPage: React.FC = () => {
           {/* Main Content */}
           <div
             className={`${
-              activeMenu === "map" ? "col-span-1 h-full" : "col-span-2"
+              activeMenu === "map" || activeMenu === "teams" ? "col-span-1 h-full" : "col-span-2"
             } space-y-6`}
           >
             {activeMenu === "map" && <MissionMapSection />}
@@ -732,52 +663,13 @@ const RescueCoordinatorPage: React.FC = () => {
               </div>
             )}
 
-            {activeMenu === "assets" && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">
-                  Tài sản & phương tiện
-                </h2>
-                <div className="space-y-3">
-                  {teams.map((team) => (
-                    <div
-                      key={team.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-bold text-gray-900">
-                            {team.name}
-                          </h3>
-                          <p className="text-sm text-gray-600">
-                            {team.vehicle}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {team.members} thành viên - {team.currentLocation}
-                          </p>
-                        </div>
-                        <span
-                          className={`text-xs font-bold px-2 py-1 rounded ${
-                            team.status === "available"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
-                          {team.status === "available"
-                            ? "Sẵn sàng"
-                            : "Đang tới"}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {activeMenu === "teams" && <TeamManagementSection />}
 
             {activeMenu === "current" && <CurrentMissionsSection />}
           </div>
 
           {/* Right Panel - Incident Detail */}
-          {activeMenu !== "current" && activeMenu !== "map" && (
+          {activeMenu !== "current" && activeMenu !== "map" && activeMenu !== "teams" && (
             <div
               className="bg-white rounded-xl shadow-sm border border-gray-100 sticky top-6 overflow-hidden"
               style={{

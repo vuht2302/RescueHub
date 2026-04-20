@@ -20,6 +20,8 @@ public interface IIncidentService
 
     Task<object> CreateReliefRequestFromIncident(Guid incidentId, CreateIncidentReliefRequest request);
 
+    Task<object> GetReliefRequestHotspotsForCoordinator(string? statusCode, int days, int top);
+
     Task<object> ListReliefRequestsForCoordinator(string? statusCode, string? keyword, int page, int pageSize);
 
     Task<object> GetReliefRequestForCoordinator(Guid reliefRequestId);

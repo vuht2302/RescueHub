@@ -169,6 +169,18 @@ public sealed class IncidentsController(IIncidentService service) : BaseApiContr
     }
 
     /// <summary>
+    /// Lay cac khu vuc co nhieu yeu cau cuu tro de coordinator uu tien dieu phoi.
+    /// </summary>
+    [HttpGet("relief-requests/hotspots")]
+    public async Task<ActionResult<ApiResponse<object>>> GetReliefRequestHotspots(
+        [FromQuery] string? statusCode,
+        [FromQuery] int days = 7,
+        [FromQuery] int top = 10)
+        => OkResponse<object>(
+            await service.GetReliefRequestHotspotsForCoordinator(statusCode, days, top),
+            "Lay diem nong yeu cau cuu tro thanh cong");
+
+    /// <summary>
     /// Lay danh sach yeu cau cuu tro cho coordinator xu ly chuan hoa phan phoi.
     /// </summary>
     [HttpGet("relief-requests")]

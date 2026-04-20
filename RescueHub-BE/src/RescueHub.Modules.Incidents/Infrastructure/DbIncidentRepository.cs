@@ -726,6 +726,97 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         };
     }
 
+    public async Task<object> GetReliefRequestHotspotsForCoordinator(string? statusCode, int days, int top)
+    {
+        var normalizedDays = days <= 0 ? 7 : Math.Min(days, 90);
+        var normalizedTop = top <= 0 ? 10 : Math.Min(top, 100);
+        var fromTime = DateTime.UtcNow.AddDays(-normalizedDays);
+
+        var query = dbContext.relief_requests
+            .AsNoTracking()
+            .Include(x => x.admin_area)
+            .Where(x => x.created_at >= fromTime)
+            .AsQueryable();
+
+        var normalizedStatusCode = string.IsNullOrWhiteSpace(statusCode)
+            ? null
+            : statusCode.Trim().ToUpperInvariant();
+
+        if (!string.IsNullOrWhiteSpace(normalizedStatusCode))
+        {
+            query = query.Where(x => x.status_code == normalizedStatusCode);
+        }
+
+        var requests = await query
+            .Select(x => new
+            {
+                x.id,
+                x.status_code,
+                x.created_at,
+                adminAreaId = x.admin_area_id,
+                adminAreaCode = x.admin_area != null ? x.admin_area.code : null,
+                adminAreaName = x.admin_area != null ? x.admin_area.name : null,
+                lat = x.geom == null ? (double?)null : x.geom.Y,
+                lng = x.geom == null ? (double?)null : x.geom.X
+            })
+            .ToListAsync();
+
+        var items = requests
+            .GroupBy(x => new
+            {
+                x.adminAreaId,
+                areaCode = x.adminAreaCode ?? "UNKNOWN",
+                areaName = x.adminAreaName ?? "Chua xac dinh"
+            })
+            .Select(group =>
+            {
+                var pendingCount = group.Count(x => x.status_code == "NEW" || x.status_code == "APPROVED");
+                var fulfilledCount = group.Count(x => x.status_code == "FULFILLED");
+                var rejectedCount = group.Count(x => x.status_code == "REJECTED");
+                var cancelledCount = group.Count(x => x.status_code == "CANCELLED");
+                var points = group.Where(x => x.lat.HasValue && x.lng.HasValue).ToList();
+
+                return new
+                {
+                    adminAreaId = group.Key.adminAreaId,
+                    areaCode = group.Key.areaCode,
+                    areaName = group.Key.areaName,
+                    requestCount = group.Count(),
+                    pendingCount,
+                    fulfilledCount,
+                    rejectedCount,
+                    cancelledCount,
+                    latestRequestedAt = group.Max(x => x.created_at),
+                    center = points.Count == 0
+                        ? null
+                        : new
+                        {
+                            lat = Math.Round(points.Average(x => x.lat!.Value), 6),
+                            lng = Math.Round(points.Average(x => x.lng!.Value), 6)
+                        }
+                };
+            })
+            .OrderByDescending(x => x.requestCount)
+            .ThenByDescending(x => x.pendingCount)
+            .ThenByDescending(x => x.latestRequestedAt)
+            .Take(normalizedTop)
+            .ToList();
+
+        return new
+        {
+            filters = new
+            {
+                statusCode = normalizedStatusCode,
+                days = normalizedDays,
+                top = normalizedTop,
+                fromTime
+            },
+            totalRequests = requests.Count,
+            hotspotCount = items.Count,
+            items
+        };
+    }
+
     public async Task<object> ListReliefRequestsForCoordinator(string? statusCode, string? keyword, int page, int pageSize)
     {
         var normalizedPage = page <= 0 ? 1 : page;

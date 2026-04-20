@@ -22,6 +22,8 @@ public interface IPublicService
 
     Task<object> GetMyReliefRequests(string phone, string trackingToken, int page, int pageSize);
 
+    Task<object> GetMyHistory(Guid? userId, string? phone, int page, int pageSize);
+
     Task<object> GetTrackingRescue(string trackingCode);
 
     Task<object> AckTrackingRescue(string trackingCode, AckRescueRequest request);

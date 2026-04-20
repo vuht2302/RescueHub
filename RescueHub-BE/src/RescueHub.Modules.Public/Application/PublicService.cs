@@ -333,6 +333,126 @@ public sealed class PublicService(
         };
     }
 
+    public async Task<object> GetMyHistory(Guid? userId, string? phone, int page, int pageSize)
+    {
+        var normalizedPhone = NormalizePhoneForOtp(phone ?? string.Empty);
+        if (!userId.HasValue && string.IsNullOrWhiteSpace(normalizedPhone))
+        {
+            throw new InvalidOperationException("Khong xac dinh duoc citizen dang dang nhap.");
+        }
+
+        var safePage = page < 1 ? 1 : page;
+        var safePageSize = pageSize is < 1 or > 100 ? 20 : pageSize;
+
+        var rescueQuery = dbContext.incidents
+            .AsNoTracking()
+            .Include(x => x.incident_location)
+            .AsQueryable();
+
+        if (userId.HasValue && !string.IsNullOrWhiteSpace(normalizedPhone))
+        {
+            var uid = userId.Value;
+            rescueQuery = rescueQuery.Where(x => x.created_by_user_id == uid || x.reporter_phone == normalizedPhone);
+        }
+        else if (userId.HasValue)
+        {
+            var uid = userId.Value;
+            rescueQuery = rescueQuery.Where(x => x.created_by_user_id == uid);
+        }
+        else
+        {
+            rescueQuery = rescueQuery.Where(x => x.reporter_phone == normalizedPhone);
+        }
+
+        rescueQuery = rescueQuery.OrderByDescending(x => x.created_at);
+
+        var rescueTotal = await rescueQuery.CountAsync();
+        var rescueItems = await rescueQuery
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .Select(x => new
+            {
+                incidentId = x.id,
+                incidentCode = x.code,
+                trackingCode = x.code,
+                incidentTypeCode = x.incident_type_code,
+                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                priority = new { code = x.priority_code, name = x.priority_code, color = (string?)null },
+                description = x.description,
+                location = x.incident_location == null
+                    ? null
+                    : new
+                    {
+                        lat = x.incident_location.lat,
+                        lng = x.incident_location.lng,
+                        addressText = x.incident_location.address_text,
+                        landmark = x.incident_location.landmark
+                    },
+                reportedAt = x.created_at,
+                updatedAt = x.updated_at
+            })
+            .ToListAsync();
+
+        IQueryable<relief_request> reliefQuery = dbContext.relief_requests
+            .AsNoTracking()
+            .Include(x => x.relief_request_items)
+            .ThenInclude(x => x.item)
+            .AsQueryable();
+
+        if (string.IsNullOrWhiteSpace(normalizedPhone))
+        {
+            reliefQuery = reliefQuery.Where(_ => false);
+        }
+        else
+        {
+            reliefQuery = reliefQuery.Where(x => x.requester_phone == normalizedPhone);
+        }
+
+        reliefQuery = reliefQuery.OrderByDescending(x => x.created_at);
+
+        var reliefTotal = await reliefQuery.CountAsync();
+        var reliefItems = await reliefQuery
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .Select(x => new
+            {
+                reliefRequestId = x.id,
+                requestCode = x.code,
+                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                householdCount = x.household_count,
+                note = x.note,
+                requestedAt = x.created_at,
+                updatedAt = x.updated_at,
+                items = x.relief_request_items.Select(i => new
+                {
+                    supportTypeCode = i.item.code,
+                    supportTypeName = i.item.name,
+                    requestedQty = i.requested_qty,
+                    approvedQty = i.approved_qty,
+                    unitCode = i.unit_code
+                }).ToList()
+            })
+            .ToListAsync();
+
+        return new
+        {
+            rescues = new
+            {
+                page = safePage,
+                pageSize = safePageSize,
+                total = rescueTotal,
+                items = rescueItems
+            },
+            reliefRequests = new
+            {
+                page = safePage,
+                pageSize = safePageSize,
+                total = reliefTotal,
+                items = reliefItems
+            }
+        };
+    }
+
     public async Task<object> GetTrackingRescue(string trackingCode)
     {
         var incident = await ResolveIncidentByTrackingCode(trackingCode);

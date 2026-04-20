@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RescueHub.BuildingBlocks.Api;
 using RescueHub.Modules.Public.Application;
@@ -161,6 +163,36 @@ public sealed class PublicController(IPublicService publicService) : BaseApiCont
             return OkResponse<object>(
                 await publicService.GetMyReliefRequests(phone, trackingToken, page, pageSize),
                 "Lay lich su yeu cau cuu tro thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Lay lich su yeu cau cua citizen dang dang nhap (cuu ho + cuu tro).
+    /// </summary>
+    /// <param name="page">So trang.</param>
+    /// <param name="pageSize">So ban ghi moi trang cho tung nhom.</param>
+    /// <returns>Lich su yeu cau cua tai khoan dang dang nhap.</returns>
+    [Authorize]
+    [HttpGet("me/history")]
+    public async Task<ActionResult<ApiResponse<object>>> GetMyHistory(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        try
+        {
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub");
+            var userId = Guid.TryParse(userIdValue, out var parsedUserId) ? parsedUserId : (Guid?)null;
+            var phone = User.FindFirstValue("phone")
+                ?? User.FindFirstValue(ClaimTypes.MobilePhone);
+
+            return OkResponse<object>(
+                await publicService.GetMyHistory(userId, phone, page, pageSize),
+                "Lay lich su yeu cau cua citizen thanh cong");
         }
         catch (InvalidOperationException ex)
         {

@@ -221,6 +221,26 @@ export interface PublicTrackingReliefResponse {
   distributions: PublicTrackingReliefDistribution[];
 }
 
+export interface PublicTrackingMyHistoryItem {
+  id?: string;
+  code?: string;
+  title?: string;
+  description?: string;
+  addressText?: string;
+  statusName?: string;
+  statusCode?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  [key: string]: unknown;
+}
+
+export interface PublicTrackingMyHistoryResponse {
+  items: PublicTrackingMyHistoryItem[];
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+}
+
 export interface PublicAckRequest {
   ackMethodCode: string;
   ackCode: string;

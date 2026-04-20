@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import vietmapgl from "@vietmap/vietmap-gl-js/dist/vietmap-gl";
 import "@vietmap/vietmap-gl-js/dist/vietmap-gl.css";
 import {
@@ -10,17 +10,31 @@ import {
   LocateFixed,
   MapPin,
   Phone,
-  ShieldCheck,
-  Siren,
+  Search,
 } from "lucide-react";
-import { getPublicMapData } from "../../../shared/services/publicApi";
+import {
+  getPublicMapData,
+  getPublicTrackingMyReliefRequests,
+  getPublicTrackingMyRescues,
+  type PublicTrackingMyHistoryItem,
+} from "../../../shared/services/publicApi";
 import { getAuthSession } from "../../auth/services/authStorage";
 import { ReliefRequestModal } from "../../home/components/ReliefRequestModal";
 import { RescueRequestModal } from "../../home/components/RescueRequestModal";
-import {
-  getUnsyncedRequests,
-  type UnsyncedRequest,
-} from "../../home/services/syncService";
+
+const TRACKING_TOKEN_STORAGE_KEY = "rescuehub.public.trackingToken";
+const TRACKING_PHONE_STORAGE_KEY = "rescuehub.public.trackingPhone";
+
+type CitizenHistoryItem = {
+  id: string;
+  trackingCode: string;
+  title: string;
+  description: string;
+  location: string;
+  createdAt: string;
+  status: "pending" | "verified" | "completed";
+  kind: "rescue" | "relief";
+};
 
 type Coordinate = {
   lat: number;
@@ -81,11 +95,53 @@ export const CitizenPage: React.FC = () => {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isReliefModalOpen, setIsReliefModalOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<Coordinate>(DEFAULT_CENTER);
-  const [historyItems, setHistoryItems] = useState<UnsyncedRequest[]>([]);
+  const [historyItems, setHistoryItems] = useState<CitizenHistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [trackingInput, setTrackingInput] = useState("");
 
   const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
   const canUseVietmap = vietmapApiKey.length > 0;
+
+  const normalizeHistoryItem = (
+    item: PublicTrackingMyHistoryItem,
+    kind: "rescue" | "relief",
+  ): CitizenHistoryItem => {
+    const rawStatus = String(
+      item.statusCode ?? item.statusName ?? "pending",
+    ).toLowerCase();
+
+    const status: CitizenHistoryItem["status"] =
+      rawStatus.includes("complete") || rawStatus.includes("done")
+        ? "completed"
+        : rawStatus.includes("verify") || rawStatus.includes("approved")
+          ? "verified"
+          : "pending";
+
+    const code = String(item.code ?? "").trim();
+    const title = String(item.title ?? "").trim();
+    const description = String(item.description ?? "").trim();
+    const location = String(item.addressText ?? "").trim();
+    const createdAt = String(item.createdAt ?? item.updatedAt ?? "").trim();
+    const trackingCode = String(
+      item.code ??
+        (item as any).trackingCode ??
+        (item as any).incidentCode ??
+        (item as any).requestCode ??
+        "",
+    ).trim();
+
+    return {
+      id: String(item.id ?? code ?? `${kind}-${Math.random()}`),
+      trackingCode,
+      title:
+        title || (kind === "rescue" ? "Yêu cầu cứu hộ" : "Yêu cầu cứu trợ"),
+      description: description || "Không có mô tả.",
+      location: location || "Chưa có địa chỉ",
+      createdAt: createdAt || new Date().toISOString(),
+      status,
+      kind,
+    };
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(locationRouter.search);
@@ -274,7 +330,18 @@ export const CitizenPage: React.FC = () => {
 
   useEffect(() => {
     const authSession = getAuthSession();
-    if (!authSession?.accessToken || !authSession.user.phone) {
+    const phone =
+      authSession?.user.phone?.trim() ||
+      (typeof window !== "undefined"
+        ? localStorage.getItem(TRACKING_PHONE_STORAGE_KEY)?.trim()
+        : "") ||
+      "";
+    const trackingToken =
+      (typeof window !== "undefined"
+        ? localStorage.getItem(TRACKING_TOKEN_STORAGE_KEY)?.trim()
+        : "") || "";
+
+    if (!phone) {
       setHistoryItems([]);
       return;
     }
@@ -282,11 +349,35 @@ export const CitizenPage: React.FC = () => {
     const loadHistory = async () => {
       try {
         setIsHistoryLoading(true);
-        const items = await getUnsyncedRequests(
-          authSession.user.phone,
-          authSession.accessToken,
+        const [rescues, reliefs] = await Promise.all([
+          getPublicTrackingMyRescues({
+            phone,
+            page: 1,
+            pageSize: 20,
+            trackingToken,
+          }),
+          getPublicTrackingMyReliefRequests({
+            phone,
+            page: 1,
+            pageSize: 20,
+            trackingToken,
+          }),
+        ]);
+
+        const rescueItems = Array.isArray(rescues.items)
+          ? rescues.items.map((item) => normalizeHistoryItem(item, "rescue"))
+          : [];
+
+        const reliefItems = Array.isArray(reliefs.items)
+          ? reliefs.items.map((item) => normalizeHistoryItem(item, "relief"))
+          : [];
+
+        setHistoryItems(
+          [...rescueItems, ...reliefItems].sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          ),
         );
-        setHistoryItems(items);
       } catch {
         setHistoryItems([]);
       } finally {
@@ -316,37 +407,38 @@ export const CitizenPage: React.FC = () => {
     navigate("/citizen", { replace: true });
   };
 
-  const statusClassMap: Record<UnsyncedRequest["status"], string> = {
+  const handleLookupByCode = (rawCode: string) => {
+    const normalizedCode = rawCode.trim();
+    if (!normalizedCode) {
+      return;
+    }
+
+    navigate(`/track?code=${encodeURIComponent(normalizedCode)}`);
+  };
+
+  const handleTrackingSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    handleLookupByCode(trackingInput);
+  };
+
+  const statusClassMap: Record<CitizenHistoryItem["status"], string> = {
     pending: "bg-amber-50 text-amber-700 border-amber-200",
     verified: "bg-cyan-50 text-cyan-700 border-cyan-200",
     completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
   };
 
-  const statusLabelMap: Record<UnsyncedRequest["status"], string> = {
+  const statusLabelMap: Record<CitizenHistoryItem["status"], string> = {
     pending: "Chờ xử lý",
     verified: "Đã xác minh",
     completed: "Hoàn tất",
   };
 
-  const getHistoryType = (item: UnsyncedRequest): "rescue" | "relief" => {
-    const content = `${item.title} ${item.description}`.toLowerCase();
-    if (
-      content.includes("cứu trợ") ||
-      content.includes("cuu tro") ||
-      content.includes("relief")
-    ) {
-      return "relief";
-    }
-
-    return "rescue";
-  };
-
   const rescueHistoryItems = historyItems.filter(
-    (item) => getHistoryType(item) === "rescue",
+    (item) => item.kind === "rescue",
   );
 
   const reliefHistoryItems = historyItems.filter(
-    (item) => getHistoryType(item) === "relief",
+    (item) => item.kind === "relief",
   );
 
   const nearestReliefPoint = useMemo(() => {
@@ -474,6 +566,27 @@ export const CitizenPage: React.FC = () => {
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <form
+            onSubmit={handleTrackingSubmit}
+            className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]"
+          >
+            <label className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-3">
+              <Search size={18} className="text-slate-500" />
+              <input
+                value={trackingInput}
+                onChange={(event) => setTrackingInput(event.target.value)}
+                placeholder="Nhập mã theo dõi, ví dụ SC-20260416-001"
+                className="w-full bg-transparent text-slate-800 outline-none"
+              />
+            </label>
+            <button
+              type="submit"
+              className="h-12 rounded-xl bg-blue-950 px-6 text-base font-bold text-white transition hover:bg-blue-900"
+            >
+              Tra cứu
+            </button>
+          </form>
+
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
               <History size={18} className="text-blue-700" />
@@ -518,15 +631,33 @@ export const CitizenPage: React.FC = () => {
                           <h4 className="text-sm font-semibold text-slate-900">
                             {item.title}
                           </h4>
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClassMap[item.status]}`}
-                          >
-                            {statusLabelMap[item.status]}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClassMap[item.status]}`}
+                            >
+                              {statusLabelMap[item.status]}
+                            </span>
+                            {item.trackingCode ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleLookupByCode(item.trackingCode)
+                                }
+                                className="rounded-md bg-blue-950 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-900"
+                              >
+                                Tra cứu
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                         <p className="mt-1 text-sm text-slate-600">
                           {item.description}
                         </p>
+                        {item.trackingCode ? (
+                          <p className="mt-1 text-xs text-slate-500">
+                            Mã theo dõi: {item.trackingCode}
+                          </p>
+                        ) : null}
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                           <span className="inline-flex items-center gap-1">
                             <MapPin size={12} />
@@ -564,15 +695,33 @@ export const CitizenPage: React.FC = () => {
                           <h4 className="text-sm font-semibold text-slate-900">
                             {item.title}
                           </h4>
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClassMap[item.status]}`}
-                          >
-                            {statusLabelMap[item.status]}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClassMap[item.status]}`}
+                            >
+                              {statusLabelMap[item.status]}
+                            </span>
+                            {item.trackingCode ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleLookupByCode(item.trackingCode)
+                                }
+                                className="rounded-md bg-blue-950 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-900"
+                              >
+                                Tra cứu
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                         <p className="mt-1 text-sm text-slate-600">
                           {item.description}
                         </p>
+                        {item.trackingCode ? (
+                          <p className="mt-1 text-xs text-slate-500">
+                            Mã theo dõi: {item.trackingCode}
+                          </p>
+                        ) : null}
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                           <span className="inline-flex items-center gap-1">
                             <MapPin size={12} />

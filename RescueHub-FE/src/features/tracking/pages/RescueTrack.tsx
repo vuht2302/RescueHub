@@ -4,15 +4,17 @@ import { useSearchParams } from "react-router-dom";
 import {
   CheckCircle,
   AlertTriangle,
-  Search,
   ShieldCheck,
   LoaderCircle,
 } from "lucide-react";
 import {
   ackPublicTrackingRescue,
+  getPublicTrackingMyReliefRequests,
+  getPublicTrackingMyRescues,
   getPublicTrackingRescue,
   requestPublicTrackingOtp,
   verifyPublicTrackingOtp,
+  type PublicTrackingMyHistoryItem,
   type PublicTrackingHistoryItem,
   type PublicTrackingRescueResponse,
 } from "../../../shared/services/publicApi";
@@ -36,6 +38,14 @@ const getStoredTrackingPhone = (): string => {
   return localStorage.getItem(TRACKING_PHONE_STORAGE_KEY)?.trim() ?? "";
 };
 
+type TrackingListItem = {
+  id: string;
+  code: string;
+  title: string;
+  statusName: string;
+  createdAt: string;
+};
+
 export const RescueTrack: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [trackingCode, setTrackingCode] = useState(
@@ -51,8 +61,86 @@ export const RescueTrack: React.FC = () => {
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isAcking, setIsAcking] = useState(false);
+  const [isHistoryListLoading, setIsHistoryListLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [otpMessage, setOtpMessage] = useState("");
+  const [myRescues, setMyRescues] = useState<TrackingListItem[]>([]);
+  const [myReliefs, setMyReliefs] = useState<TrackingListItem[]>([]);
+
+  const normalizeTrackingListItem = (
+    item: PublicTrackingMyHistoryItem,
+    kind: "rescue" | "relief",
+  ): TrackingListItem => {
+    const code = String(
+      item.code ??
+        (item as any).trackingCode ??
+        (item as any).incidentCode ??
+        (item as any).requestCode ??
+        "",
+    ).trim();
+
+    const fallbackTitle =
+      kind === "rescue" ? "Yêu cầu cứu hộ" : "Yêu cầu cứu trợ";
+
+    return {
+      id: String(item.id ?? code ?? `${kind}-${Math.random()}`),
+      code,
+      title: String(item.title ?? fallbackTitle),
+      statusName: String(item.statusName ?? "Đang xử lý"),
+      createdAt: String(item.createdAt ?? item.updatedAt ?? ""),
+    };
+  };
+
+  const loadMyTrackingHistory = async (
+    phone: string,
+    token: string,
+  ): Promise<void> => {
+    if (!phone.trim() || !token.trim()) {
+      setMyRescues([]);
+      setMyReliefs([]);
+      return;
+    }
+
+    setIsHistoryListLoading(true);
+    try {
+      const [rescues, reliefs] = await Promise.all([
+        getPublicTrackingMyRescues({
+          phone,
+          page: 1,
+          pageSize: 20,
+          trackingToken: token,
+        }),
+        getPublicTrackingMyReliefRequests({
+          phone,
+          page: 1,
+          pageSize: 20,
+          trackingToken: token,
+        }),
+      ]);
+
+      setMyRescues(
+        (Array.isArray(rescues.items) ? rescues.items : []).map((item) =>
+          normalizeTrackingListItem(item, "rescue"),
+        ),
+      );
+
+      setMyReliefs(
+        (Array.isArray(reliefs.items) ? reliefs.items : []).map((item) =>
+          normalizeTrackingListItem(item, "relief"),
+        ),
+      );
+    } catch (error) {
+      setMyRescues([]);
+      setMyReliefs([]);
+      setOtpMessage(
+        error instanceof Error
+          ? error.message
+          : "Khong the tai lich su cua so dien thoai nay",
+      );
+    } finally {
+      setIsHistoryListLoading(false);
+    }
+  };
 
   const history = useMemo<PublicTrackingHistoryItem[]>(() => {
     if (!trackingData?.history) {
@@ -109,11 +197,6 @@ export const RescueTrack: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleLookup = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await fetchTrackingData(trackingCode);
   };
 
   const handleRequestOtp = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -179,6 +262,7 @@ export const RescueTrack: React.FC = () => {
           response.trackingToken,
         );
       }
+      await loadMyTrackingHistory(normalizedPhone, response.trackingToken);
       setOtpMessage("Xác thực OTP thành công. Bạn có thể tra cứu mã theo dõi.");
     } catch (error) {
       setTrackingToken("");
@@ -237,13 +321,16 @@ export const RescueTrack: React.FC = () => {
 
   useEffect(() => {
     const codeFromQuery = searchParams.get("code")?.trim();
-    if (!codeFromQuery) {
-      return;
+    if (codeFromQuery) {
+      setTrackingCode(codeFromQuery);
+      if (trackingToken) {
+        void fetchTrackingData(codeFromQuery);
+      }
     }
 
-    setTrackingCode(codeFromQuery);
-    if (trackingToken) {
-      void fetchTrackingData(codeFromQuery);
+    const phone = trackingPhone.trim() || getStoredTrackingPhone();
+    if (trackingToken && phone) {
+      void loadMyTrackingHistory(phone, trackingToken);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackingToken]);
@@ -328,33 +415,118 @@ export const RescueTrack: React.FC = () => {
         ) : null}
       </section>
 
-      <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-5 md:p-6">
-        <form
-          onSubmit={handleLookup}
-          className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3"
-        >
-          <label className="flex items-center gap-2 bg-surface-container-low rounded-xl px-4 py-3">
-            <Search size={18} className="text-on-surface-variant" />
-            <input
-              value={trackingCode}
-              onChange={(event) => setTrackingCode(event.target.value)}
-              placeholder="Nhập mã theo dõi, vi du SC-20260416-001"
-              className="w-full bg-transparent outline-none text-on-surface"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="h-12 px-5 rounded-xl bg-primary text-on-primary font-bold disabled:opacity-60 inline-flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <LoaderCircle size={18} className="animate-spin" />
-            ) : null}
-            Tra cứu
-          </button>
-        </form>
+      <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-5 md:p-6 space-y-4">
+        <h3 className="text-lg font-bold text-on-surface">Lịch sử của bạn</h3>
+        {isHistoryListLoading ? (
+          <div className="inline-flex items-center gap-2 text-sm text-on-surface-variant">
+            <LoaderCircle size={16} className="animate-spin" />
+            Đang tải lịch sử...
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <article className="rounded-xl bg-surface-container-low p-4 border border-outline-variant/20">
+              <h4 className="font-bold text-on-surface mb-3">Lịch sử cứu hộ</h4>
+              <div className="space-y-3">
+                {myRescues.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">
+                    Chưa có lịch sử cứu hộ.
+                  </p>
+                ) : (
+                  myRescues.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-lg bg-surface-container-lowest p-3 border border-outline-variant/20"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-on-surface">
+                          {item.title}
+                        </p>
+                        {item.code ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTrackingCode(item.code);
+                              void fetchTrackingData(item.code);
+                            }}
+                            className="rounded-md bg-primary text-on-primary px-3 py-1 text-xs font-bold"
+                          >
+                            Xem
+                          </button>
+                        ) : null}
+                      </div>
+                      {item.code ? (
+                        <p className="mt-1 text-xs text-on-surface-variant">
+                          Mã: {item.code}
+                        </p>
+                      ) : null}
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        {item.statusName}
+                      </p>
+                      {item.createdAt ? (
+                        <p className="mt-1 text-xs text-on-surface-variant">
+                          {new Date(item.createdAt).toLocaleString("vi-VN")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
+            </article>
+
+            <article className="rounded-xl bg-surface-container-low p-4 border border-outline-variant/20">
+              <h4 className="font-bold text-on-surface mb-3">
+                Lịch sử cứu trợ
+              </h4>
+              <div className="space-y-3">
+                {myReliefs.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">
+                    Chưa có lịch sử cứu trợ.
+                  </p>
+                ) : (
+                  myReliefs.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-lg bg-surface-container-lowest p-3 border border-outline-variant/20"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-on-surface">
+                          {item.title}
+                        </p>
+                        {item.code ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTrackingCode(item.code);
+                              void fetchTrackingData(item.code);
+                            }}
+                            className="rounded-md bg-primary text-on-primary px-3 py-1 text-xs font-bold"
+                          >
+                            Xem
+                          </button>
+                        ) : null}
+                      </div>
+                      {item.code ? (
+                        <p className="mt-1 text-xs text-on-surface-variant">
+                          Mã: {item.code}
+                        </p>
+                      ) : null}
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        {item.statusName}
+                      </p>
+                      {item.createdAt ? (
+                        <p className="mt-1 text-xs text-on-surface-variant">
+                          {new Date(item.createdAt).toLocaleString("vi-VN")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
+            </article>
+          </div>
+        )}
         {errorMessage ? (
-          <p className="mt-3 text-sm text-error">{errorMessage}</p>
+          <p className="text-sm text-error">{errorMessage}</p>
         ) : null}
       </section>
 

@@ -13,6 +13,7 @@ import type {
   PublicSosRequest,
   PublicTrackingOtpRequest,
   PublicTrackingOtpResponse,
+  PublicTrackingMyHistoryResponse,
   PublicTrackingReliefResponse,
   PublicTrackingRescueResponse,
   PublicVerifyTrackingOtpRequest,
@@ -37,6 +38,8 @@ export type {
   PublicReliefResponse,
   PublicTrackingOtpRequest,
   PublicTrackingOtpResponse,
+  PublicTrackingMyHistoryItem,
+  PublicTrackingMyHistoryResponse,
   PublicVerifyTrackingOtpRequest,
   PublicVerifyTrackingOtpResponse,
   PublicTrackingHistoryItem,
@@ -246,6 +249,67 @@ export const ackPublicTrackingRelief = async (
         ...buildTrackingHeaders(trackingToken),
       },
       body: JSON.stringify(payload),
+    },
+  );
+};
+
+type PublicMyTrackingQuery = {
+  phone: string;
+  page?: number;
+  pageSize?: number;
+  trackingToken?: string;
+};
+
+const buildMyTrackingQuery = ({
+  phone,
+  page = 1,
+  pageSize = 20,
+}: Omit<PublicMyTrackingQuery, "trackingToken">): string => {
+  const query = new URLSearchParams({
+    phone: phone.trim(),
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+
+  return query.toString();
+};
+
+export const getPublicTrackingMyRescues = async ({
+  phone,
+  page = 1,
+  pageSize = 20,
+  trackingToken,
+}: PublicMyTrackingQuery): Promise<PublicTrackingMyHistoryResponse> => {
+  return requestPublicApi<PublicTrackingMyHistoryResponse>(
+    `/api/v1/public/tracking/my-rescues?${buildMyTrackingQuery({
+      phone,
+      page,
+      pageSize,
+    })}`,
+    {
+      headers: {
+        ...buildTrackingHeaders(trackingToken),
+      },
+    },
+  );
+};
+
+export const getPublicTrackingMyReliefRequests = async ({
+  phone,
+  page = 1,
+  pageSize = 20,
+  trackingToken,
+}: PublicMyTrackingQuery): Promise<PublicTrackingMyHistoryResponse> => {
+  return requestPublicApi<PublicTrackingMyHistoryResponse>(
+    `/api/v1/public/tracking/my-relief-requests?${buildMyTrackingQuery({
+      phone,
+      page,
+      pageSize,
+    })}`,
+    {
+      headers: {
+        ...buildTrackingHeaders(trackingToken),
+      },
     },
   );
 };

@@ -185,6 +185,39 @@ export interface ItemPayload {
   isActive: boolean;
 }
 
+// Item with embedded lots (from /api/v1/manager/items)
+export interface ItemWithLots {
+  id: string;
+  itemCode: string;
+  itemName: string;
+  itemCategoryCode: string;
+  itemCategory: { id: string; code: string; name: string };
+  unitCode: string;
+  requiresLotTracking: boolean;
+  requiresExpiryTracking: boolean;
+  issuePolicyCode: string;
+  isActive: boolean;
+  lotCount: number;
+  lots: Array<{
+    id: string;
+    lotNo: string;
+    expDate: string | null;
+    statusCode: string;
+    receivedAt: string;
+  }>;
+}
+
+export interface ItemsWithLotsResponse {
+  items: ItemWithLots[];
+}
+
+export async function getItemsWithLots(token: string): Promise<ItemWithLots[]> {
+  const data = await apiFetch<ItemsWithLotsResponse>(`${BASE}/items`, {
+    headers: authHeaders(token),
+  });
+  return data.items ?? [];
+}
+
 export async function getItems(token: string): Promise<Item[]> {
   const data = await apiFetch<Item[] | PagedResponse<Item>>(`${BASE}/items`, {
     headers: authHeaders(token),
@@ -447,7 +480,38 @@ export async function createReliefIssue(
   });
 }
 
-// ─── MAN-07  Household ────────────────────────────────────────────────────────
+// ─── MAN-08  Relief Point ────────────────────────────────────────────────────
+export interface ReliefPoint {
+  id: string;
+  reliefPointCode: string;
+  reliefPointName: string;
+  status: CodeName;
+  address: string;
+  location: WarehouseLocation | null;
+  adminArea: { id: string; name: string } | null;
+  createdAt: string;
+}
+
+export interface ReliefPointListParams {
+  keyword?: string;
+  statusCode?: string;
+}
+
+export async function getReliefPoints(
+  token: string,
+  params: ReliefPointListParams = {},
+): Promise<ReliefPoint[]> {
+  const q = new URLSearchParams();
+  if (params.keyword) q.set("keyword", params.keyword);
+  if (params.statusCode) q.set("statusCode", params.statusCode);
+  const data = await apiFetch<ReliefPoint[] | PagedResponse<ReliefPoint>>(
+    `${BASE}/relief-points?${q}`,
+    { headers: authHeaders(token) },
+  );
+  return Array.isArray(data) ? data : (data as PagedResponse<ReliefPoint>).items;
+}
+
+// ─── MAN-09  Household ────────────────────────────────────────────────────────
 export interface Household {
   id: string;
   headName: string;
@@ -615,5 +679,34 @@ export async function ackDistribution(
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(payload),
+  });
+}
+
+// ─── Distribution Options ────────────────────────────────────────────────────
+export interface DistributionOptions {
+  campaigns: Array<{
+    id: string;
+    code: string;
+    name: string;
+    statusCode: string;
+    startAt: string;
+    endAt: string | null;
+  }>;
+  reliefPoints: Array<{
+    id: string;
+    code: string;
+    name: string;
+    statusCode: string;
+    addressText: string;
+    campaign: { id: string; code: string; name: string };
+    location: { lat: number; lng: number };
+  }>;
+  ackMethodCodes: CodeName[];
+  distributionStatusCodes: CodeName[];
+}
+
+export async function getDistributionOptions(token: string): Promise<DistributionOptions> {
+  return apiFetch<DistributionOptions>(`${BASE}/distributions/options`, {
+    headers: authHeaders(token),
   });
 }

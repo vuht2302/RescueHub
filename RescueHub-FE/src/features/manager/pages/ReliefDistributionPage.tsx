@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Plus,
 } from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import {
@@ -23,9 +24,14 @@ import {
 } from "../../rescue-coordinator/services/incidentServices";
 import {
   getDistributions,
+  getDistribution,
   getReliefIssues,
+  ackDistribution,
   type DistributionListItem,
+  type Distribution,
   type ReliefIssueListItem,
+  type AckPayload,
+  type PagedResponse,
 } from "../services/warehouseService";
 import {
   REQUEST_STATUS,
@@ -36,6 +42,8 @@ import {
 import { ReliefIssueDetailModal } from "../components/ReliefIssueDetailModal";
 import { DistributionDetailModal } from "../components/DistributionDetailModal";
 import { CreateDistributionModal } from "../components/CreateDistributionModal";
+import { AckDistributionModal } from "../components/AckDistributionModal";
+import { CreateReliefIssueModal } from "../components/CreateReliefIssueModal";
 
 export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   className = "",
@@ -61,6 +69,7 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   const [viewIssueId, setViewIssueId] = useState<string | null>(null);
   const [issuePage, setIssuePage] = useState(1);
   const [issueTotalPages, setIssueTotalPages] = useState(1);
+  const [showCreateIssueModal, setShowCreateIssueModal] = useState(false);
 
   // Distributions state
   const [distributions, setDistributions] = useState<DistributionListItem[]>(
@@ -68,6 +77,8 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   );
   const [isLoadingDist, setIsLoadingDist] = useState(false);
   const [viewDistId, setViewDistId] = useState<string | null>(null);
+  const [viewDistDetail, setViewDistDetail] = useState<Distribution | null>(null);
+  const [showAckModal, setShowAckModal] = useState(false);
   const [distPage, setDistPage] = useState(1);
   const [distTotalPages, setDistTotalPages] = useState(1);
 
@@ -107,15 +118,47 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
     setIsLoadingDist(true);
     try {
       const res = await getDistributions(getAuthSession()?.accessToken ?? "");
-      setDistributions(Array.isArray(res) ? res : ((res as any)?.items ?? []));
-      setDistTotalPages((res as any)?.totalPages ?? 1);
+      if (Array.isArray(res)) {
+        setDistributions(res);
+      } else if (res && 'items' in res) {
+        setDistributions((res as PagedResponse<DistributionListItem>).items ?? []);
+        setDistTotalPages((res as PagedResponse<DistributionListItem>).totalPages ?? 1);
+      } else {
+        setDistributions([]);
+      }
       setDistPage(page);
     } catch (e) {
-      console.error("Error:", e);
+      console.error("Error loading distributions:", e);
     } finally {
       setIsLoadingDist(false);
     }
   }, []);
+
+  // Load distribution detail for ACK
+  const loadDistDetail = useCallback(async (distId: string) => {
+    try {
+      const detail = await getDistribution(distId, getAuthSession()?.accessToken ?? "");
+      setViewDistDetail(detail);
+      if (detail.ack?.ackCode) {
+        setShowAckModal(true);
+      }
+    } catch (e) {
+      console.error("Error loading distribution detail:", e);
+    }
+  }, []);
+
+  // Handle ACK distribution
+  const handleAckDistribution = async (ackForm: AckPayload) => {
+    if (!viewDistDetail) return;
+    try {
+      await ackDistribution(viewDistDetail.id, ackForm, getAuthSession()?.accessToken ?? "");
+      setShowAckModal(false);
+      setViewDistDetail(null);
+      void loadDistributions();
+    } catch (e) {
+      throw e;
+    }
+  };
 
   useEffect(() => {
     if (activeTab === "requests") void loadReliefRequests();
@@ -161,6 +204,13 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
     setRequestDetail(null);
     setActiveTab("distributions");
     void loadDistributions();
+  };
+
+  // Handle relief issue created
+  const handleReliefIssueCreated = (issue: { id: string; code: string }) => {
+    setShowCreateIssueModal(false);
+    void loadReliefIssues();
+    setViewIssueId(issue.id);
   };
 
   // Format household name helper
@@ -281,21 +331,39 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
             ))}
 
           {/* RELIEF ISSUES */}
-          {activeTab === "issues" &&
-            (isLoadingIssues ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
+          {activeTab === "issues" && (
+            <>
+              {/* Header with Create button */}
+              <div className="p-4 border-b border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-500">
+                    {reliefIssues.length} phiếu cấp phát
+                  </span>
+                  <button
+                    onClick={() => setShowCreateIssueModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
+                  >
+                    <Plus size={14} />
+                    Tạo phiếu cấp phát
+                  </button>
+                </div>
               </div>
-            ) : reliefIssues.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Truck size={32} className="text-gray-300 mb-2" />
-                <p className="text-sm text-gray-500">
-                  Chưa có phiếu cấp phát nào
-                </p>
-              </div>
-            ) : (
-              <>
-                {reliefIssues.map((issue) => (
+
+              {isLoadingIssues ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
+                </div>
+              ) : reliefIssues.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Truck size={32} className="text-gray-300 mb-2" />
+                  <p className="text-sm text-gray-500">
+                    Chưa có phiếu cấp phát nào
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex-1 overflow-y-auto">
+                    {reliefIssues.map((issue) => (
                   <div
                     key={issue.id}
                     onClick={() => setViewIssueId(issue.id)}
@@ -346,9 +414,12 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                       <ChevronRight size={14} />
                     </button>
                   </div>
-                )}
-              </>
-            ))}
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          )}
 
           {/* DISTRIBUTIONS */}
           {activeTab === "distributions" &&
@@ -368,7 +439,7 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                 {distributions.map((dist) => (
                   <div
                     key={dist.id}
-                    onClick={() => setViewDistId(dist.id)}
+                    onClick={() => { setViewDistId(dist.id); void loadDistDetail(dist.id); }}
                     className="px-4 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50"
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -572,19 +643,6 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                 </div>
               </section>
             </div>
-
-            <div className="px-6 py-4 border-t bg-gray-50 flex-shrink-0">
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white transition-all hover:shadow-lg"
-                style={{
-                  background: "linear-gradient(135deg,#059669,#10b981)",
-                }}
-              >
-                <Truck size={18} />
-                Tạo phiếu phân phối
-              </button>
-            </div>
           </>
         )}
       </div>
@@ -603,10 +661,24 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
           onClose={() => setViewIssueId(null)}
         />
       )}
+      {showCreateIssueModal && (
+        <CreateReliefIssueModal
+          onClose={() => setShowCreateIssueModal(false)}
+          onSuccess={handleReliefIssueCreated}
+        />
+      )}
       {viewDistId && (
         <DistributionDetailModal
           distId={viewDistId}
-          onClose={() => setViewDistId(null)}
+          onClose={() => { setViewDistId(null); setViewDistDetail(null); }}
+          onAck={() => { if (viewDistDetail?.ack?.ackCode) setShowAckModal(true); }}
+        />
+      )}
+      {showAckModal && viewDistDetail && (
+        <AckDistributionModal
+          dist={viewDistDetail}
+          onClose={() => { setShowAckModal(false); setViewDistDetail(null); }}
+          onSuccess={() => { setShowAckModal(false); setViewDistDetail(null); void loadDistributions(); }}
         />
       )}
     </div>

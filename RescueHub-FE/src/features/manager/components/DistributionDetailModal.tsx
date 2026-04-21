@@ -16,11 +16,13 @@ import { StatusBadge, DIST_STATUS, formatDate } from "../constants/statusConfig"
 interface DistributionDetailModalProps {
   distId: string;
   onClose: () => void;
+  onAck?: (dist: Distribution) => void;
 }
 
 export function DistributionDetailModal({
   distId,
   onClose,
+  onAck,
 }: DistributionDetailModalProps) {
   const [dist, setDist] = useState<Distribution | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,15 @@ export function DistributionDetailModal({
 
         {dist && (
           <div className="p-6 space-y-4">
+            {dist.ack?.ackCode && dist.status?.code !== "ACKNOWLEDGED" && onAck && (
+              <button
+                onClick={() => onAck(dist)}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm hover:shadow-lg transition-shadow"
+                style={{ background: "linear-gradient(135deg,#059669,#10b981)" }}
+              >
+                <CheckCircle size={16} /> Xác nhận đã nhận hàng (ACK)
+              </button>
+            )}
             <div className="bg-blue-50 rounded-xl p-4">
               <h3 className="text-sm font-bold text-blue-800 mb-3">
                 <User size={16} className="inline mr-2" />

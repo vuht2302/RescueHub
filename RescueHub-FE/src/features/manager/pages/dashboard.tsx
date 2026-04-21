@@ -21,6 +21,7 @@ import { ImportExportSection } from "../components/ImportExportSection";
 import { VehicleManagementSection } from "../components/VehicleManagementSection";
 import { PendingVerificationSection } from "../components/PendingVerificationSection";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
+import { BarChart } from "../../../shared/components/BarChart";
 
 type KPI = {
   title: string;
@@ -513,390 +514,82 @@ function HCMMap() {
   );
 }
 
-interface ChartTooltip {
-  visible: boolean;
-  x: number;
-  y: number;
-  month: string;
-  sales: number;
-  revenue: number;
-}
+const chartdata = [
+  {
+    date: "Jan 23",
+    "Cứu hộ": 2890,
+    "Cứu trợ": 2338,
+  },
+  {
+    date: "Feb 23",
+    "Cứu hộ": 2756,
+    "Cứu trợ": 2103,
+  },
+  {
+    date: "Mar 23",
+    "Cứu hộ": 3322,
+    "Cứu trợ": 2194,
+  },
+  {
+    date: "Apr 23",
+    "Cứu hộ": 3470,
+    "Cứu trợ": 2108,
+  },
+  {
+    date: "May 23",
+    "Cứu hộ": 3475,
+    "Cứu trợ": 1812,
+  },
+  {
+    date: "Jun 23",
+    "Cứu hộ": 3129,
+    "Cứu trợ": 1726,
+  },
+  {
+    date: "Jul 23",
+    "Cứu hộ": 3490,
+    "Cứu trợ": 1982,
+  },
+  {
+    date: "Aug 23",
+    "Cứu hộ": 2903,
+    "Cứu trợ": 2012,
+  },
+  {
+    date: "Sep 23",
+    "Cứu hộ": 2643,
+    "Cứu trợ": 2342,
+  },
+  {
+    date: "Oct 23",
+    "Cứu hộ": 2837,
+    "Cứu trợ": 2473,
+  },
+  {
+    date: "Nov 23",
+    "Cứu hộ": 2954,
+    "Cứu trợ": 3848,
+  },
+  {
+    date: "Dec 23",
+    "Cứu hộ": 3239,
+    "Cứu trợ": 3736,
+  },
+];
 
 function StatisticsChart() {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [monthsToShow, setMonthsToShow] = useState(12);
-  const [startIndex, setStartIndex] = useState(0);
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [tooltip, setTooltip] = useState<ChartTooltip>({
-    visible: false,
-    x: 0,
-    y: 0,
-    month: "",
-    sales: 0,
-    revenue: 0,
-  });
-
-  // Lọc dữ liệu hiển thị
-  const visibleMonths = months.slice(startIndex, startIndex + monthsToShow);
-  const visiblePrimary = monthlyPrimary.slice(
-    startIndex,
-    startIndex + monthsToShow,
-  );
-  const visibleSecondary = monthlySecondary.slice(
-    startIndex,
-    startIndex + monthsToShow,
-  );
-
-  // Tính toán khoảng cách điểm dữ liệu dựa trên số tháng hiển thị
-  const pointSpacing = 900 / (monthsToShow - 1 || 1);
-
-  const handleMouseMove = (e: React.MouseEvent<SVGRectElement>) => {
-    const svg = e.currentTarget.parentElement as unknown as SVGElement;
-    const rect = svg.getBoundingClientRect();
-
-    const x = e.clientX - rect.left;
-    const svgX = (x / rect.width) * 1000;
-
-    // Tính toán index dựa trên vị trí mouse
-    const index = Math.round((svgX - 50) / pointSpacing);
-
-    if (index >= 0 && index < visibleMonths.length) {
-      setHoveredIndex(index);
-      setTooltip({
-        visible: true,
-        x: svgX,
-        y: 50,
-        month: visibleMonths[index],
-        sales: visiblePrimary[index],
-        revenue: visibleSecondary[index],
-      });
-    }
-  };
-
-  const handleMouseLeave = () => {
-    setHoveredIndex(null);
-    setTooltip({ ...tooltip, visible: false });
-  };
-
-  const handleZoom = (direction: "in" | "out") => {
-    if (direction === "in") {
-      // Zoom in: 12 → 6 → 3
-      if (monthsToShow === 12) {
-        setMonthsToShow(6);
-        setStartIndex(0);
-      } else if (monthsToShow === 6) {
-        setMonthsToShow(3);
-        setStartIndex(0);
-      }
-    } else {
-      // Zoom out: 3 → 6 → 12
-      if (monthsToShow === 3) {
-        setMonthsToShow(6);
-        setStartIndex(0);
-      } else if (monthsToShow === 6) {
-        setMonthsToShow(12);
-        setStartIndex(0);
-      }
-    }
-    setHoveredIndex(null);
-  };
-
-  const handleResetZoom = () => {
-    setMonthsToShow(12);
-    setStartIndex(0);
-    setHoveredIndex(null);
-  };
-
-  // Xử lý scroll/pan
-  const handleScroll = (direction: "left" | "right") => {
-    if (monthsToShow >= 12) return; // chỉ pan khi đã zoom
-
-    if (direction === "left") {
-      setStartIndex(Math.max(0, startIndex - 1));
-    } else {
-      setStartIndex(Math.min(months.length - monthsToShow, startIndex + 1));
-    }
-  };
-
-  // Xử lý wheel zoom
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // deltaY < 0 = lằn lên = zoom in
-    // deltaY > 0 = lằn xuống = zoom out
-    if (e.deltaY < 0) {
-      handleZoom("in");
-    } else {
-      handleZoom("out");
-    }
-  };
-
-  // Setup wheel event listener với passive: false để prevent default scroll
-  useEffect(() => {
-    const handleWheelEvent = (e: WheelEvent) => {
-      if (
-        chartContainerRef.current &&
-        chartContainerRef.current.contains(e.target as Node)
-      ) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (e.deltaY < 0) {
-          // Zoom in: 12 → 6 → 3
-          setMonthsToShow((prev) => {
-            if (prev === 12) {
-              setStartIndex(0);
-              return 6;
-            } else if (prev === 6) {
-              setStartIndex(0);
-              return 3;
-            }
-            return prev;
-          });
-        } else {
-          // Zoom out: 3 → 6 → 12
-          setMonthsToShow((prev) => {
-            if (prev === 3) {
-              setStartIndex(0);
-              return 6;
-            } else if (prev === 6) {
-              setStartIndex(0);
-              return 12;
-            }
-            return prev;
-          });
-        }
-        setHoveredIndex(null);
-      }
-    };
-
-    const container = chartContainerRef.current;
-    if (container) {
-      // Sử dụng passive: false để có thể gọi preventDefault
-      container.addEventListener("wheel", handleWheelEvent, { passive: false });
-      return () => {
-        container.removeEventListener("wheel", handleWheelEvent);
-      };
-    }
-  }, []);
-
   return (
-    <div className="relative">
-      {/* Zoom Controls */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleZoom("in")}
-            disabled={monthsToShow === 3}
-            className="rounded-lg border border-slate-300 bg-white p-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Zoom in - Hiển thị ít tháng hơn"
-          >
-            <ZoomIn className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => handleZoom("out")}
-            disabled={monthsToShow === 12}
-            className="rounded-lg border border-slate-300 bg-white p-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Zoom out - Xem toàn bộ"
-          >
-            <ZoomOut className="h-4 w-4" />
-          </button>
-          <button
-            onClick={handleResetZoom}
-            disabled={monthsToShow === 12 && startIndex === 0}
-            className="rounded-lg border border-slate-300 bg-white p-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Reset về 12 tháng"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Pan Controls - chỉ hiển thị khi zoom */}
-        {monthsToShow < 12 && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleScroll("left")}
-              disabled={startIndex === 0}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              ← Trước
-            </button>
-            <button
-              onClick={() => handleScroll("right")}
-              disabled={startIndex + monthsToShow >= months.length}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Sau →
-            </button>
-          </div>
-        )}
-
-        {/* Zoom level indicator */}
-        <span className="text-xs font-medium text-slate-500">
-          {monthsToShow} tháng
-        </span>
-      </div>
-
-      <div
-        ref={chartContainerRef}
-        className="overflow-y-hidden overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4"
-        style={{ touchAction: "none" }}
-      >
-        <svg viewBox="0 0 1000 280" className="min-w-[900px]">
-          <defs>
-            <linearGradient id="fillPrimary" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.15" />
-              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-
-          {/* Grid lines */}
-          {Array.from({ length: 5 }).map((_, i) => {
-            const y = 50 + i * 40;
-            return (
-              <line
-                key={y}
-                x1={50}
-                x2={950}
-                y1={y}
-                y2={y}
-                stroke="#e2e8f0"
-                strokeWidth="1"
-              />
-            );
-          })}
-
-          {/* Month labels */}
-          {visibleMonths.map((m, i) => (
-            <text
-              key={`${m}-${startIndex}`}
-              x={50 + i * pointSpacing}
-              y={270}
-              fill="#64748b"
-              fontSize="13"
-              fontFamily="var(--font-primary)"
-              textAnchor="middle"
-            >
-              {m}
-            </text>
-          ))}
-
-          {/* Primary area fill */}
-          <polyline
-            fill="url(#fillPrimary)"
-            stroke="none"
-            points={
-              visiblePrimary
-                .map((v, i) => `${50 + i * pointSpacing},${220 - v / 1.5}`)
-                .join(" ") + ` 950,220 50,220`
-            }
-          />
-
-          {/* Primary line */}
-          <polyline
-            fill="none"
-            stroke="#3b82f6"
-            strokeWidth="3"
-            points={visiblePrimary
-              .map((v, i) => `${50 + i * pointSpacing},${220 - v / 1.5}`)
-              .join(" ")}
-          />
-
-          {/* Secondary line */}
-          <polyline
-            fill="none"
-            stroke="#93c5fd"
-            strokeWidth="2"
-            strokeDasharray="5,5"
-            points={visibleSecondary
-              .map((v, i) => `${50 + i * pointSpacing},${220 - v / 1.5}`)
-              .join(" ")}
-          />
-
-          {/* Data points on hover */}
-          {hoveredIndex !== null && (
-            <>
-              {/* Vertical line */}
-              <line
-                x1={50 + hoveredIndex * pointSpacing}
-                x2={50 + hoveredIndex * pointSpacing}
-                y1={40}
-                y2={220}
-                stroke="#3b82f6"
-                strokeWidth="2"
-                strokeDasharray="4,4"
-                opacity="0.6"
-              />
-              {/* Primary point */}
-              <circle
-                cx={50 + hoveredIndex * pointSpacing}
-                cy={220 - visiblePrimary[hoveredIndex] / 1.5}
-                r="5"
-                fill="#3b82f6"
-                stroke="#fff"
-                strokeWidth="2"
-              />
-              {/* Secondary point */}
-              <circle
-                cx={50 + hoveredIndex * pointSpacing}
-                cy={220 - visibleSecondary[hoveredIndex] / 1.5}
-                r="5"
-                fill="#93c5fd"
-                stroke="#fff"
-                strokeWidth="2"
-              />
-            </>
-          )}
-
-          {/* Invisible overlay for mouse tracking */}
-          <rect
-            x="50"
-            y="40"
-            width="900"
-            height="180"
-            fill="transparent"
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
-            style={{ cursor: "crosshair" }}
-          />
-        </svg>
-      </div>
-
-      {/* Scroll wheel hint */}
-      <p className="mt-2 text-xs text-slate-400">
-        💡 Tip: Lăn chuột để zoom in/out (lên = zoom chi tiết, xuống = xem toàn
-        bộ)
-      </p>
-
-      {/* Tooltip */}
-      {tooltip.visible && hoveredIndex !== null && (
-        <div
-          className="absolute left-0 top-0 z-20 rounded-lg border border-slate-300 bg-white p-4 shadow-lg"
-          style={{
-            left: `${Math.min(tooltip.x * 0.9, 400)}px`,
-            top: "20px",
-          }}
-        >
-          <p className="font-semibold text-slate-900">{tooltip.month}</p>
-          <div className="mt-2 space-y-1 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-blue-500" />
-              <span className="text-slate-600">Sales:</span>
-              <span className="font-semibold text-slate-900">
-                {visiblePrimary[hoveredIndex]}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-blue-300" />
-              <span className="text-slate-600">Revenue:</span>
-              <span className="font-semibold text-slate-900">
-                {visibleSecondary[hoveredIndex]}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="h-80 w-full mt-4">
+      <BarChart
+        className="h-64"
+        data={chartdata}
+        index="date"
+        categories={["Cứu hộ", "Cứu trợ"]}
+        valueFormatter={(number: number) =>
+          `${Intl.NumberFormat("us").format(number).toString()}`
+        }
+        onValueChange={(v) => console.log(v)}
+      />
     </div>
   );
 }

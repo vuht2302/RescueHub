@@ -29,6 +29,10 @@ const EMPTY: ItemPayload = {
   requiresLotTracking: true,
   requiresExpiryTracking: true,
   issuePolicyCode: "FEFO",
+  receivedAt: new Date().toISOString().slice(0, 16),
+  expDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10),
   isActive: true,
 };
 
@@ -73,6 +77,46 @@ function ConfirmDelete({
   );
 }
 
+function SuccessModal({
+  message,
+  onClose,
+}: {
+  message: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/40 z-200 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+          <svg
+            className="w-6 h-6 text-emerald-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+        </div>
+        <h3 className="text-lg font-bold text-center mb-1">Thành công!</h3>
+        <p className="text-sm text-gray-600 text-center mb-6">{message}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 transition-colors"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FormModal({
   item,
   onClose,
@@ -92,6 +136,12 @@ function FormModal({
           requiresLotTracking: item.requiresLotTracking,
           requiresExpiryTracking: item.requiresExpiryTracking,
           issuePolicyCode: item.issuePolicyCode,
+          receivedAt: new Date().toISOString().slice(0, 16),
+          expDate: item.requiresExpiryTracking
+            ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+                .toISOString()
+                .slice(0, 10)
+            : undefined,
           isActive: item.isActive,
         }
       : { ...EMPTY },
@@ -154,12 +204,25 @@ function FormModal({
       setError("Vui lòng điền mã và tên hàng hóa.");
       return;
     }
+    if (!form.receivedAt) {
+      setError("Vui lòng chọn ngày nhập hàng.");
+      return;
+    }
+    if (form.requiresExpiryTracking && !form.expDate) {
+      setError("Vui lòng chọn hạn sử dụng khi bật theo dõi hạn.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const token = getAuthSession()?.accessToken ?? "";
-      if (item) await updateItem(item.id, form, token);
-      else await createItem(form, token);
+      // Prepare payload: remove expDate if requiresExpiryTracking is false
+      const payload: ItemPayload = {
+        ...form,
+        expDate: form.requiresExpiryTracking ? form.expDate : undefined,
+      };
+      if (item) await updateItem(item.id, payload, token);
+      else await createItem(payload, token);
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lỗi không xác định");
@@ -248,38 +311,81 @@ function FormModal({
               </select>
             </div>
           </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 block mb-1">
-              Chính sách xuất (FEFO/FIFO)
-            </label>
-            <select
-              value={form.issuePolicyCode}
-              onChange={F("issuePolicyCode")}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Chọn chính sách</option>
-              {renderOptions(options.issuePolicyCodes)}
-            </select>
-          </div>
-          <div className="grid grid-cols-3 gap-4 pt-2">
-            {[
-              { key: "requiresLotTracking" as const, label: "Theo dõi lô" },
-              { key: "requiresExpiryTracking" as const, label: "Theo dõi hạn" },
-              { key: "isActive" as const, label: "Đang hoạt động" },
-            ].map(({ key, label }) => (
-              <label
-                key={key}
-                className="flex items-center gap-2 cursor-pointer select-none"
-              >
-                <input
-                  type="checkbox"
-                  checked={form[key] as boolean}
-                  onChange={BoolF(key)}
-                  className="w-4 h-4 rounded accent-blue-600"
-                />
-                <span className="text-sm text-gray-700">{label}</span>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1">
+                Ngày nhập hàng *
               </label>
-            ))}
+              <input
+                type="datetime-local"
+                value={form.receivedAt}
+                onChange={F("receivedAt")}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1">
+                Chính sách xuất (FEFO/FIFO)
+              </label>
+              <select
+                value={form.issuePolicyCode}
+                onChange={F("issuePolicyCode")}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Chọn chính sách</option>
+                {renderOptions(options.issuePolicyCodes)}
+              </select>
+            </div>
+          </div>
+          {form.requiresExpiryTracking && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 block mb-1">
+                  Hạn sử dụng{" "}
+                  {form.requiresExpiryTracking && (
+                    <span className="text-red-500">*</span>
+                  )}
+                </label>
+                <input
+                  type="date"
+                  value={form.expDate || ""}
+                  onChange={F("expDate")}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4 pt-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={BoolF("isActive")}
+                className="w-4 h-4 rounded accent-blue-600"
+              />
+              <span className="text-sm text-gray-700">Đang hoạt động</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.requiresExpiryTracking}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setForm((p) => ({
+                    ...p,
+                    requiresExpiryTracking: checked,
+                    expDate: checked
+                      ? p.expDate ||
+                        new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+                          .toISOString()
+                          .slice(0, 10)
+                      : undefined,
+                  }));
+                }}
+                className="w-4 h-4 rounded accent-blue-600"
+              />
+              <span className="text-sm text-gray-700">Theo dõi hạn</span>
+            </label>
           </div>
         </div>
         <div className="flex gap-3 px-6 py-4 border-t bg-gray-50">
@@ -434,6 +540,7 @@ export const ItemTab: React.FC = () => {
   const [editTarget, setEditTarget] = useState<Item | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -533,35 +640,28 @@ export const ItemTab: React.FC = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
-              {[
-                "Mã hàng",
-                "Tên hàng hóa",
-                "Danh mục",
-                "Ngày nhập hàng",
-                "Lô hàng",
-                "Hạn sử dụng",
-                "Trạng thái",
-                "",
-              ].map((h) => (
-                <th
-                  key={h}
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap"
-                >
-                  {h}
-                </th>
-              ))}
+              {["Mã hàng", "Tên hàng hóa", "Danh mục", "Trạng thái", ""].map(
+                (h) => (
+                  <th
+                    key={h}
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap"
+                  >
+                    {h}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {loading ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-gray-400">
+                <td colSpan={5} className="py-12 text-center text-gray-400">
                   Đang tải...
                 </td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center">
+                <td colSpan={5} className="py-12 text-center">
                   <div className="flex flex-col items-center gap-2">
                     <Package size={32} className="text-gray-300" />
                     <p className="text-gray-400 text-sm">Chưa có hàng hóa</p>
@@ -583,15 +683,6 @@ export const ItemTab: React.FC = () => {
                   <td className="px-4 py-3 text-gray-600">
                     {item.itemCategory?.name || "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-600 font-mono text-xs">
-                    {getLatestReceivedAt(item.lots || [])}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 font-mono text-xs">
-                    {getLatestLotNo(item.lots || [])}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {getNearestExpiry(item.lots || [])}
-                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}
@@ -599,7 +690,7 @@ export const ItemTab: React.FC = () => {
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${item.isActive ? "bg-emerald-500" : "bg-gray-400"}`}
                       />
-                      {item.isActive ? "Hoạt động" : "Ngừng"}
+                      {item.isActive ? "Có sẵn" : "Ngừng"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -641,7 +732,20 @@ export const ItemTab: React.FC = () => {
           onClose={() => setShowForm(false)}
           onSaved={() => {
             setShowForm(false);
+            setSuccessMessage(
+              editTarget
+                ? "Cập nhật hàng hóa thành công!"
+                : "Tạo mới hàng hóa thành công!",
+            );
             void load();
+          }}
+        />
+      )}
+      {successMessage && (
+        <SuccessModal
+          message={successMessage}
+          onClose={() => {
+            setSuccessMessage(null);
           }}
         />
       )}

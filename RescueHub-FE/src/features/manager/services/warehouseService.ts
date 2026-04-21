@@ -222,6 +222,8 @@ export interface ItemPayload {
   requiresLotTracking: boolean;
   requiresExpiryTracking: boolean;
   issuePolicyCode: string;
+  receivedAt: string;
+  expDate?: string;
   isActive: boolean;
 }
 

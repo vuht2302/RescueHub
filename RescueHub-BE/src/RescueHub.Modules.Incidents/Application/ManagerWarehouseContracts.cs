@@ -106,14 +106,18 @@ public sealed record CreateDistributionLineRequest(
     decimal Qty,
     string UnitCode);
 
+public sealed record RecipientLocationRequest(
+    decimal Lat,
+    decimal Lng,
+    string? AddressText);
+
 public sealed record CreateDistributionRequest(
     Guid? CampaignId,
     Guid? ReliefPointId,
     string RecipientName,
     string? RecipientPhone,
     Guid? RecipientAdminAreaId,
-    string RecipientAddress,
-    GeoPointRequest? RecipientLocation,
+    RecipientLocationRequest RecipientLocation,
     int RecipientMemberCount,
     int RecipientVulnerableCount,
     Guid? IncidentId,

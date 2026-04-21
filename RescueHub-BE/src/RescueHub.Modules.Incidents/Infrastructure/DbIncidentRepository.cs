@@ -787,7 +787,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             {
                 var point = new Point(requestItem.lng!.Value, requestItem.lat!.Value) { SRID = 4326 };
                 var matched = areas
-                    .Where(x => x.geom != null && x.geom.Covers(point))
+                    .Where(x => x.geom != null && x.geom.Contains(point))
                     .OrderBy(x => AdminAreaPriority(x.level_code))
                     .FirstOrDefault();
 
@@ -930,7 +930,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             .ToListAsync();
 
         var matched = areas
-            .Where(x => x.geom != null && x.geom.Covers(point))
+            .Where(x => x.geom != null && x.geom.Contains(point))
             .OrderBy(x => AdminAreaPriority(x.level_code))
             .FirstOrDefault();
 

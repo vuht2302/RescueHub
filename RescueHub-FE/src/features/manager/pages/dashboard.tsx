@@ -705,20 +705,20 @@ export default function ManagerDashboard() {
               <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 p-4">
                   <p className="text-xs font-medium text-slate-600 uppercase">
-                    Avg. chi phí điều phối / tháng
+                    Số lượng vụ cứu hộ cứu trợ
                   </p>
                   <div className="mt-2 flex items-end gap-3">
-                    <p className="text-2xl font-bold text-slate-900">₫212.1M</p>
-                    {changeBadge("+23.2%", true)}
+                    <p className="text-2xl font-bold text-slate-900">100</p>
+                    {changeBadge("+15.8%", true)}
                   </div>
                 </div>
                 <div className="rounded-lg bg-gradient-to-br from-red-50 to-red-100 p-4">
                   <p className="text-xs font-medium text-slate-600 uppercase">
-                    Avg. chi phí phát sinh
+                    Số lượng vụ cứu hộ cứu trợ
                   </p>
                   <div className="mt-2 flex items-end gap-3">
-                    <p className="text-2xl font-bold text-slate-900">₫30.3M</p>
-                    {changeBadge("-12.3%", false)}
+                    <p className="text-2xl font-bold text-slate-900">329</p>
+                    {changeBadge("-8.2%", false)}
                   </div>
                 </div>
               </div>

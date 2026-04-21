@@ -797,11 +797,6 @@ public sealed class PublicService(
 
     private async Task<object> AckReliefByRequest(relief_request reliefRequest, string requestCode, AckReliefRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.AckCode))
-        {
-            throw new InvalidOperationException("Ack code la bat buoc.");
-        }
-
         var distribution = await dbContext.distributions
             .OrderByDescending(x => x.created_at)
             .FirstOrDefaultAsync(x => x.code == requestCode);
@@ -822,15 +817,25 @@ public sealed class PublicService(
         }
 
         var now = DateTime.UtcNow;
-        dbContext.distribution_acks.Add(new distribution_ack
+        var ack = await dbContext.distribution_acks.FirstOrDefaultAsync(x => x.distribution_id == distribution.id);
+        if (ack is null)
         {
-            id = Guid.NewGuid(),
-            distribution_id = distribution.id,
-            ack_method_code = request.AckMethodCode,
-            ack_code = request.AckCode,
-            ack_note = request.Note,
-            ack_at = now
-        });
+            ack = new distribution_ack
+            {
+                id = Guid.NewGuid(),
+                distribution_id = distribution.id,
+                ack_method_code = distribution.ack_method_code,
+                ack_code = null,
+                ack_note = request.Note,
+                ack_at = now
+            };
+            dbContext.distribution_acks.Add(ack);
+        }
+        else
+        {
+            ack.ack_note = request.Note;
+            ack.ack_at = now;
+        }
 
         reliefRequest.status_code = "FULFILLED";
         reliefRequest.updated_at = now;

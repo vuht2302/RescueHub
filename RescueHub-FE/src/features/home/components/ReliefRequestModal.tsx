@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from "react";
-import { Plus, Send, Trash2, X } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Send, X, MapPin } from "lucide-react";
 import { toast } from "react-toastify";
-import {
-  createPublicReliefRequest,
-  type PublicReliefRequest,
-} from "../../../shared/services/publicApi";
+import { createPublicReliefRequest } from "../../../shared/services/publicApi";
 
-type ReliefRequestItemInput = {
-  supportTypeCode: string;
-  requestedQty: number;
-  unitCode: string;
+type Coordinate = {
+  lat: number;
+  lng: number;
+};
+
+type AddressSuggestion = {
+  id: string;
+  label: string;
+  value: string;
 };
 
 interface ReliefRequestModalProps {
@@ -17,32 +19,61 @@ interface ReliefRequestModalProps {
   onClose: () => void;
   defaultRequesterName?: string;
   defaultRequesterPhone?: string;
+  defaultLocation?: Coordinate;
+  defaultAddress?: string;
   lockRequesterInfo?: boolean;
 }
-
-const createEmptyItem = (): ReliefRequestItemInput => ({
-  supportTypeCode: "",
-  requestedQty: 1,
-  unitCode: "",
-});
 
 export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
   isOpen,
   onClose,
   defaultRequesterName,
   defaultRequesterPhone,
+  defaultLocation,
+  defaultAddress,
   lockRequesterInfo = false,
 }) => {
+  const addressSearchDebounceRef = useRef<number | null>(null);
+
   const [requesterName, setRequesterName] = useState("");
   const [requesterPhone, setRequesterPhone] = useState("");
   const [householdCount, setHouseholdCount] = useState(1);
   const [note, setNote] = useState("");
-  const [items, setItems] = useState<ReliefRequestItemInput[]>([
-    createEmptyItem(),
-  ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState("");
+
+  const [addressText, setAddressText] = useState(defaultAddress ?? "");
+  const [addressSuggestions, setAddressSuggestions] = useState<
+    AddressSuggestion[]
+  >([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const [isAddressDropdownOpen, setIsAddressDropdownOpen] = useState(false);
+
+  const currentLocation = useMemo<Coordinate>(
+    () =>
+      defaultLocation ?? {
+        lat: 10.7769,
+        lng: 106.7009,
+      },
+    [defaultLocation],
+  );
+
+  const currentLocationAddress = useMemo(() => {
+    if (defaultAddress && defaultAddress.trim().length > 0) {
+      return defaultAddress.trim();
+    }
+    return `${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)}`;
+  }, [defaultAddress, currentLocation.lat, currentLocation.lng]);
+
+  const currentLocationOption = useMemo<AddressSuggestion>(
+    () => ({
+      id: "current-location",
+      label: `Vị trí hiện tại của bạn`,
+      value: currentLocationAddress,
+    }),
+    [currentLocationAddress, currentLocation.lat, currentLocation.lng],
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -51,7 +82,90 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
 
     setRequesterName(defaultRequesterName?.trim() ?? "");
     setRequesterPhone(defaultRequesterPhone?.trim() ?? "");
-  }, [defaultRequesterName, defaultRequesterPhone, isOpen]);
+    setAddressText(defaultAddress ?? "");
+    setSubmitError("");
+    setSubmitSuccess("");
+  }, [isOpen, defaultRequesterName, defaultRequesterPhone, defaultAddress]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const query = addressText.trim();
+
+    if (addressSearchDebounceRef.current) {
+      window.clearTimeout(addressSearchDebounceRef.current);
+      addressSearchDebounceRef.current = null;
+    }
+
+    if (query.length < 3) {
+      setAddressSuggestions([]);
+      setIsSearchingAddress(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsSearchingAddress(true);
+
+    addressSearchDebounceRef.current = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=vn&q=${encodeURIComponent(query)}`,
+          {
+            signal: controller.signal,
+            headers: {
+              "Accept-Language": "vi",
+            },
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error("Search address failed");
+        }
+
+        const data = (await response.json()) as Array<{
+          place_id: number;
+          display_name: string;
+          lat: string;
+          lon: string;
+        }>;
+
+        const nextSuggestions = data
+          .filter((item) => item.display_name)
+          .map((item) => ({
+            id: String(item.place_id),
+            label: item.display_name,
+            value: item.display_name,
+          }));
+
+        setAddressSuggestions(nextSuggestions);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        setAddressSuggestions([]);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 350);
+
+    return () => {
+      controller.abort();
+      if (addressSearchDebounceRef.current) {
+        window.clearTimeout(addressSearchDebounceRef.current);
+        addressSearchDebounceRef.current = null;
+      }
+    };
+  }, [addressText, isOpen]);
+
+  const mergedAddressSuggestions = useMemo(
+    () => [
+      currentLocationOption,
+      ...addressSuggestions.filter(
+        (item) => item.value !== currentLocationOption.value,
+      ),
+    ],
+    [addressSuggestions, currentLocationOption],
+  );
 
   if (!isOpen) {
     return null;
@@ -59,23 +173,6 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
 
   const canSubmit =
     requesterName.trim().length > 0 && requesterPhone.trim().length > 0;
-
-  const handleChangeItem = (
-    index: number,
-    patch: Partial<ReliefRequestItemInput>,
-  ) => {
-    setItems((prev) =>
-      prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item)),
-    );
-  };
-
-  const handleAddItem = () => {
-    setItems((prev) => [...prev, createEmptyItem()]);
-  };
-
-  const handleRemoveItem = (index: number) => {
-    setItems((prev) => prev.filter((_, idx) => idx !== index));
-  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -89,27 +186,17 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
     setSubmitError("");
     setSubmitSuccess("");
 
-    // Only include items if they are all valid, otherwise send null
-    const validItems = items.filter(
-      (item) =>
-        item.supportTypeCode.trim().length > 0 &&
-        item.unitCode.trim().length > 0 &&
-        item.requestedQty > 0,
-    );
-
-    const payload: PublicReliefRequest = {
+    const payload = {
       requesterName: requesterName.trim(),
       requesterPhone: requesterPhone.trim(),
       householdCount,
       note: note.trim(),
-      items:
-        validItems.length > 0
-          ? validItems.map((item) => ({
-              supportTypeCode: item.supportTypeCode.trim(),
-              requestedQty: item.requestedQty,
-              unitCode: item.unitCode.trim(),
-            }))
-          : (null as any),
+      location: {
+        lat: currentLocation.lat,
+        lng: currentLocation.lng,
+        addressText: addressText.trim(),
+        landmark: "",
+      },
     };
 
     try {
@@ -124,7 +211,7 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
       setRequesterPhone(defaultRequesterPhone?.trim() ?? "");
       setHouseholdCount(1);
       setNote("");
-      setItems([createEmptyItem()]);
+      setAddressText(defaultAddress ?? "");
     } catch (error) {
       const message =
         error instanceof Error
@@ -146,7 +233,7 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
               Tạo yêu cầu cứu trợ
             </h2>
             <p className="text-sm text-on-surface-variant mt-1">
-              Nhập thông tin hộ dân và vật phẩm cần hỗ trợ.
+              Nhập thông tin hộ dân cần hỗ trợ.
             </p>
           </div>
           <button
@@ -200,6 +287,71 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
                 }
                 className="w-full bg-surface-container-high border-none rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-primary"
               />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">
+              Địa chỉ
+            </label>
+            <div className="relative">
+              <input
+                value={addressText}
+                onChange={(event) => {
+                  setAddressText(event.target.value);
+                  setIsAddressDropdownOpen(true);
+                }}
+                onFocus={() => setIsAddressDropdownOpen(true)}
+                onBlur={() => {
+                  window.setTimeout(
+                    () => setIsAddressDropdownOpen(false),
+                    120,
+                  );
+                }}
+                className="w-full bg-surface-container-high border-none rounded-xl p-4 pl-12 text-on-surface focus:ring-2 focus:ring-primary"
+                placeholder="Nhập địa chỉ để tìm kiếm..."
+              />
+              <MapPin
+                size={18}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none"
+              />
+              {isAddressDropdownOpen && (
+                <div className="absolute z-30 mt-2 w-full rounded-xl border border-outline-variant/20 bg-surface-container shadow-lg overflow-hidden">
+                  {isSearchingAddress && (
+                    <div className="px-4 py-3 text-sm text-on-surface-variant">
+                      Đang tìm địa chỉ...
+                    </div>
+                  )}
+
+                  {!isSearchingAddress &&
+                    mergedAddressSuggestions.length === 0 && (
+                      <div className="px-4 py-3 text-sm text-on-surface-variant">
+                        Nhập ít nhất 3 ký tự để tìm địa chỉ
+                      </div>
+                    )}
+
+                  {!isSearchingAddress &&
+                    mergedAddressSuggestions.length > 0 && (
+                      <ul className="max-h-60 overflow-y-auto py-1">
+                        {mergedAddressSuggestions.map((item) => (
+                          <li key={item.id}>
+                            <button
+                              type="button"
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                setAddressText(item.value);
+                                setIsAddressDropdownOpen(false);
+                              }}
+                              className="w-full px-4 py-2.5 text-left text-sm text-on-surface hover:bg-surface-container-high"
+                            >
+                              {item.label}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                </div>
+              )}
             </div>
           </div>
 

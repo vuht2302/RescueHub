@@ -1,17 +1,28 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Plus, Eye, X, AlertCircle, Truck, Trash2, Search, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { Plus, Eye, X, AlertCircle, Truck, Trash2, Search, ChevronLeft, ChevronRight, RefreshCw, Package } from "lucide-react";
 import {
   getReliefIssues, getReliefIssue, createReliefIssue,
   type ReliefIssueListItem, type ReliefIssue, type ReliefIssuePayload, type ReliefIssueLine,
   type ReliefIssueListParams,
+  getWarehouses, getItems, getLots,
+  type Warehouse, type Item, type Lot,
 } from "../services/warehouseService";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
+import { toastSuccess, toastError } from "../../../shared/utils/toast";
+
+// ─── Type for reference data ────────────────────────────────────────────────
+interface CampaignOption {
+  id: string;
+  code: string;
+  name: string;
+}
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 const STATUS_CFG: Record<string, { label: string; cls: string }> = {
   PENDING:    { label: "Đang chờ",    cls: "bg-yellow-100 text-yellow-700" },
   PROCESSING: { label: "Đang xử lý", cls: "bg-blue-100 text-blue-700"    },
   DELIVERED:  { label: "Đã giao",    cls: "bg-emerald-100 text-emerald-700" },
+  ISSUED:     { label: "Đã xuất",     cls: "bg-purple-100 text-purple-700" },
   CANCELLED:  { label: "Đã hủy",     cls: "bg-red-100 text-red-600"      },
 };
 
@@ -42,7 +53,7 @@ function DetailModal({ id, onClose }: { id: string; onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between px-6 py-4 border-b">
           <div>
             <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Phiếu cấp phát</p>
@@ -135,30 +146,72 @@ function DetailModal({ id, onClose }: { id: string; onClose: () => void }) {
 }
 
 // ─── Create Modal ─────────────────────────────────────────────────────────────
-function CreateModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+interface CreateModalProps {
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function CreateModal({ onClose, onSaved }: CreateModalProps) {
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignOption[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
+  const [lots, setLots] = useState<Lot[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  
   const emptyLine: ReliefIssueLine = { itemId: "", lotId: "", issueQty: 1, unitCode: "" };
-  const [form, setForm]     = useState<ReliefIssuePayload>({ campaignId: "", reliefPointId: "", fromWarehouseId: "", note: "", lines: [] });
+  const [form, setForm] = useState<ReliefIssuePayload>({ 
+    campaignId: "", reliefPointId: "", fromWarehouseId: "", note: "", lines: [] 
+  });
   const [newLine, setNewLine] = useState<ReliefIssueLine>({ ...emptyLine });
   const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const setF = (k: keyof ReliefIssuePayload) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm(p => ({ ...p, [k]: e.target.value }));
+  // Load reference data
+  useEffect(() => {
+    const loadData = async () => {
+      setLoadingData(true);
+      const token = getAuthSession()?.accessToken ?? "";
+      try {
+        const [wh, it, lt] = await Promise.all([
+          getWarehouses(token).catch(() => []),
+          getItems(token).catch(() => []),
+          getLots(token).catch(() => []),
+        ]);
+        setWarehouses(wh);
+        setItems(it);
+        setLots(lt);
+        // Set default warehouse if available
+        if (wh.length > 0) {
+          setForm(p => ({ ...p, fromWarehouseId: wh[0].id }));
+        }
+      } catch (e) {
+        console.error("Error loading data:", e);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+    void loadData();
+  }, []);
 
   const addLine = () => {
-    if (!newLine.itemId.trim())   { setError("itemId không được để trống."); return; }
-    if (!newLine.unitCode.trim()) { setError("unitCode không được để trống."); return; }
-    if (newLine.issueQty <= 0)    { setError("issueQty phải > 0."); return; }
+    if (!newLine.itemId.trim())   { setError("Vui lòng chọn hàng hóa."); return; }
+    if (!newLine.unitCode.trim()) { setError("Đơn vị không được để trống."); return; }
+    if (newLine.issueQty <= 0)    { setError("Số lượng phải > 0."); return; }
     setError(null);
-    setForm(p => ({ ...p, lines: [...p.lines, { ...newLine }] }));
+    
+    // Auto-fill unitCode from selected item
+    const selectedItem = items.find(i => i.id === newLine.itemId);
+    const unitCode = selectedItem?.unit?.code || newLine.unitCode;
+    
+    setForm(p => ({ ...p, lines: [...p.lines, { ...newLine, unitCode }] }));
     setNewLine({ ...emptyLine });
   };
 
   const removeLine = (i: number) => setForm(p => ({ ...p, lines: p.lines.filter((_, idx) => idx !== i) }));
 
   const handleSave = async () => {
-    if (!form.fromWarehouseId.trim()) { setError("fromWarehouseId là bắt buộc."); return; }
-    if (form.lines.length === 0)      { setError("Phải có ít nhất 1 dòng trong lines[]."); return; }
+    if (!form.fromWarehouseId.trim()) { setError("Vui lòng chọn kho xuất hàng."); return; }
+    if (form.lines.length === 0)      { setError("Phải có ít nhất 1 dòng hàng."); return; }
     setLoading(true); setError(null);
     try {
       await createReliefIssue({
@@ -168,14 +221,18 @@ function CreateModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
         note:            form.note.trim(),
         lines:           form.lines,
       }, getAuthSession()?.accessToken ?? "");
+      toastSuccess("Tạo phiếu cấp phát thành công!");
       onSaved();
-    } catch (e) { setError(e instanceof Error ? e.message : "Lỗi tạo phiếu"); }
+    } catch (e) { 
+      setError(e instanceof Error ? e.message : "Lỗi tạo phiếu");
+      toastError(e instanceof Error ? e.message : "Lỗi tạo phiếu");
+    }
     finally { setLoading(false); }
   };
 
   return (
     <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
           <div>
@@ -186,153 +243,205 @@ function CreateModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
         </div>
 
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-center gap-2">
-              <AlertCircle size={14} className="flex-shrink-0" />{error}
+          {loadingData ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
+              <span className="ml-3 text-sm text-gray-500">Đang tải dữ liệu...</span>
             </div>
-          )}
-
-          {/* ── Thông tin phiếu ── */}
-          <div className="space-y-3">
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Thông tin phiếu</p>
-
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">
-                fromWarehouseId <span className="text-red-500">*</span>
-                <span className="ml-1 font-normal text-gray-400">— ID kho xuất hàng</span>
-              </label>
-              <input
-                value={form.fromWarehouseId} onChange={setF("fromWarehouseId")}
-                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-gray-700 block mb-1">
-                  campaignId <span className="font-normal text-gray-400">(tùy chọn)</span>
-                </label>
-                <input
-                  value={form.campaignId} onChange={setF("campaignId")}
-                  placeholder="UUID chiến dịch..."
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-700 block mb-1">
-                  reliefPointId <span className="font-normal text-gray-400">(tùy chọn)</span>
-                </label>
-                <input
-                  value={form.reliefPointId} onChange={setF("reliefPointId")}
-                  placeholder="UUID điểm cứu trợ..."
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">
-                note <span className="font-normal text-gray-400">— ghi chú</span>
-              </label>
-              <input
-                value={form.note} onChange={setF("note")}
-                placeholder="Cấp phát đợt 1 cho điểm An Bình..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* ── lines[] ── */}
-          <div className="space-y-3">
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-              lines[]
-              <span className="ml-2 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-semibold normal-case">
-                {form.lines.length} dòng
-              </span>
-            </p>
-
-            {/* New line form */}
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-3">
-              <p className="text-xs font-semibold text-gray-500">Nhập dòng hàng mới</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-1">itemId <span className="text-red-400">*</span></label>
-                  <input
-                    value={newLine.itemId}
-                    onChange={e => setNewLine(p => ({ ...p, itemId: e.target.value }))}
-                    placeholder="UUID hàng hóa..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+          ) : (
+            <>
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-center gap-2">
+                  <AlertCircle size={14} className="flex-shrink-0" />{error}
                 </div>
-                <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-1">lotId</label>
-                  <input
-                    value={newLine.lotId}
-                    onChange={e => setNewLine(p => ({ ...p, lotId: e.target.value }))}
-                    placeholder="UUID lô hàng..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-1">issueQty <span className="text-red-400">*</span></label>
-                  <input
-                    type="number" min={1} value={newLine.issueQty}
-                    onChange={e => setNewLine(p => ({ ...p, issueQty: parseInt(e.target.value) || 1 }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-1">unitCode <span className="text-red-400">*</span></label>
-                  <input
-                    value={newLine.unitCode}
-                    onChange={e => setNewLine(p => ({ ...p, unitCode: e.target.value.toUpperCase() }))}
-                    placeholder="THUNG / CAI / KIT..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold uppercase bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <button
-                onClick={addLine}
-                className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
-              >
-                + Thêm vào lines[]
-              </button>
-            </div>
+              )}
 
-            {/* Lines preview table */}
-            {form.lines.length > 0 && (
-              <div className="rounded-xl border border-gray-100 overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100">
-                      {["#", "itemId", "lotId", "issueQty", "unitCode", ""].map(h => (
-                        <th key={h} className="px-3 py-2 text-left font-semibold text-gray-500">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {form.lines.map((l, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-gray-400 font-semibold">{i + 1}</td>
-                        <td className="px-3 py-2 font-mono text-blue-700">…{l.itemId.slice(-10)}</td>
-                        <td className="px-3 py-2 font-mono text-gray-500">
-                          {l.lotId ? `…${l.lotId.slice(-10)}` : <span className="text-gray-300">—</span>}
-                        </td>
-                        <td className="px-3 py-2 font-black text-gray-900">{l.issueQty.toLocaleString()}</td>
-                        <td className="px-3 py-2 font-semibold text-gray-700 uppercase">{l.unitCode}</td>
-                        <td className="px-3 py-2">
-                          <button onClick={() => removeLine(i)} className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600">
-                            <Trash2 size={12} />
-                          </button>
-                        </td>
-                      </tr>
+              {/* ── Thông tin phiếu ── */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Thông tin phiếu</p>
+
+                {/* Kho xuất hàng */}
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">
+                    Kho xuất hàng <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.fromWarehouseId}
+                    onChange={(e) => setForm(p => ({ ...p, fromWarehouseId: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">-- Chọn kho xuất --</option>
+                    {warehouses.map(wh => (
+                      <option key={wh.id} value={wh.id}>
+                        {wh.warehouseName} ({wh.warehouseCode})
+                      </option>
                     ))}
-                  </tbody>
-                </table>
+                  </select>
+                </div>
+
+                {/* Chiến dịch & Điểm cứu trợ */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">
+                      Chiến dịch
+                    </label>
+                    <input
+                      value={form.campaignId}
+                      onChange={(e) => setForm(p => ({ ...p, campaignId: e.target.value }))}
+                      placeholder="UUID chiến dịch..."
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">
+                      Điểm cứu trợ
+                    </label>
+                    <input
+                      value={form.reliefPointId}
+                      onChange={(e) => setForm(p => ({ ...p, reliefPointId: e.target.value }))}
+                      placeholder="UUID điểm cứu trợ..."
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Ghi chú */}
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1">
+                    Ghi chú
+                  </label>
+                  <input
+                    value={form.note}
+                    onChange={(e) => setForm(p => ({ ...p, note: e.target.value }))}
+                    placeholder="Cấp phát đợt 1 cho điểm An Bình..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* ── lines[] ── */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                  Danh sách hàng hóa
+                  <span className="ml-2 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-semibold normal-case">
+                    {form.lines.length} dòng
+                  </span>
+                </p>
+
+                {/* New line form */}
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-3">
+                  <p className="text-xs font-semibold text-gray-500">Thêm dòng hàng mới</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2">
+                      <label className="text-[11px] text-gray-500 font-semibold block mb-1">
+                        Hàng hóa <span className="text-red-400">*</span>
+                      </label>
+                      <select
+                        value={newLine.itemId}
+                        onChange={(e) => {
+                          const item = items.find(i => i.id === e.target.value);
+                          setNewLine(p => ({ 
+                            ...p, 
+                            itemId: e.target.value,
+                            unitCode: item?.unit?.code || "",
+                          }));
+                        }}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">-- Chọn hàng hóa --</option>
+                        {items.map(item => (
+                          <option key={item.id} value={item.id}>
+                            {item.itemName} ({item.itemCode})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-gray-500 font-semibold block mb-1">Lô hàng</label>
+                      <select
+                        value={newLine.lotId}
+                        onChange={(e) => setNewLine(p => ({ ...p, lotId: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">-- Chọn lô (tùy chọn) --</option>
+                        {lots
+                          .filter(lot => !newLine.itemId || lot.item?.id === newLine.itemId)
+                          .map(lot => (
+                            <option key={lot.id} value={lot.id}>
+                              {lot.lotNo} {lot.expDate ? `(HSD: ${new Date(lot.expDate).toLocaleDateString("vi-VN")})` : ""}
+                            </option>
+                          ))
+                        }
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-gray-500 font-semibold block mb-1">Số lượng <span className="text-red-400">*</span></label>
+                      <input
+                        type="number" min={1} value={newLine.issueQty}
+                        onChange={(e) => setNewLine(p => ({ ...p, issueQty: parseInt(e.target.value) || 1 }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-gray-500 font-semibold block mb-1">Đơn vị</label>
+                      <input
+                        value={newLine.unitCode}
+                        onChange={(e) => setNewLine(p => ({ ...p, unitCode: e.target.value.toUpperCase() }))}
+                        placeholder="THUNG / CAI / KIT..."
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold uppercase bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={addLine}
+                    className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={15} /> Thêm dòng hàng
+                  </button>
+                </div>
+
+                {/* Lines preview table */}
+                {form.lines.length > 0 && (
+                  <div className="rounded-xl border border-gray-100 overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-100">
+                          {["STT", "Hàng hóa", "Lô", "Số lượng", "ĐV", ""].map((h, i) => (
+                            <th key={i} className="px-3 py-2 text-left font-semibold text-gray-500">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {form.lines.map((l, i) => {
+                          const item = items.find(it => it.id === l.itemId);
+                          const lot = lots.find(lt => lt.id === l.lotId);
+                          return (
+                            <tr key={i} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 text-gray-400 font-semibold text-center w-10">{i + 1}</td>
+                              <td className="px-3 py-2">
+                                <p className="font-semibold text-gray-900">{item?.itemName || l.itemId}</p>
+                                <p className="font-mono text-[10px] text-gray-400">{item?.itemCode}</p>
+                              </td>
+                              <td className="px-3 py-2 font-mono text-gray-600">
+                                {lot?.lotNo || <span className="text-gray-300">—</span>}
+                              </td>
+                              <td className="px-3 py-2 font-black text-gray-900 text-center">{l.issueQty.toLocaleString()}</td>
+                              <td className="px-3 py-2 font-semibold text-gray-700 uppercase text-center">{l.unitCode}</td>
+                              <td className="px-3 py-2 text-center">
+                                <button onClick={() => removeLine(i)} className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600">
+                                  <Trash2 size={12} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer */}
@@ -341,11 +450,11 @@ function CreateModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
             Hủy
           </button>
           <button
-            onClick={handleSave} disabled={loading}
+            onClick={handleSave} disabled={loading || loadingData}
             className="flex-1 py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-60"
             style={{ background: "linear-gradient(135deg,#1e3a5f,#1e40af)" }}
           >
-            {loading ? "Đang gửi..." : "Tạo phiếu"}
+            {loading ? "Đang gửi..." : "Tạo phiếu cấp phát"}
           </button>
         </div>
       </div>
@@ -355,14 +464,14 @@ function CreateModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 
 // ─── Main Tab ─────────────────────────────────────────────────────────────────
 export const ReliefIssueTab: React.FC = () => {
-  const [data, setData]             = useState<ReliefIssueListItem[]>([]);
+  const [data, setData] = useState<ReliefIssueListItem[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [viewId, setViewId]         = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [viewId, setViewId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [params, setParams]         = useState<ReliefIssueListParams>({
+  const [params, setParams] = useState<ReliefIssueListParams>({
     campaignId: "", reliefPointId: "", statusCode: "", page: 1, pageSize: 20,
   });
 
@@ -391,15 +500,16 @@ export const ReliefIssueTab: React.FC = () => {
     <div className="space-y-4">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[180px]">
+        <div className="relative flex-1 min-w-[200px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={params.campaignId} onChange={setStr("campaignId")} placeholder="ID Chiến dịch..." className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input value={params.campaignId} onChange={setStr("campaignId")} placeholder="ID Chiến dịch..." className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
         </div>
-        <input value={params.reliefPointId} onChange={setStr("reliefPointId")} placeholder="ID Điểm cứu trợ..." className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        <select value={params.statusCode} onChange={setStr("statusCode")} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <input value={params.reliefPointId} onChange={setStr("reliefPointId")} placeholder="ID Điểm cứu trợ..." className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+        <select value={params.statusCode} onChange={setStr("statusCode")} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
           <option value="">Tất cả trạng thái</option>
           <option value="PENDING">Đang chờ</option>
           <option value="PROCESSING">Đang xử lý</option>
+          <option value="ISSUED">Đã xuất</option>
           <option value="DELIVERED">Đã giao</option>
           <option value="CANCELLED">Đã hủy</option>
         </select>
@@ -407,7 +517,7 @@ export const ReliefIssueTab: React.FC = () => {
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
         </button>
         <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold ml-auto" style={{ background: "linear-gradient(135deg,#1e3a5f,#1e40af)" }}>
-          <Plus size={15} /> Tạo phiếu
+          <Plus size={15} /> Tạo phiếu cấp phát
         </button>
       </div>
 
@@ -418,19 +528,24 @@ export const ReliefIssueTab: React.FC = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
-              {["Mã phiếu", "Trạng thái", "Chiến dịch", "Điểm cứu trợ", "Kho xuất", "Số dòng", "Ngày tạo", "Ghi chú", ""].map(h => (
+              {["Mã phiếu", "Trạng thái", "Chiến dịch", "Điểm cứu trợ", "Kho xuất", "Số dòng", "Ngày tạo", ""].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {loading ? (
-              <tr><td colSpan={9} className="py-12 text-center text-gray-400 text-sm">Đang tải...</td></tr>
+              <tr><td colSpan={8} className="py-12 text-center text-gray-400 text-sm">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-5 h-5 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
+                  Đang tải...
+                </div>
+              </td></tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center">
+                <td colSpan={8} className="py-12 text-center">
                   <div className="flex flex-col items-center gap-2">
-                    <Truck size={32} className="text-gray-300" />
+                    <Package size={32} className="text-gray-300" />
                     <p className="text-gray-400 text-sm">Chưa có phiếu cấp phát nào</p>
                   </div>
                 </td>
@@ -459,7 +574,6 @@ export const ReliefIssueTab: React.FC = () => {
                 <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
                   {new Date(issue.createdAt).toLocaleDateString("vi-VN")}
                 </td>
-                <td className="px-4 py-3 text-gray-500 text-xs max-w-[160px] truncate">{issue.note || "—"}</td>
                 <td className="px-4 py-3">
                   <button onClick={() => setViewId(issue.id)} className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600">
                     <Eye size={14} />
@@ -487,7 +601,7 @@ export const ReliefIssueTab: React.FC = () => {
         </div>
       )}
 
-      {viewId    && <DetailModal id={viewId} onClose={() => setViewId(null)} />}
+      {viewId     && <DetailModal id={viewId} onClose={() => setViewId(null)} />}
       {showCreate && <CreateModal onClose={() => setShowCreate(false)} onSaved={() => { setShowCreate(false); void load(); }} />}
     </div>
   );

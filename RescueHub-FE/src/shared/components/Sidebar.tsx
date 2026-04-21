@@ -19,9 +19,10 @@ import {
   UserRound,
   LayoutGrid,
   SquareMenu,
-  ListOrdered,
+  TrendingUp,
+  PackageCheck,
 } from "lucide-react";
-import { useManager } from "../context/ManagerContext";
+import { useManager, type ManagerMenuItemType } from "../context/ManagerContext";
 import { useCoordinator } from "../context/CoordinatorContext";
 import { useRescueTeam } from "../context/RescueTeamContext";
 import {
@@ -31,7 +32,7 @@ import {
 
 // Manager Menu Items
 interface ManagerMenuItem {
-  id: string;
+  id: ManagerMenuItemType;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   color: string;
@@ -69,6 +70,18 @@ const managerMenuItems: ManagerMenuItem[] = [
     color: "text-black-600",
   },
   {
+    id: "relief-distribution",
+    label: "Phân phối cứu trợ",
+    icon: PackageCheck,
+    color: "text-black-600",
+  },
+  {
+    id: "relief-hotspot",
+    label: "Vùng cứu trợ",
+    icon: TrendingUp,
+    color: "text-black-600",
+  },
+  {
     id: "settings",
     label: "Cài đặt",
     icon: Settings,
@@ -80,8 +93,6 @@ const managerMenuItems: ManagerMenuItem[] = [
 type CoordinatorMenuItemType =
   | "overview"
   | "map"
-  | "hotspot"
-  | "relief-requests"
   | "current"
   | "teams"
   | "reports"
@@ -103,16 +114,6 @@ const coordinatorMenuItems: CoordinatorMenuItem[] = [
     id: "map",
     label: "Bản đồ nhiệm vụ",
     icon: MapPin,
-  },
-  {
-    id: "hotspot",
-    label: "Vùng cứu trợ",
-    icon: AlertCircle,
-  },
-  {
-    id: "relief-requests",
-    label: "Danh sách cứu trợ",
-    icon: ListOrdered,
   },
   {
     id: "current",

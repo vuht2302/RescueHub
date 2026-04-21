@@ -532,20 +532,22 @@ export interface DistributionListItem {
   status: CodeName;
   campaign: { id: string; code: string; name: string } | null;
   reliefPoint: { id: string; code: string; name: string } | null;
-  household: { id: string; code: string; headName: string } | null;
+  household: { id: string; code: string; headName: string; phone: string; address: string } | null;
   ackMethodCode: string;
   note: string;
   lineCount: number;
   createdAt: string;
 }
 
+// Distribution type from API - matches backend response
 export interface Distribution {
   id: string;
   code: string;
   status: CodeName;
   campaign: { id: string; code: string; name: string } | null;
   reliefPoint: { id: string; code: string; name: string } | null;
-  household: { id: string; code: string; headName: string } | null;
+  household: { id: string; code: string; headName: string; phone: string; address: string } | null;
+  incidentId: string | null;
   ackMethodCode: string;
   note: string;
   lines: Array<{

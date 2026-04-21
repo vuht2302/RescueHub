@@ -1,5 +1,16 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
+type ManagerMenuItemType =
+  | "overview"
+  | "inventory"
+  | "vehicle"
+  | "event"
+  | "import-export"
+  | "settings"
+  | "relief-hotspot"
+  | "relief-list"
+  | "relief-distribution";
+
 interface ManagerContextType {
   activeMenu: string;
   setActiveMenu: (menu: string) => void;
@@ -10,7 +21,7 @@ const ManagerContext = createContext<ManagerContextType | undefined>(undefined);
 export const ManagerProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const [activeMenu, setActiveMenu] = useState("overview");
+  const [activeMenu, setActiveMenu] = useState<ManagerMenuItemType>("overview");
 
   return (
     <ManagerContext.Provider value={{ activeMenu, setActiveMenu }}>
@@ -26,3 +37,5 @@ export const useManager = () => {
   }
   return context;
 };
+
+export type { ManagerMenuItemType };

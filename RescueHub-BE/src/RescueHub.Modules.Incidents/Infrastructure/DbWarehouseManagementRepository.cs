@@ -310,6 +310,8 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 requiresLotTracking = x.requires_lot_tracking,
                 requiresExpiryTracking = x.requires_expiry_tracking,
                 issuePolicyCode = x.issue_policy_code,
+                expDate = x.exp_date,
+                receivedAt = x.received_at,
                 isActive = x.is_active,
                 lotCount = x.item_lots.Count,
                 lots = x.item_lots
@@ -376,6 +378,8 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             requiresLotTracking = item.requires_lot_tracking,
             requiresExpiryTracking = item.requires_expiry_tracking,
             issuePolicyCode = item.issue_policy_code,
+            expDate = item.exp_date,
+            receivedAt = item.received_at,
             isActive = item.is_active,
             lots = item.item_lots
                 .OrderByDescending(x => x.received_at)
@@ -404,6 +408,11 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         EnsureAllowed(unitCode, ItemUnitCodes, nameof(request.UnitCode));
         EnsureAllowed(issuePolicyCode, IssuePolicyCodes, nameof(request.IssuePolicyCode));
 
+        if (request.ExpDate.HasValue && request.ReceivedAt.HasValue && request.ExpDate.Value < DateOnly.FromDateTime(request.ReceivedAt.Value))
+        {
+            throw new InvalidOperationException("expDate khong duoc nho hon ngay receivedAt.");
+        }
+
         if (await dbContext.items.AnyAsync(x => x.code == code))
         {
             throw new InvalidOperationException($"Ma item da ton tai: {code}");
@@ -425,13 +434,22 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             requires_lot_tracking = request.RequiresLotTracking,
             requires_expiry_tracking = request.RequiresExpiryTracking,
             issue_policy_code = issuePolicyCode,
+            exp_date = request.ExpDate,
+            received_at = request.ReceivedAt ?? DateTime.UtcNow,
             is_active = request.IsActive
         };
 
         dbContext.items.Add(entity);
         await dbContext.SaveChangesAsync();
 
-        return new { id = entity.id, itemCode = entity.code, itemCategoryCode = category.code };
+        return new
+        {
+            id = entity.id,
+            itemCode = entity.code,
+            itemCategoryCode = category.code,
+            expDate = entity.exp_date,
+            receivedAt = entity.received_at
+        };
     }
 
     public async Task<object> UpdateItem(Guid itemId, UpdateItemRequest request)
@@ -451,6 +469,12 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         EnsureAllowed(unitCode, ItemUnitCodes, nameof(request.UnitCode));
         EnsureAllowed(issuePolicyCode, IssuePolicyCodes, nameof(request.IssuePolicyCode));
 
+        var effectiveReceivedAt = request.ReceivedAt ?? entity.received_at;
+        if (request.ExpDate.HasValue && request.ExpDate.Value < DateOnly.FromDateTime(effectiveReceivedAt))
+        {
+            throw new InvalidOperationException("expDate khong duoc nho hon ngay receivedAt.");
+        }
+
         if (await dbContext.items.AnyAsync(x => x.id != itemId && x.code == code))
         {
             throw new InvalidOperationException($"Ma item da ton tai: {code}");
@@ -469,10 +493,23 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         entity.requires_lot_tracking = request.RequiresLotTracking;
         entity.requires_expiry_tracking = request.RequiresExpiryTracking;
         entity.issue_policy_code = issuePolicyCode;
+        entity.exp_date = request.ExpDate;
+        if (request.ReceivedAt.HasValue)
+        {
+            entity.received_at = request.ReceivedAt.Value;
+        }
         entity.is_active = request.IsActive;
 
         await dbContext.SaveChangesAsync();
-        return new { id = entity.id, updated = true, itemCode = entity.code, itemCategoryCode = category.code };
+        return new
+        {
+            id = entity.id,
+            updated = true,
+            itemCode = entity.code,
+            itemCategoryCode = category.code,
+            expDate = entity.exp_date,
+            receivedAt = entity.received_at
+        };
     }
 
     public async Task<object> DeleteItem(Guid itemId)

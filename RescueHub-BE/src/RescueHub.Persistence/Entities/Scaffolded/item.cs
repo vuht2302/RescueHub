@@ -21,6 +21,10 @@ public partial class item
 
     public string issue_policy_code { get; set; } = null!;
 
+    public DateOnly? exp_date { get; set; }
+
+    public DateTime received_at { get; set; }
+
     public bool is_active { get; set; }
 
     public virtual ICollection<distribution_line> distribution_lines { get; set; } = new List<distribution_line>();

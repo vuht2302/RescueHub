@@ -705,6 +705,98 @@ public sealed class PublicService(
 
     public async Task<object> AckTrackingRelief(string requestCode, AckReliefRequest request)
     {
+        var reliefRequest = await dbContext.relief_requests
+            .FirstOrDefaultAsync(x => x.code == requestCode);
+
+        if (reliefRequest is null)
+        {
+            throw new InvalidOperationException("Khong tim thay yeu cau cuu tro theo request code.");
+        }
+
+        return await AckReliefByRequest(reliefRequest, requestCode, request);
+    }
+
+    public async Task<object> AckMyReliefRequest(Guid? userId, string? phone, string requestCode, AckReliefRequest request)
+    {
+        var normalizedPhone = string.IsNullOrWhiteSpace(phone)
+            ? null
+            : NormalizePhoneForOtp(phone);
+
+        if (string.IsNullOrWhiteSpace(normalizedPhone))
+        {
+            throw new InvalidOperationException("Tai khoan chua co so dien thoai de doi chieu yeu cau cuu tro.");
+        }
+
+        var reliefRequest = await dbContext.relief_requests
+            .FirstOrDefaultAsync(x => x.code == requestCode && x.requester_phone == normalizedPhone);
+
+        if (reliefRequest is null)
+        {
+            throw new InvalidOperationException("Khong tim thay yeu cau cuu tro cua ban theo request code.");
+        }
+
+        return await AckReliefByRequest(reliefRequest, requestCode, request);
+    }
+
+    public async Task<object> ReportMyReliefNotReceived(Guid? userId, string? phone, string requestCode, ReportReliefNotReceivedRequest request)
+    {
+        var normalizedPhone = string.IsNullOrWhiteSpace(phone)
+            ? null
+            : NormalizePhoneForOtp(phone);
+
+        if (string.IsNullOrWhiteSpace(normalizedPhone))
+        {
+            throw new InvalidOperationException("Tai khoan chua co so dien thoai de doi chieu yeu cau cuu tro.");
+        }
+
+        var reliefRequest = await dbContext.relief_requests
+            .FirstOrDefaultAsync(x => x.code == requestCode && x.requester_phone == normalizedPhone);
+
+        if (reliefRequest is null)
+        {
+            throw new InvalidOperationException("Khong tim thay yeu cau cuu tro cua ban theo request code.");
+        }
+
+        var currentStatus = reliefRequest.status_code?.Trim().ToUpperInvariant() ?? string.Empty;
+        if (currentStatus is "REJECTED" or "CANCELLED")
+        {
+            throw new InvalidOperationException($"Khong the bao khong nhan duoc cuu tro voi trang thai hien tai: {currentStatus}.");
+        }
+
+        var note = string.IsNullOrWhiteSpace(request.Note)
+            ? "Citizen phan anh khong nhan duoc cuu tro."
+            : request.Note.Trim();
+
+        var now = DateTime.UtcNow;
+
+        reliefRequest.status_code = "NOT_RECEIVED";
+        reliefRequest.note = note;
+        reliefRequest.updated_at = now;
+
+        dbContext.notifications.Add(new notification
+        {
+            id = Guid.NewGuid(),
+            type_code = "RELIEF",
+            title = "Citizen bao khong nhan duoc cuu tro",
+            content = $"RequestCode={reliefRequest.code}; note={note}",
+            target_entity_type_code = "RELIEF_REQUEST",
+            target_entity_id = reliefRequest.id,
+            created_at = now
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            requestCode = reliefRequest.code,
+            reliefRequestId = reliefRequest.id,
+            status = reliefRequest.status_code,
+            reportedAt = now
+        };
+    }
+
+    private async Task<object> AckReliefByRequest(relief_request reliefRequest, string requestCode, AckReliefRequest request)
+    {
         if (string.IsNullOrWhiteSpace(request.AckCode))
         {
             throw new InvalidOperationException("Ack code la bat buoc.");
@@ -716,8 +808,7 @@ public sealed class PublicService(
 
         if (distribution is null)
         {
-            var reliefRequest = await dbContext.relief_requests.FirstOrDefaultAsync(x => x.code == requestCode);
-            if (reliefRequest?.linked_incident_id != null)
+            if (reliefRequest.linked_incident_id != null)
             {
                 distribution = await dbContext.distributions
                     .OrderByDescending(x => x.created_at)
@@ -741,11 +832,15 @@ public sealed class PublicService(
             ack_at = now
         });
 
+        reliefRequest.status_code = "FULFILLED";
+        reliefRequest.updated_at = now;
+
         await dbContext.SaveChangesAsync();
 
         return new
         {
             requestCode,
+            reliefRequestId = reliefRequest.id,
             acked = true,
             ackedAt = now
         };

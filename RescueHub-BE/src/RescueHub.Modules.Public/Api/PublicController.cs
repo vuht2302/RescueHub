@@ -291,4 +291,60 @@ public sealed class PublicController(IPublicService publicService) : BaseApiCont
             return BadRequestResponse<object>(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Citizen dang nhap xac nhan da nhan cuu tro cho yeu cau cua chinh minh.
+    /// </summary>
+    /// <param name="requestCode">Ma yeu cau cuu tro.</param>
+    /// <param name="request">Noi dung xac nhan.</param>
+    /// <returns>Ket qua ack cuu tro.</returns>
+    [Authorize]
+    [HttpPost("me/relief-requests/{requestCode}/ack")]
+    public async Task<ActionResult<ApiResponse<object>>> AckMyReliefRequest([FromRoute] string requestCode, [FromBody] AckReliefRequest request)
+    {
+        try
+        {
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub");
+            var userId = Guid.TryParse(userIdValue, out var parsedUserId) ? parsedUserId : (Guid?)null;
+            var phone = User.FindFirstValue("phone")
+                ?? User.FindFirstValue(ClaimTypes.MobilePhone);
+
+            return OkResponse<object>(
+                await publicService.AckMyReliefRequest(userId, phone, requestCode, request),
+                "Xac nhan nhan cuu tro thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Citizen dang nhap bao chua nhan duoc cuu tro.
+    /// </summary>
+    /// <param name="requestCode">Ma yeu cau cuu tro.</param>
+    /// <param name="request">Noi dung phan anh.</param>
+    /// <returns>Ket qua ghi nhan phan anh khong nhan duoc cuu tro.</returns>
+    [Authorize]
+    [HttpPost("me/relief-requests/{requestCode}/not-received")]
+    public async Task<ActionResult<ApiResponse<object>>> ReportMyReliefNotReceived([FromRoute] string requestCode, [FromBody] ReportReliefNotReceivedRequest request)
+    {
+        try
+        {
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub");
+            var userId = Guid.TryParse(userIdValue, out var parsedUserId) ? parsedUserId : (Guid?)null;
+            var phone = User.FindFirstValue("phone")
+                ?? User.FindFirstValue(ClaimTypes.MobilePhone);
+
+            return OkResponse<object>(
+                await publicService.ReportMyReliefNotReceived(userId, phone, requestCode, request),
+                "Da ghi nhan phan anh khong nhan duoc cuu tro");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
 }

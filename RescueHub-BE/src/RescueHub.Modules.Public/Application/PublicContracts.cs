@@ -55,3 +55,5 @@ public sealed record ReliefItemRequest(
     string? UnitCode);
 
 public sealed record AckReliefRequest(string AckMethodCode, string AckCode, string? Note);
+
+public sealed record ReportReliefNotReceivedRequest(string? Note);

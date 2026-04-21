@@ -1172,6 +1172,32 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             throw new InvalidOperationException("DecisionCode chi nhan APPROVE hoac REJECT.");
         }
 
+        var currentStatus = reliefRequest.status_code?.Trim().ToUpperInvariant() ?? string.Empty;
+        var allowedStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "NEW",
+            "APPROVED",
+            "REJECTED",
+            "FULFILLED",
+            "NOT_RECEIVED",
+            "CANCELLED"
+        };
+
+        if (!allowedStatuses.Contains(currentStatus))
+        {
+            throw new InvalidOperationException($"Relief request dang o trang thai khong hop le: {reliefRequest.status_code}");
+        }
+
+        if (currentStatus is "FULFILLED" or "CANCELLED")
+        {
+            throw new InvalidOperationException("Khong the duyet/tu choi relief request da FULFILLED hoac CANCELLED.");
+        }
+
+        if (currentStatus is not ("NEW" or "NOT_RECEIVED"))
+        {
+            throw new InvalidOperationException($"Chi co the duyet/tu choi relief request khi status la NEW hoac NOT_RECEIVED. Hien tai: {currentStatus}.");
+        }
+
         var now = DateTime.UtcNow;
 
         await using var transaction = await dbContext.Database.BeginTransactionAsync();

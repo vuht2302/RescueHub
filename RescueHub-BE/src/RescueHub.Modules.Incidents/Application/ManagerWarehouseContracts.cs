@@ -26,6 +26,8 @@ public sealed record CreateItemRequest(
     bool RequiresLotTracking,
     bool RequiresExpiryTracking,
     string IssuePolicyCode,
+    DateTime? ReceivedAt,
+    DateOnly? ExpDate,
     bool IsActive);
 
 public sealed record UpdateItemRequest(
@@ -36,6 +38,8 @@ public sealed record UpdateItemRequest(
     bool RequiresLotTracking,
     bool RequiresExpiryTracking,
     string IssuePolicyCode,
+    DateTime? ReceivedAt,
+    DateOnly? ExpDate,
     bool IsActive);
 
 public sealed record CreateLotRequest(

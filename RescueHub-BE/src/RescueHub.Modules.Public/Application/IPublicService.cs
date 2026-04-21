@@ -33,4 +33,8 @@ public interface IPublicService
     Task<object> GetTrackingRelief(string requestCode);
 
     Task<object> AckTrackingRelief(string requestCode, AckReliefRequest request);
+
+    Task<object> AckMyReliefRequest(Guid? userId, string? phone, string requestCode, AckReliefRequest request);
+
+    Task<object> ReportMyReliefNotReceived(Guid? userId, string? phone, string requestCode, ReportReliefNotReceivedRequest request);
 }

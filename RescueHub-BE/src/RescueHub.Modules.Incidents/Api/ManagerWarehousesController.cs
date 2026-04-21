@@ -10,7 +10,7 @@ namespace RescueHub.Modules.Incidents.Api;
 /// </summary>
 [Route("api/v1/manager")]
 [Authorize]
-public sealed class ManagerWarehousesController(IWarehouseManagementService service) : BaseApiController
+public sealed class ManagerWarehousesController(IWarehouseManagementService service, IIncidentService incidentService) : BaseApiController
 {
     /// <summary>
     /// Lay danh sach kho theo tu khoa va trang thai.
@@ -306,6 +306,60 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
         try
         {
             return OkResponse<object>(await service.CreateReliefIssue(request), "Tao phieu cap phat thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Manager duyet yeu cau cuu tro.
+    /// </summary>
+    /// <param name="reliefRequestId">Dinh danh yeu cau cuu tro.</param>
+    /// <param name="request">Noi dung duyet (decisionCode, items, campaign).</param>
+    /// <returns>Ket qua duyet yeu cau cuu tro.</returns>
+    [HttpPost("relief-requests/{reliefRequestId:guid}/approve")]
+    public async Task<ActionResult<ApiResponse<object>>> ApproveReliefRequest([FromRoute] Guid reliefRequestId, [FromBody] StandardizeReliefRequest request)
+    {
+        try
+        {
+            var decisionCode = request.DecisionCode?.Trim().ToUpperInvariant();
+            if (decisionCode != "APPROVE")
+            {
+                throw new InvalidOperationException("API nay chi dung de duyet (DecisionCode=APPROVE).");
+            }
+
+            return OkResponse<object>(
+                await incidentService.StandardizeReliefRequest(reliefRequestId, request),
+                "Duyet relief request thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Manager tu choi yeu cau cuu tro.
+    /// </summary>
+    /// <param name="reliefRequestId">Dinh danh yeu cau cuu tro.</param>
+    /// <param name="request">Noi dung tu choi.</param>
+    /// <returns>Ket qua tu choi yeu cau cuu tro.</returns>
+    [HttpPost("relief-requests/{reliefRequestId:guid}/reject")]
+    public async Task<ActionResult<ApiResponse<object>>> RejectReliefRequest([FromRoute] Guid reliefRequestId, [FromBody] RejectReliefRequest request)
+    {
+        try
+        {
+            var standardized = new StandardizeReliefRequest(
+                "REJECT",
+                null,
+                request.Note,
+                null);
+
+            return OkResponse<object>(
+                await incidentService.StandardizeReliefRequest(reliefRequestId, standardized),
+                "Tu choi relief request thanh cong");
         }
         catch (InvalidOperationException ex)
         {

@@ -57,6 +57,9 @@ public sealed record StandardizedReliefItemRequest(
     decimal ApprovedQty,
     string? UnitCode);
 
+public sealed record RejectReliefRequest(
+    string? Note);
+
 public sealed record CreateIncidentReliefRequest(
     int HouseholdCount,
     string? Note,

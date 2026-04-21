@@ -21,6 +21,7 @@ import {
   TeamMissionListItem,
   TeamMissionDetail,
 } from "../types/mission";
+import { createSupportRequest } from "@/src/shared/services/team.service";
 
 const priorityStyles: Record<string, string> = {
   "Khẩn cấp": "bg-error-container text-error",
@@ -104,7 +105,47 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   const [abortDetailNote, setAbortDetailNote] = useState("");
   const [isAbortSubmitting, setIsAbortSubmitting] = useState(false);
   const [abortError, setAbortError] = useState<string | null>(null);
+const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+const [supportMissionId, setSupportMissionId] = useState<string | null>(null);
+const [supportTypeCode, setSupportTypeCode] = useState("MEDICAL");
+const [supportDetailNote, setSupportDetailNote] = useState("");
+const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
+const [supportError, setSupportError] = useState<string | null>(null);
+const openSupportModal = (missionId: string) => {
+  setSupportMissionId(missionId);
+  setSupportTypeCode("MEDICAL");
+  setSupportDetailNote("");
+  setSupportError(null);
+  setIsSupportModalOpen(true);
+};
+const handleSubmitSupportRequest = async () => {
+  if (!supportMissionId) return;
 
+  if (!supportDetailNote.trim()) {
+    setSupportError("Vui lòng nhập nội dung hỗ trợ");
+    return;
+  }
+
+  try {
+    setIsSubmittingSupport(true);
+    setSupportError(null);
+
+    await createSupportRequest(supportMissionId, {
+      supportTypeCode,
+      detailNote: supportDetailNote,
+    });
+
+    setIsSupportModalOpen(false);
+    setSupportMissionId(null);
+    setSupportDetailNote("");
+
+    alert("Gửi yêu cầu hỗ trợ thành công");
+  } catch (err: any) {
+    setSupportError(err.message || "Gửi thất bại");
+  } finally {
+    setIsSubmittingSupport(false);
+  }
+};
   const loadTeamMissions = async () => {
     setIsLoading(true);
     setLoadError(null);
@@ -472,7 +513,16 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                                 "Nhận và xem"
                               )}
                             </button>
-
+ <button
+    onClick={(e) => {
+      e.stopPropagation();
+      openSupportModal(mission.missionId);
+    }}
+    className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
+    title="Yêu cầu hỗ trợ"
+  >
+    ⚠️
+  </button>
                             <button
                               type="button"
                               onClick={(event) => {
@@ -655,6 +705,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               >
                 <X size={18} />
               </button>
+              
             </div>
 
             <div className="mt-4 space-y-3">
@@ -705,6 +756,63 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
           </div>
         </div>
       )}
+      {isSupportModalOpen && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="w-full max-w-lg rounded-2xl border border-[#c8ced6] bg-white p-6 shadow-2xl">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-black text-blue-950">
+          Yêu cầu hỗ trợ
+        </h3>
+        <button onClick={() => setIsSupportModalOpen(false)}>
+          <X size={18} />
+        </button>
+      </div>
+
+      <div className="mt-4 space-y-4">
+        {/* TYPE */}
+        <div>
+          <label className="text-sm font-semibold">
+            Loại hỗ trợ
+          </label>
+          <select
+            value={supportTypeCode}
+            onChange={(e) => setSupportTypeCode(e.target.value)}
+            className="mt-1 w-full border rounded-lg px-3 py-2"
+          >
+            <option value="MEDICAL">Y tế</option>
+            <option value="RESCUE">Cứu hộ</option>
+            <option value="SUPPLY">Tiếp tế</option>
+          </select>
+        </div>
+
+        {/* NOTE */}
+        <div>
+          <label className="text-sm font-semibold">
+            Nội dung
+          </label>
+          <textarea
+            value={supportDetailNote}
+            onChange={(e) => setSupportDetailNote(e.target.value)}
+            className="mt-1 w-full border rounded-lg px-3 py-2"
+            rows={4}
+          />
+        </div>
+
+        {supportError && (
+          <p className="text-red-500 text-sm">{supportError}</p>
+        )}
+
+        <button
+          onClick={handleSubmitSupportRequest}
+          disabled={isSubmittingSupport}
+          className="w-full bg-blue-950 text-white py-3 rounded-xl font-bold"
+        >
+          {isSubmittingSupport ? "Đang gửi..." : "Gửi yêu cầu"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

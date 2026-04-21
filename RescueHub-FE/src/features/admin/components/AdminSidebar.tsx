@@ -22,7 +22,6 @@ export const adminMenu = [
   { id: "catalog", label: "Danh mục sản phẩm", icon: CarTaxiFront },
   { id: "workflow", label: "Workflow", icon: SquareMenu },
   { id: "system-setting", label: "Cài đặt hệ thống", icon: Settings },
-  { id: "support-team", label: "Đội ngũ hỗ trợ", icon: Users },
 ];
 
 export const AdminSidebar = ({ active, setActive }) => {

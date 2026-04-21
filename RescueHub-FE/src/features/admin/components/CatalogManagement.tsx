@@ -24,7 +24,6 @@ const CatalogManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
 
-  // ===== LOAD =====
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -42,44 +41,31 @@ const CatalogManagement = () => {
     fetchData();
   }, [activeTab]);
 
-  // ===== ADD =====
   const handleAdd = async (data: any) => {
-    try {
-      await createCatalogItem(activeTab, data);
-      await fetchData();
-    } catch (err: any) {
-      alert(err.message);
-    }
+    await createCatalogItem(activeTab, data);
+    await fetchData();
   };
 
-  // ===== EDIT =====
   const handleEdit = async (data: any) => {
-    try {
-      await updateCatalogItem(activeTab, data.id, data);
-      await fetchData();
-    } catch (err: any) {
-      alert(err.message);
-    }
+    await updateCatalogItem(activeTab, data.id, data);
+    await fetchData();
   };
 
-  // ===== DELETE =====
   const handleDelete = async (id: string) => {
     if (confirm("Xoá item này?")) {
-      try {
-        await deleteCatalogItem(activeTab, id);
-        await fetchData();
-      } catch (err: any) {
-        alert(err.message);
-      }
+      await deleteCatalogItem(activeTab, id);
+      await fetchData();
     }
   };
 
   return (
     <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black">Danh mục hệ thống</h1>
+          <h1 className="text-2xl font-black text-blue-950">
+            Danh mục hệ thống
+          </h1>
           <p className="text-gray-500 text-sm">
             Quản lý dữ liệu danh mục dùng trong hệ thống
           </p>
@@ -90,32 +76,35 @@ const CatalogManagement = () => {
             setEditingItem(null);
             setShowModal(true);
           }}
-          className="flex items-center gap-2 bg-blue-950 hover:bg-blue-800 text-white px-4 py-2 rounded-xl shadow transition"
+          className="flex items-center gap-2 bg-blue-950 hover:bg-blue-900 text-white px-4 py-2 rounded-xl shadow transition"
         >
           <Plus size={18} /> Thêm mới
         </button>
       </div>
 
       {/* TABS */}
-      <div className="flex gap-3 bg-white p-2 rounded-xl shadow">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 rounded-lg font-semibold transition ${
-              activeTab === tab.key
-                ? "bg-blue-950 text-white shadow"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="bg-white p-2 rounded-xl shadow flex flex-wrap gap-2">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                isActive
+                  ? "bg-blue-950 text-white shadow"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* CONTENT */}
       {loading ? (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
@@ -128,11 +117,11 @@ const CatalogManagement = () => {
           Không có dữ liệu
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {items.map((item) => (
             <div
               key={item.id}
-              className="group bg-white p-4 rounded-xl shadow hover:shadow-lg transition space-y-3"
+              className="group bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all"
             >
               {/* TOP */}
               <div className="flex justify-between items-start">
@@ -151,35 +140,40 @@ const CatalogManagement = () => {
                   </div>
                 </div>
 
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
+                {/* ACTION */}
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
                   <button
                     onClick={() => {
                       setEditingItem(item);
                       setShowModal(true);
                     }}
-                    className="p-1 hover:bg-gray-100 rounded"
+                    className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
                   >
                     <Edit size={16} />
                   </button>
 
                   <button
                     onClick={() => handleDelete(item.id)}
-                    className="p-1 hover:bg-red-100 rounded"
+                    className="p-2 rounded-lg hover:bg-red-50 text-red-500"
                   >
-                    <Trash2 size={16} className="text-red-500" />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
 
               {/* DESCRIPTION */}
-              <div className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 mt-3 line-clamp-2">
                 {item.description || "Không có mô tả"}
-              </div>
+              </p>
 
-              {/* BADGE */}
-              <div className="flex justify-between items-center">
-                <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+              {/* FOOTER */}
+              <div className="mt-4 flex justify-between items-center">
+                <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
                   {activeTab}
+                </span>
+
+                <span className="text-xs text-gray-400">
+                  ID: {item.id.slice(0, 6)}...
                 </span>
               </div>
             </div>

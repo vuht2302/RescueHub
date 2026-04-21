@@ -13,12 +13,13 @@ import {
   Mission,
   MissionStatus,
   MissionLog,
-  TeamMember,
+  UiTeamMember,
 } from "../types/mission";
 import {
   requestMissionAbort,
   updateMissionStatus,
 } from "../services/teamMissionService";
+import { StatusChangeConfirmModal } from "../components/StatusChangeConfirmModal";
 
 interface MapViewProps {
   selectedMission: Mission;
@@ -26,7 +27,7 @@ interface MapViewProps {
   logs: MissionLog[];
   priorityStyles: Record<string, string>;
   missions: Mission[];
-  teamMembers: TeamMember[];
+  teamMembers: UiTeamMember[];
   onReloadData: () => void;
   isReloadingData: boolean;
   onMissionSelect: (missionId: string) => void;
@@ -84,6 +85,8 @@ export const MapView: React.FC<MapViewProps> = ({
   const [abortSuccessMessage, setAbortSuccessMessage] = React.useState<
     string | null
   >(null);
+  const [isStatusConfirmModalOpen, setIsStatusConfirmModalOpen] =
+    React.useState(false);
 
   const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
   const hasVietmapKey = vietmapApiKey.length > 0;
@@ -100,7 +103,9 @@ export const MapView: React.FC<MapViewProps> = ({
   const canUseVietmap = hasVietmapKey && hasValidCoords;
 
   const persistedMissionStatus = statusMap[selectedMission.id] ?? reportStatus;
-  const nextStatusOpt = statusProgression[statusProgression.indexOf(persistedMissionStatus) + 1] || null;
+  const nextStatusOpt =
+    statusProgression[statusProgression.indexOf(persistedMissionStatus) + 1] ||
+    null;
 
   useEffect(() => {
     if (!canUseVietmap || !mapContainerRef.current || mapRef.current) {
@@ -298,7 +303,12 @@ export const MapView: React.FC<MapViewProps> = ({
     .slice()
     .reverse();
 
-  const handleAdvanceStatus = async () => {
+  const handleAdvanceStatusClick = () => {
+    if (!nextStatusOpt) return;
+    setIsStatusConfirmModalOpen(true);
+  };
+
+  const handleConfirmStatusChange = async () => {
     if (!nextStatusOpt) return;
     setIsSubmitting(true);
     setSubmitError(null);
@@ -315,13 +325,23 @@ export const MapView: React.FC<MapViewProps> = ({
         actionCode,
         note: `Hệ thống: Chuyển sang ${nextStatusOpt}`,
       });
-      onSubmitReport(nextStatusOpt as MissionStatus, `Đã chuyển sang: ${nextStatusOpt}`);
+      onSubmitReport(
+        nextStatusOpt as MissionStatus,
+        `Đã chuyển sang: ${nextStatusOpt}`,
+      );
+      setIsStatusConfirmModalOpen(false);
     } catch (error) {
       console.error("[MapView] Lỗi cập nhật trạng thái:", error);
-      setSubmitError(error instanceof Error ? error.message : "Chuyển trạng thái thất bại.");
+      setSubmitError(
+        error instanceof Error ? error.message : "Chuyển trạng thái thất bại.",
+      );
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCancelStatusChange = () => {
+    setIsStatusConfirmModalOpen(false);
   };
 
   const handleSubmitReport = async (
@@ -345,7 +365,7 @@ export const MapView: React.FC<MapViewProps> = ({
       setSubmitError(
         error instanceof Error
           ? error.message
-          : "Gửi báo cáo thất bại. Vui lòng kiểm tra lại."
+          : "Gửi báo cáo thất bại. Vui lòng kiểm tra lại.",
       );
     } finally {
       setIsSubmitting(false);
@@ -473,20 +493,25 @@ export const MapView: React.FC<MapViewProps> = ({
           <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary mb-2">
             Cập nhật trạng thái
           </h3>
-          
+
           <div className="flex items-center justify-between rounded-lg border border-[#c7ced7] bg-white px-4 py-3">
-            <span className="text-sm font-semibold text-[#1f2329]"> <span className="text-blue-700">{persistedMissionStatus}</span></span>
+            <span className="text-sm font-semibold text-[#1f2329]">
+              {" "}
+              <span className="text-blue-700">{persistedMissionStatus}</span>
+            </span>
             {nextStatusOpt ? (
               <button
                 type="button"
-                onClick={handleAdvanceStatus}
+                onClick={handleAdvanceStatusClick}
                 disabled={isSubmitting}
                 className="rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-4 py-1.5 text-xs font-bold shadow-sm transition-colors"
               >
                 Chuyển sang: {nextStatusOpt}
               </button>
             ) : (
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded border border-emerald-200">Đã hoàn tất</span>
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded border border-emerald-200">
+                Đã hoàn tất
+              </span>
             )}
           </div>
         </div>
@@ -602,6 +627,15 @@ export const MapView: React.FC<MapViewProps> = ({
           </div>
         </div>
       </aside>
+
+      <StatusChangeConfirmModal
+        isOpen={isStatusConfirmModalOpen}
+        currentStatus={persistedMissionStatus}
+        nextStatus={nextStatusOpt || persistedMissionStatus}
+        onConfirm={handleConfirmStatusChange}
+        onCancel={handleCancelStatusChange}
+        isSubmitting={isSubmitting}
+      />
     </>
   );
 };

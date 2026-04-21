@@ -20,6 +20,9 @@ import { InventorySection } from "../components/InventorySection";
 import { ImportExportSection } from "../components/ImportExportSection";
 import { VehicleManagementSection } from "../components/VehicleManagementSection";
 import { PendingVerificationSection } from "../components/PendingVerificationSection";
+import { ReliefHotspotMap } from "../../rescue-coordinator/components/ReliefHotspotMap";
+import { ReliefRequestsPage } from "../../rescue-coordinator/pages/ReliefRequestsPage";
+import { ReliefDistributionPage } from "../pages/ReliefDistributionPage";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 
 type KPI = {
@@ -1743,6 +1746,23 @@ export default function ManagerDashboard() {
 
         {/* Vehicle Management Section */}
         {activeMenu === "vehicle" && <VehicleManagementSection />}
+
+        {/* Relief Distribution Section */}
+        {activeMenu === "relief-distribution" && (
+          <ReliefDistributionPage className="h-[calc(100vh-120px)]" />
+        )}
+
+        {/* Relief Hotspot Section */}
+        {activeMenu === "relief-hotspot" && (
+          <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <ReliefHotspotMap className="h-[calc(100vh-140px)]" />
+          </div>
+        )}
+
+        {/* Relief List Section */}
+        {activeMenu === "relief-list" && (
+          <ReliefRequestsPage className="h-[calc(100vh-120px)]" />
+        )}
 
         {/* Reports Section - Placeholder */}
         {activeMenu === "reports" && (

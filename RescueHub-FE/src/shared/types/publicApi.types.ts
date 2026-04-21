@@ -127,9 +127,18 @@ export interface PublicIncidentResponse {
 }
 
 export interface PublicReliefRequestItem {
-  supportTypeCode: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  unitCode: string;
   requestedQty: number;
-  unitCode?: string;
+}
+
+export interface PublicReliefRequestLocation {
+  lat: number;
+  lng: number;
+  addressText: string;
+  landmark: string;
 }
 
 export interface PublicReliefRequest {
@@ -137,6 +146,7 @@ export interface PublicReliefRequest {
   requesterPhone: string;
   householdCount?: number;
   note?: string;
+  location: PublicReliefRequestLocation;
   items: PublicReliefRequestItem[];
 }
 
@@ -194,7 +204,10 @@ export interface PublicTrackingRescueResponse {
 }
 
 export interface PublicTrackingReliefItem {
-  supportTypeCode: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  unitCode: string;
   requestedQty: number;
   approvedQty: number;
   fulfilledQty: number;

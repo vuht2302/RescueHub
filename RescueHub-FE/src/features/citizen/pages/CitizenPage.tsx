@@ -152,21 +152,26 @@ export const CitizenPage: React.FC = () => {
       center: [userLocation.lng, userLocation.lat],
       zoom: 13,
       attributionControl: false,
-      fadeDuration: 0,
     });
 
     map.addControl(new vietmapgl.NavigationControl(), "top-right");
     mapRef.current = map;
 
+    let errorHandled = false;
+
     const onLoad = () => {
       setIsMapReady(true);
-      map.resize();
+      map.triggerRepaint();
     };
 
-    const onError = () => {
-      setMapErrorMessage(
-        "Không thể tải bản đồ VietMap. Vui lòng kiểm tra API key.",
-      );
+    const onError = (e: any) => {
+      if (errorHandled) return;
+      errorHandled = true;
+      const msg =
+        e?.error?.message ||
+        e?.message ||
+        "Không thể tải bản đồ VietMap. Vui lòng kiểm tra API key.";
+      setMapErrorMessage(msg);
     };
 
     if (map.loaded()) {
@@ -179,6 +184,7 @@ export const CitizenPage: React.FC = () => {
 
     return () => {
       map.off("error", onError);
+      map.off("load", onLoad);
       if (focusPopupRef.current) {
         focusPopupRef.current.remove();
         focusPopupRef.current = null;
@@ -193,7 +199,7 @@ export const CitizenPage: React.FC = () => {
       mapRef.current = null;
       setIsMapReady(false);
     };
-  }, [canUseVietmap, vietmapApiKey]);
+  }, [canUseVietmap, vietmapApiKey, userLocation.lat, userLocation.lng]);
 
   useEffect(() => {
     if (!mapRef.current || !isMapReady) {
@@ -551,6 +557,7 @@ export const CitizenPage: React.FC = () => {
         onClose={closeReliefModal}
         defaultRequesterName={defaultReporterName}
         defaultRequesterPhone={defaultReporterPhone}
+        defaultLocation={userLocation}
         lockRequesterInfo
       />
     </>

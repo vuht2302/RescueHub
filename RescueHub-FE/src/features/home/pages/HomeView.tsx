@@ -895,6 +895,7 @@ export const HomeView: React.FC = () => {
             navigate("/home", { replace: true });
           }
         }}
+        defaultLocation={location}
       />
 
       <SyncModal

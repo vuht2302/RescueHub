@@ -537,6 +537,12 @@ public sealed class PublicService(
             ValidateReliefLocation(request.Location);
         }
 
+        var normalizedRequesterPhone = NormalizePhoneForOtp(request.RequesterPhone);
+        if (string.IsNullOrWhiteSpace(normalizedRequesterPhone))
+        {
+            throw new InvalidOperationException("RequesterPhone la bat buoc.");
+        }
+
         var now = DateTime.UtcNow;
         var prefix = $"CT-{now:yyyyMMdd}";
         var todayCount = await dbContext.relief_requests.CountAsync(x => x.code.StartsWith(prefix));
@@ -560,7 +566,7 @@ public sealed class PublicService(
             code = requestCode,
             source_type_code = "PUBLIC",
             requester_name = request.RequesterName,
-            requester_phone = request.RequesterPhone,
+            requester_phone = normalizedRequesterPhone,
             status_code = "NEW",
             admin_area_id = adminAreaId,
             household_count = request.HouseholdCount ?? 1,
@@ -663,27 +669,33 @@ public sealed class PublicService(
 
     public async Task<object> GetTrackingRelief(string requestCode)
     {
+        var normalizedRequestCode = requestCode?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedRequestCode))
+        {
+            throw new InvalidOperationException("RequestCode la bat buoc.");
+        }
+
         var reliefRequest = await dbContext.relief_requests
             .AsNoTracking()
             .Include(x => x.relief_request_items)
             .ThenInclude(x => x.item)
-            .FirstOrDefaultAsync(x => x.code == requestCode);
+            .FirstOrDefaultAsync(x => x.code == normalizedRequestCode);
 
         if (reliefRequest is null)
         {
             throw new InvalidOperationException("Khong tim thay yeu cau cuu tro theo request code.");
         }
 
-        var distributions = await dbContext.distributions
+        var matchedDistributions = await ResolveDistributionsForReliefRequest(reliefRequest, normalizedRequestCode);
+        var distributionIds = matchedDistributions.Select(x => x.id).ToArray();
+        var hasAck = distributionIds.Length > 0 && await dbContext.distribution_acks
             .AsNoTracking()
-            .Where(x => x.linked_incident_id == reliefRequest.linked_incident_id || x.code == requestCode)
-            .Select(x => new { x.id, distribution_code = x.code, distributed_at = x.created_at, x.ack_method_code })
-            .Take(10)
-            .ToListAsync();
+            .AnyAsync(x => distributionIds.Contains(x.distribution_id));
 
-        var hasAck = await dbContext.distribution_acks
-            .AsNoTracking()
-            .AnyAsync(x => x.distribution.code == requestCode || x.distribution.linked_incident_id == reliefRequest.linked_incident_id);
+        var distributions = matchedDistributions
+            .Take(10)
+            .Select(x => new { x.id, distribution_code = x.code, distributed_at = x.created_at, x.ack_method_code })
+            .ToList();
 
         return new
         {
@@ -698,26 +710,38 @@ public sealed class PublicService(
                 approvedQty = x.approved_qty,
                 fulfilledQty = 0
             }).ToList(),
-            canAckRelief = !hasAck,
+            canAckRelief = distributionIds.Length > 0 && !hasAck,
             distributions
         };
     }
 
     public async Task<object> AckTrackingRelief(string requestCode, AckReliefRequest request)
     {
+        var normalizedRequestCode = requestCode?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedRequestCode))
+        {
+            throw new InvalidOperationException("RequestCode la bat buoc.");
+        }
+
         var reliefRequest = await dbContext.relief_requests
-            .FirstOrDefaultAsync(x => x.code == requestCode);
+            .FirstOrDefaultAsync(x => x.code == normalizedRequestCode);
 
         if (reliefRequest is null)
         {
             throw new InvalidOperationException("Khong tim thay yeu cau cuu tro theo request code.");
         }
 
-        return await AckReliefByRequest(reliefRequest, requestCode, request);
+        return await AckReliefByRequest(reliefRequest, normalizedRequestCode, request);
     }
 
     public async Task<object> AckMyReliefRequest(Guid? userId, string? phone, string requestCode, AckReliefRequest request)
     {
+        var normalizedRequestCode = requestCode?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedRequestCode))
+        {
+            throw new InvalidOperationException("RequestCode la bat buoc.");
+        }
+
         var normalizedPhone = string.IsNullOrWhiteSpace(phone)
             ? null
             : NormalizePhoneForOtp(phone);
@@ -728,18 +752,33 @@ public sealed class PublicService(
         }
 
         var reliefRequest = await dbContext.relief_requests
-            .FirstOrDefaultAsync(x => x.code == requestCode && x.requester_phone == normalizedPhone);
+            .FirstOrDefaultAsync(x => x.code == normalizedRequestCode);
+
+        if (reliefRequest is not null)
+        {
+            var requesterPhoneNormalized = NormalizePhoneForOtp(reliefRequest.requester_phone);
+            if (!string.Equals(requesterPhoneNormalized, normalizedPhone, StringComparison.Ordinal))
+            {
+                reliefRequest = null;
+            }
+        }
 
         if (reliefRequest is null)
         {
             throw new InvalidOperationException("Khong tim thay yeu cau cuu tro cua ban theo request code.");
         }
 
-        return await AckReliefByRequest(reliefRequest, requestCode, request);
+        return await AckReliefByRequest(reliefRequest, normalizedRequestCode, request);
     }
 
     public async Task<object> ReportMyReliefNotReceived(Guid? userId, string? phone, string requestCode, ReportReliefNotReceivedRequest request)
     {
+        var normalizedRequestCode = requestCode?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedRequestCode))
+        {
+            throw new InvalidOperationException("RequestCode la bat buoc.");
+        }
+
         var normalizedPhone = string.IsNullOrWhiteSpace(phone)
             ? null
             : NormalizePhoneForOtp(phone);
@@ -750,7 +789,16 @@ public sealed class PublicService(
         }
 
         var reliefRequest = await dbContext.relief_requests
-            .FirstOrDefaultAsync(x => x.code == requestCode && x.requester_phone == normalizedPhone);
+            .FirstOrDefaultAsync(x => x.code == normalizedRequestCode);
+
+        if (reliefRequest is not null)
+        {
+            var requesterPhoneNormalized = NormalizePhoneForOtp(reliefRequest.requester_phone);
+            if (!string.Equals(requesterPhoneNormalized, normalizedPhone, StringComparison.Ordinal))
+            {
+                reliefRequest = null;
+            }
+        }
 
         if (reliefRequest is null)
         {
@@ -797,19 +845,7 @@ public sealed class PublicService(
 
     private async Task<object> AckReliefByRequest(relief_request reliefRequest, string requestCode, AckReliefRequest request)
     {
-        var distribution = await dbContext.distributions
-            .OrderByDescending(x => x.created_at)
-            .FirstOrDefaultAsync(x => x.code == requestCode);
-
-        if (distribution is null)
-        {
-            if (reliefRequest.linked_incident_id != null)
-            {
-                distribution = await dbContext.distributions
-                    .OrderByDescending(x => x.created_at)
-                    .FirstOrDefaultAsync(x => x.linked_incident_id == reliefRequest.linked_incident_id);
-            }
-        }
+        var distribution = (await ResolveDistributionsForReliefRequest(reliefRequest, requestCode)).FirstOrDefault();
 
         if (distribution is null)
         {
@@ -849,6 +885,39 @@ public sealed class PublicService(
             acked = true,
             ackedAt = now
         };
+    }
+
+    private async Task<List<distribution>> ResolveDistributionsForReliefRequest(relief_request reliefRequest, string requestCode)
+    {
+        var normalizedRequestCode = requestCode.Trim().ToUpperInvariant();
+        var requesterPhoneNormalized = NormalizePhoneForOtp(reliefRequest.requester_phone);
+
+        var query = dbContext.distributions
+            .AsNoTracking()
+            .Include(x => x.household)
+            .AsQueryable();
+
+        if (reliefRequest.linked_incident_id.HasValue)
+        {
+            var incidentId = reliefRequest.linked_incident_id.Value;
+            query = query.Where(x => x.code == normalizedRequestCode || x.linked_incident_id == incidentId);
+        }
+        else
+        {
+            query = query.Where(x => x.code == normalizedRequestCode || x.household.phone == reliefRequest.requester_phone);
+        }
+
+        var candidates = await query
+            .OrderByDescending(x => x.created_at)
+            .Take(50)
+            .ToListAsync();
+
+        return candidates
+            .Where(x =>
+                string.Equals(x.code, normalizedRequestCode, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(NormalizePhoneForOtp(x.household.phone ?? string.Empty), requesterPhoneNormalized, StringComparison.Ordinal))
+            .OrderByDescending(x => x.created_at)
+            .ToList();
     }
 
     private async Task<object> CreateIncidentCore(

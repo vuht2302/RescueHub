@@ -1,6 +1,7 @@
 import type {
   ApiResponse,
   BootstrapData,
+  CitizenReliefAckRequest,
   PublicAckRequest,
   PublicAckResponse,
   PublicAlertsData,
@@ -376,4 +377,48 @@ export const getPublicMeHistory = async (
         : {}),
     },
   });
+};
+
+export const ackPublicMeReliefRequest = async (
+  requestCode: string,
+  payload: CitizenReliefAckRequest,
+  accessToken?: string,
+): Promise<PublicAckResponse> => {
+  return requestPublicApi<PublicAckResponse>(
+    `/api/v1/public/me/relief-requests/${encodeURIComponent(requestCode)}/ack`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken?.trim()
+          ? {
+              Authorization: `Bearer ${accessToken.trim()}`,
+            }
+          : {}),
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+};
+
+export const markReliefRequestNotReceived = async (
+  requestCode: string,
+  payload: CitizenReliefAckRequest,
+  accessToken?: string,
+): Promise<PublicAckResponse> => {
+  return requestPublicApi<PublicAckResponse>(
+    `/api/v1/public/me/relief-requests/${encodeURIComponent(requestCode)}/not-received`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken?.trim()
+          ? {
+              Authorization: `Bearer ${accessToken.trim()}`,
+            }
+          : {}),
+      },
+      body: JSON.stringify(payload),
+    },
+  );
 };

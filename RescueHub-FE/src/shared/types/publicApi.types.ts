@@ -312,6 +312,10 @@ export interface PublicAckResponse {
   ackedAt: string;
 }
 
+export interface CitizenReliefAckRequest {
+  note?: string;
+}
+
 export type UploadedMedia = {
   fileId?: string;
   FileId?: string;

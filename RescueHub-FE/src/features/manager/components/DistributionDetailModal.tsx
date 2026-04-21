@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { CheckCircle, Package, User, X, AlertCircle } from "lucide-react";
+import { CheckCircle, Package, User, X, AlertCircle, Loader2 } from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import {
   getDistribution,
+  ackDistribution,
   type Distribution,
 } from "../services/warehouseService";
 import {
@@ -14,17 +15,20 @@ import {
 interface DistributionDetailModalProps {
   distId: string;
   onClose: () => void;
-  onAck?: (dist: Distribution) => void;
+  onAckSuccess?: () => void;
 }
 
 export function DistributionDetailModal({
   distId,
   onClose,
-  onAck,
+  onAckSuccess,
 }: DistributionDetailModalProps) {
   const [dist, setDist] = useState<Distribution | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [ackLoading, setAckLoading] = useState(false);
+  const [ackError, setAckError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -41,6 +45,29 @@ export function DistributionDetailModal({
       }
     })();
   }, [distId]);
+
+  const handleAck = async () => {
+    if (!dist) return;
+    setAckLoading(true);
+    setAckError(null);
+    try {
+      const payload = {
+        ackMethodCode: dist.ackMethodCode || "MANUAL",
+        ackCode: dist.ack?.ackCode || "",
+        ackByName: dist.ack?.ackByName || "",
+        ackPhone: dist.ack?.ackPhone || "",
+        ackNote: dist.ack?.ackNote || "",
+      };
+      await ackDistribution(distId, payload, getAuthSession()?.accessToken ?? "");
+      const updated = await getDistribution(distId, getAuthSession()?.accessToken ?? "");
+      setDist(updated);
+      onAckSuccess?.();
+    } catch (e) {
+      setAckError(e instanceof Error ? e.message : "Lỗi xác nhận");
+    } finally {
+      setAckLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
@@ -83,19 +110,33 @@ export function DistributionDetailModal({
 
         {dist && (
           <div className="p-6 space-y-4">
-            {dist.ack?.ackCode &&
-              dist.status?.code !== "ACKNOWLEDGED" &&
-              onAck && (
+            {dist.ack?.ackCode && dist.status?.code !== "ACKNOWLEDGED" && (
+              <div className="space-y-2">
+                {ackError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                    {ackError}
+                  </div>
+                )}
                 <button
-                  onClick={() => onAck(dist)}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm hover:shadow-lg transition-shadow"
+                  onClick={handleAck}
+                  disabled={ackLoading}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm hover:shadow-lg transition-shadow disabled:opacity-60"
                   style={{
                     background: "linear-gradient(135deg,#059669,#10b981)",
                   }}
                 >
-                  <CheckCircle size={16} /> Xác nhận đã nhận hàng (ACK)
+                  {ackLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Đang xác nhận...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={16} /> Xác nhận đã nhận hàng (ACK)
+                    </>
+                  )}
                 </button>
-              )}
+              </div>
+            )}
             <div className="bg-blue-50 rounded-xl p-4">
               <h3 className="text-sm font-bold text-blue-800 mb-3">
                 <User size={16} className="inline mr-2" />

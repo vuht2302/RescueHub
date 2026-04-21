@@ -16,7 +16,7 @@ export const ISSUE_STATUS: Record<string, { label: string; cls: string }> = {
 
 export const DIST_STATUS: Record<string, { label: string; cls: string }> = {
   NEW: { label: "Mới", cls: "bg-blue-100 text-blue-700" },
-  PENDING: { label: "Chờ nhận", cls: "bg-yellow-100 text-yellow-700" },
+  PENDING: { label: "Đang chờ xử lý", cls: "bg-yellow-100 text-yellow-700" },
   COMPLETED: { label: "Hoàn thành", cls: "bg-green-100 text-green-700" },
   ACKNOWLEDGED: {
     label: "Đã xác nhận",

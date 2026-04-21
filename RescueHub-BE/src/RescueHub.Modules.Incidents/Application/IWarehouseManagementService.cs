@@ -16,6 +16,8 @@ public interface IWarehouseManagementService
 
     Task<object> ListItems(string? keyword, string? categoryCode, bool? isActive);
 
+    Task<object> GetItemOptions();
+
     Task<object> GetItem(Guid itemId);
 
     Task<object> CreateItem(CreateItemRequest request);
@@ -57,6 +59,10 @@ public interface IWarehouseManagementService
     Task<object> DeleteHousehold(Guid householdId);
 
     Task<object> ListDistributions(Guid? campaignId, Guid? reliefPointId, string? statusCode, int page, int pageSize);
+
+    Task<object> GetDistributionOptions();
+
+    Task<object> ListReliefPoints(string? keyword, string? statusCode);
 
     Task<object> GetDistribution(Guid distributionId);
 

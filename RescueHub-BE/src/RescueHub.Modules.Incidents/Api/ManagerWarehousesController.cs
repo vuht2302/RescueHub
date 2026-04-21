@@ -127,6 +127,13 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
         => OkResponse<object>(await service.ListItems(keyword, categoryCode, isActive), "Lay danh sach item thanh cong");
 
     /// <summary>
+    /// Lay metadata tao/cap nhat item (itemCategoryCode, unitCode, issuePolicyCode).
+    /// </summary>
+    [HttpGet("items/options")]
+    public async Task<ActionResult<ApiResponse<object>>> GetItemOptions()
+        => OkResponse<object>(await service.GetItemOptions(), "Lay item options thanh cong");
+
+    /// <summary>
     /// Lay chi tiet item.
     /// </summary>
     /// <param name="itemId">Dinh danh item.</param>
@@ -323,6 +330,20 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
         => OkResponse<object>(await service.ListDistributions(campaignId, reliefPointId, statusCode, page, pageSize), "Lay danh sach phan phoi thanh cong");
+
+    /// <summary>
+    /// Lay metadata tao phieu phan phoi (reliefPointId, ackMethodCode, campaign).
+    /// </summary>
+    [HttpGet("distributions/options")]
+    public async Task<ActionResult<ApiResponse<object>>> GetDistributionOptions()
+        => OkResponse<object>(await service.GetDistributionOptions(), "Lay distribution options thanh cong");
+
+    /// <summary>
+    /// Lay danh sach cac diem cuu tro.
+    /// </summary>
+    [HttpGet("relief-points")]
+    public async Task<ActionResult<ApiResponse<object>>> ListReliefPoints([FromQuery] string? keyword, [FromQuery] string? statusCode)
+        => OkResponse<object>(await service.ListReliefPoints(keyword, statusCode), "Lay danh sach diem cuu tro thanh cong");
 
     /// <summary>
     /// Lay chi tiet phieu phan phoi.

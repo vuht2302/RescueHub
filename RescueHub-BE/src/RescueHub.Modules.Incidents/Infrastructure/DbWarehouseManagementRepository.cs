@@ -330,6 +330,28 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         return new { items };
     }
 
+    public async Task<object> GetItemOptions()
+    {
+        var itemCategories = await dbContext.item_categories
+            .AsNoTracking()
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name
+            })
+            .ToListAsync();
+
+        return new
+        {
+            itemCategories,
+            unitCodes = ItemUnitCodes.Order().Select(x => new { code = x, name = x }).ToArray(),
+            issuePolicyCodes = IssuePolicyCodes.Order().Select(x => new { code = x, name = x }).ToArray(),
+            lotStatusCodes = LotStatusCodes.Order().Select(x => new { code = x, name = x }).ToArray()
+        };
+    }
+
     public async Task<object> GetItem(Guid itemId)
     {
         var item = await dbContext.items
@@ -1137,6 +1159,88 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         return new { items, page, pageSize, totalItems, totalPages };
     }
 
+    public async Task<object> GetDistributionOptions()
+    {
+        var campaigns = await dbContext.relief_campaigns
+            .AsNoTracking()
+            .Where(x => x.status_code == "PLANNED" || x.status_code == "ACTIVE")
+            .OrderByDescending(x => x.start_at)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                statusCode = x.status_code,
+                startAt = x.start_at,
+                endAt = x.end_at
+            })
+            .ToListAsync();
+
+        var reliefPoints = await dbContext.relief_points
+            .AsNoTracking()
+            .Include(x => x.campaign)
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                statusCode = x.status_code,
+                addressText = x.address_text,
+                campaign = x.campaign == null
+                    ? null
+                    : new { id = x.campaign.id, code = x.campaign.code, name = x.campaign.name },
+                location = ToLocationItem(x.geom)
+            })
+            .ToListAsync();
+
+        return new
+        {
+            campaigns,
+            reliefPoints,
+            ackMethodCodes = AckMethodCodes.Order().Select(x => new { code = x, name = x }).ToArray(),
+            distributionStatusCodes = DistributionStatusCodes.Order().Select(x => new { code = x, name = x }).ToArray()
+        };
+    }
+
+    public async Task<object> ListReliefPoints(string? keyword, string? statusCode)
+    {
+        var query = dbContext.relief_points
+            .AsNoTracking()
+            .Include(x => x.campaign)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var q = keyword.Trim();
+            query = query.Where(x => x.code.Contains(q) || x.name.Contains(q) || x.address_text.Contains(q));
+        }
+
+        if (!string.IsNullOrWhiteSpace(statusCode))
+        {
+            var normalized = NormalizeCode(statusCode);
+            query = query.Where(x => x.status_code == normalized);
+        }
+
+        var items = await query
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                addressText = x.address_text,
+                location = ToLocationItem(x.geom),
+                campaign = x.campaign == null
+                    ? null
+                    : new { id = x.campaign.id, code = x.campaign.code, name = x.campaign.name }
+            })
+            .ToListAsync();
+
+        return new { items };
+    }
+
     public async Task<object> GetDistribution(Guid distributionId)
     {
         var distribution = await dbContext.distributions
@@ -1203,8 +1307,19 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             throw new InvalidOperationException("Danh sach lines khong duoc rong.");
         }
 
+        if (request.RecipientLocation is null)
+        {
+            throw new InvalidOperationException("RecipientLocation la bat buoc.");
+        }
+
+        if (request.RecipientLocation.Lat < -90 || request.RecipientLocation.Lat > 90 ||
+            request.RecipientLocation.Lng < -180 || request.RecipientLocation.Lng > 180)
+        {
+            throw new InvalidOperationException("Toa do RecipientLocation khong hop le.");
+        }
+
         var recipientName = NormalizeRequired(request.RecipientName, nameof(request.RecipientName));
-        var recipientAddress = NormalizeRequired(request.RecipientAddress, nameof(request.RecipientAddress));
+        var recipientAddress = NormalizeRequired(request.RecipientLocation.AddressText, nameof(request.RecipientLocation.AddressText));
         var recipientMemberCount = request.RecipientMemberCount <= 0 ? 1 : request.RecipientMemberCount;
         var recipientVulnerableCount = request.RecipientVulnerableCount;
         if (recipientVulnerableCount < 0 || recipientVulnerableCount > recipientMemberCount)
@@ -1234,7 +1349,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 phone = normalizedRecipientPhone,
                 admin_area_id = request.RecipientAdminAreaId,
                 address_text = recipientAddress,
-                geom = ToPointOrNull(request.RecipientLocation),
+                geom = new Point((double)request.RecipientLocation.Lng, (double)request.RecipientLocation.Lat) { SRID = 4326 },
                 member_count = recipientMemberCount,
                 vulnerable_count = recipientVulnerableCount
             };
@@ -1245,7 +1360,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             household.admin_area_id = request.RecipientAdminAreaId;
             household.member_count = recipientMemberCount;
             household.vulnerable_count = recipientVulnerableCount;
-            household.geom = ToPointOrNull(request.RecipientLocation);
+            household.geom = new Point((double)request.RecipientLocation.Lng, (double)request.RecipientLocation.Lat) { SRID = 4326 };
         }
 
         var ackMethod = NormalizeCode(request.AckMethodCode);

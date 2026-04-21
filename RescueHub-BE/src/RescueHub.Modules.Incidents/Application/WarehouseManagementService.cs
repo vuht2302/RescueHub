@@ -19,6 +19,8 @@ public sealed class WarehouseManagementService(IWarehouseManagementRepository re
 
     public Task<object> ListItems(string? keyword, string? categoryCode, bool? isActive) => repository.ListItems(keyword, categoryCode, isActive);
 
+    public Task<object> GetItemOptions() => repository.GetItemOptions();
+
     public Task<object> GetItem(Guid itemId) => repository.GetItem(itemId);
 
     public Task<object> CreateItem(CreateItemRequest request) => repository.CreateItem(request);
@@ -64,6 +66,10 @@ public sealed class WarehouseManagementService(IWarehouseManagementRepository re
 
     public Task<object> ListDistributions(Guid? campaignId, Guid? reliefPointId, string? statusCode, int page, int pageSize)
         => repository.ListDistributions(campaignId, reliefPointId, statusCode, page, pageSize);
+
+    public Task<object> GetDistributionOptions() => repository.GetDistributionOptions();
+
+    public Task<object> ListReliefPoints(string? keyword, string? statusCode) => repository.ListReliefPoints(keyword, statusCode);
 
     public Task<object> GetDistribution(Guid distributionId) => repository.GetDistribution(distributionId);
 

@@ -948,7 +948,7 @@ public sealed class PublicService(
             .ToListAsync();
 
         var matched = areas
-            .Where(x => x.geom != null && x.geom.Covers(point))
+            .Where(x => x.geom != null && x.geom.Contains(point))
             .OrderBy(x => AdminAreaPriority(x.level_code))
             .FirstOrDefault();
 

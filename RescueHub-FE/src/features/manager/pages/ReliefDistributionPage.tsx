@@ -44,6 +44,7 @@ import { DistributionDetailModal } from "../components/DistributionDetailModal";
 import { CreateDistributionModal } from "../components/CreateDistributionModal";
 import { AckDistributionModal } from "../components/AckDistributionModal";
 import { CreateReliefIssueModal } from "../components/CreateReliefIssueModal";
+import { CreateReliefDistributionModal } from "../components/CreateReliefDistributionModal";
 
 export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   className = "",
@@ -79,6 +80,7 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   const [viewDistId, setViewDistId] = useState<string | null>(null);
   const [viewDistDetail, setViewDistDetail] = useState<Distribution | null>(null);
   const [showAckModal, setShowAckModal] = useState(false);
+  const [showReliefDistModal, setShowReliefDistModal] = useState(false);
   const [distPage, setDistPage] = useState(1);
   const [distTotalPages, setDistTotalPages] = useState(1);
 
@@ -203,6 +205,12 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
     setSelectedRequest(null);
     setRequestDetail(null);
     setActiveTab("distributions");
+    void loadDistributions();
+  };
+
+  // Handle relief distribution created
+  const handleReliefDistributionCreated = (dist: { id: string; code: string }) => {
+    setShowReliefDistModal(false);
     void loadDistributions();
   };
 
@@ -422,19 +430,36 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
           )}
 
           {/* DISTRIBUTIONS */}
-          {activeTab === "distributions" &&
-            (isLoadingDist ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
+          {activeTab === "distributions" && (
+            <>
+              {/* Header with Create button */}
+              <div className="p-4 border-b border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-500">
+                    {distributions.length} phiếu phân phối
+                  </span>
+                  <button
+                    onClick={() => setShowReliefDistModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                  >
+                    <Plus size={14} />
+                    Tạo phân phối
+                  </button>
+                </div>
               </div>
-            ) : distributions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Package size={32} className="text-gray-300 mb-2" />
-                <p className="text-sm text-gray-500">
-                  Chưa có phiếu phân phối nào
-                </p>
-              </div>
-            ) : (
+
+              {isLoadingDist ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
+                </div>
+              ) : distributions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Package size={32} className="text-gray-300 mb-2" />
+                  <p className="text-sm text-gray-500">
+                    Chưa có phiếu phân phối nào
+                  </p>
+                </div>
+              ) : (
               <>
                 {distributions.map((dist) => (
                   <div
@@ -489,7 +514,9 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                   </div>
                 )}
               </>
-            ))}
+            )}
+            </>
+          )}
         </div>
       </div>
 
@@ -679,6 +706,12 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
           dist={viewDistDetail}
           onClose={() => { setShowAckModal(false); setViewDistDetail(null); }}
           onSuccess={() => { setShowAckModal(false); setViewDistDetail(null); void loadDistributions(); }}
+        />
+      )}
+      {showReliefDistModal && (
+        <CreateReliefDistributionModal
+          onClose={() => setShowReliefDistModal(false)}
+          onSuccess={handleReliefDistributionCreated}
         />
       )}
     </div>

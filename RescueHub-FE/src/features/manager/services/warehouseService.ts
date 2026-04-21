@@ -1,6 +1,7 @@
 // ─── Base setup ───────────────────────────────────────────────────────────────
-const API_BASE =
-  (import.meta.env.VITE_API_BASE_URL ?? "https://rescuehub.onrender.com").trim();
+const API_BASE = (
+  import.meta.env.VITE_API_BASE_URL ?? "https://rescuehub.onrender.com"
+).trim();
 const BASE = `${API_BASE}/api/v1/manager`;
 
 function authHeaders(token: string) {
@@ -88,7 +89,10 @@ export async function getWarehouses(
   return Array.isArray(data) ? data : (data as PagedResponse<Warehouse>).items;
 }
 
-export async function getWarehouse(id: string, token: string): Promise<Warehouse> {
+export async function getWarehouse(
+  id: string,
+  token: string,
+): Promise<Warehouse> {
   return apiFetch<Warehouse>(`${BASE}/warehouses/${id}`, {
     headers: authHeaders(token),
   });
@@ -117,7 +121,10 @@ export async function updateWarehouse(
   });
 }
 
-export async function deleteWarehouse(id: string, token: string): Promise<void> {
+export async function deleteWarehouse(
+  id: string,
+  token: string,
+): Promise<void> {
   await apiFetch<unknown>(`${BASE}/warehouses/${id}`, {
     method: "DELETE",
     headers: authHeaders(token),
@@ -129,7 +136,12 @@ export interface StockLine {
   id: string;
   warehouse: { id: string; code: string; name: string };
   item: { id: string; code: string; name: string; unitCode: string };
-  lot: { id: string; lotNo: string; expDate: string | null; statusCode: string } | null;
+  lot: {
+    id: string;
+    lotNo: string;
+    expDate: string | null;
+    statusCode: string;
+  } | null;
   qtyOnHand: number;
   qtyReserved: number;
   qtyAvailable: number;
@@ -225,7 +237,10 @@ export async function getItems(token: string): Promise<Item[]> {
   return Array.isArray(data) ? data : (data as PagedResponse<Item>).items;
 }
 
-export async function createItem(payload: ItemPayload, token: string): Promise<Item> {
+export async function createItem(
+  payload: ItemPayload,
+  token: string,
+): Promise<Item> {
   return apiFetch<Item>(`${BASE}/items`, {
     method: "POST",
     headers: authHeaders(token),
@@ -280,7 +295,10 @@ export async function getLots(token: string): Promise<Lot[]> {
   return Array.isArray(data) ? data : (data as PagedResponse<Lot>).items;
 }
 
-export async function createLot(payload: LotPayload, token: string): Promise<Lot> {
+export async function createLot(
+  payload: LotPayload,
+  token: string,
+): Promise<Lot> {
   return apiFetch<Lot>(`${BASE}/lots`, {
     method: "POST",
     headers: authHeaders(token),
@@ -360,10 +378,9 @@ export interface StockTransaction {
 export async function getStockTransactions(
   token: string,
 ): Promise<StockTransactionListItem[]> {
-  const data = await apiFetch<StockTransactionListItem[] | PagedResponse<StockTransactionListItem>>(
-    `${BASE}/stock-transactions`,
-    { headers: authHeaders(token) },
-  );
+  const data = await apiFetch<
+    StockTransactionListItem[] | PagedResponse<StockTransactionListItem>
+  >(`${BASE}/stock-transactions`, { headers: authHeaders(token) });
   return Array.isArray(data)
     ? data
     : (data as PagedResponse<StockTransactionListItem>).items;
@@ -410,8 +427,8 @@ export interface ReliefIssueListItem {
   id: string;
   code: string;
   status: { code: string; name: string; color: string | null };
-  campaign:      { id: string; code: string; name: string } | null;
-  reliefPoint:   { id: string; code: string; name: string } | null;
+  campaign: { id: string; code: string; name: string } | null;
+  reliefPoint: { id: string; code: string; name: string } | null;
   fromWarehouse: { id: string; code: string; name: string };
   note: string;
   lineCount: number;
@@ -423,14 +440,14 @@ export interface ReliefIssue {
   id: string;
   code: string;
   status: { code: string; name: string; color: string | null };
-  campaign:      { id: string; code: string; name: string } | null;
-  reliefPoint:   { id: string; code: string; name: string } | null;
+  campaign: { id: string; code: string; name: string } | null;
+  reliefPoint: { id: string; code: string; name: string } | null;
   fromWarehouse: { id: string; code: string; name: string };
   note: string;
   lines: Array<{
     id: string;
     item: { id: string; code: string; name: string };
-    lot:  { id: string; lotNo: string } | null;
+    lot: { id: string; lotNo: string } | null;
     issueQty: number;
     unitCode: string;
   }>;
@@ -438,11 +455,11 @@ export interface ReliefIssue {
 }
 
 export interface ReliefIssueListParams {
-  campaignId?:    string;
+  campaignId?: string;
   reliefPointId?: string;
-  statusCode?:    string;
-  page?:          number;
-  pageSize?:      number;
+  statusCode?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export async function getReliefIssues(
@@ -450,14 +467,17 @@ export async function getReliefIssues(
   params: ReliefIssueListParams = {},
 ): Promise<PagedResponse<ReliefIssueListItem>> {
   const q = new URLSearchParams();
-  if (params.campaignId)    q.set("campaignId",    params.campaignId);
+  if (params.campaignId) q.set("campaignId", params.campaignId);
   if (params.reliefPointId) q.set("reliefPointId", params.reliefPointId);
-  if (params.statusCode)    q.set("statusCode",    params.statusCode);
-  if (params.page != null)     q.set("page",     String(params.page));
+  if (params.statusCode) q.set("statusCode", params.statusCode);
+  if (params.page != null) q.set("page", String(params.page));
   if (params.pageSize != null) q.set("pageSize", String(params.pageSize));
-  return apiFetch<PagedResponse<ReliefIssueListItem>>(`${BASE}/relief-issues?${q}`, {
-    headers: authHeaders(token),
-  });
+  return apiFetch<PagedResponse<ReliefIssueListItem>>(
+    `${BASE}/relief-issues?${q}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
 }
 
 export async function getReliefIssue(
@@ -508,7 +528,9 @@ export async function getReliefPoints(
     `${BASE}/relief-points?${q}`,
     { headers: authHeaders(token) },
   );
-  return Array.isArray(data) ? data : (data as PagedResponse<ReliefPoint>).items;
+  return Array.isArray(data)
+    ? data
+    : (data as PagedResponse<ReliefPoint>).items;
 }
 
 // ─── MAN-09  Household ────────────────────────────────────────────────────────
@@ -565,7 +587,10 @@ export async function updateHousehold(
   });
 }
 
-export async function deleteHousehold(id: string, token: string): Promise<void> {
+export async function deleteHousehold(
+  id: string,
+  token: string,
+): Promise<void> {
   await apiFetch<unknown>(`${BASE}/households/${id}`, {
     method: "DELETE",
     headers: authHeaders(token),
@@ -580,10 +605,22 @@ export interface DistributionLine {
   unitCode: string;
 }
 
+export interface RecipientLocation {
+  lat: number;
+  lng: number;
+  addressText: string;
+}
+
 export interface DistributionPayload {
   campaignId: string;
   reliefPointId: string;
-  householdId: string;
+  recipientName: string;
+  recipientPhone: string;
+  recipientLocation?: RecipientLocation;
+  recipientAdminAreaId?: string;
+  recipientMemberCount?: number;
+  recipientVulnerableCount?: number;
+  householdId?: string;
   incidentId?: string | null;
   ackMethodCode: string;
   note: string;
@@ -596,7 +633,13 @@ export interface DistributionListItem {
   status: CodeName;
   campaign: { id: string; code: string; name: string } | null;
   reliefPoint: { id: string; code: string; name: string } | null;
-  household: { id: string; code: string; headName: string; phone: string; address: string } | null;
+  household: {
+    id: string;
+    code: string;
+    headName: string;
+    phone: string;
+    address: string;
+  } | null;
   ackMethodCode: string;
   note: string;
   lineCount: number;
@@ -610,8 +653,16 @@ export interface Distribution {
   status: CodeName;
   campaign: { id: string; code: string; name: string } | null;
   reliefPoint: { id: string; code: string; name: string } | null;
-  household: { id: string; code: string; headName: string; phone: string; address: string } | null;
-  incidentId: string | null;
+  recipient: {
+    id: string;
+    code: string;
+    name: string;
+    phone: string;
+    address: string;
+    memberCount: number;
+    vulnerableCount: number;
+  } | null;
+  // incidentId: string | null;
   ackMethodCode: string;
   note: string;
   lines: Array<{
@@ -640,11 +691,12 @@ export interface AckPayload {
   ackNote: string;
 }
 
-export async function getDistributions(token: string): Promise<DistributionListItem[]> {
-  const data = await apiFetch<DistributionListItem[] | PagedResponse<DistributionListItem>>(
-    `${BASE}/distributions`,
-    { headers: authHeaders(token) },
-  );
+export async function getDistributions(
+  token: string,
+): Promise<DistributionListItem[]> {
+  const data = await apiFetch<
+    DistributionListItem[] | PagedResponse<DistributionListItem>
+  >(`${BASE}/distributions`, { headers: authHeaders(token) });
   return Array.isArray(data)
     ? data
     : (data as PagedResponse<DistributionListItem>).items;
@@ -705,7 +757,9 @@ export interface DistributionOptions {
   distributionStatusCodes: CodeName[];
 }
 
-export async function getDistributionOptions(token: string): Promise<DistributionOptions> {
+export async function getDistributionOptions(
+  token: string,
+): Promise<DistributionOptions> {
   return apiFetch<DistributionOptions>(`${BASE}/distributions/options`, {
     headers: authHeaders(token),
   });

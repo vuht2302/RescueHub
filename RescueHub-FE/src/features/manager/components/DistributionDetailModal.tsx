@@ -1,17 +1,15 @@
 import React, { useEffect, useState } from "react";
-import {
-  CheckCircle,
-  Package,
-  User,
-  X,
-  AlertCircle,
-} from "lucide-react";
+import { CheckCircle, Package, User, X, AlertCircle } from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import {
   getDistribution,
   type Distribution,
 } from "../services/warehouseService";
-import { StatusBadge, DIST_STATUS, formatDate } from "../constants/statusConfig";
+import {
+  StatusBadge,
+  DIST_STATUS,
+  formatDate,
+} from "../constants/statusConfig";
 
 interface DistributionDetailModalProps {
   distId: string;
@@ -85,15 +83,19 @@ export function DistributionDetailModal({
 
         {dist && (
           <div className="p-6 space-y-4">
-            {dist.ack?.ackCode && dist.status?.code !== "ACKNOWLEDGED" && onAck && (
-              <button
-                onClick={() => onAck(dist)}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm hover:shadow-lg transition-shadow"
-                style={{ background: "linear-gradient(135deg,#059669,#10b981)" }}
-              >
-                <CheckCircle size={16} /> Xác nhận đã nhận hàng (ACK)
-              </button>
-            )}
+            {dist.ack?.ackCode &&
+              dist.status?.code !== "ACKNOWLEDGED" &&
+              onAck && (
+                <button
+                  onClick={() => onAck(dist)}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm hover:shadow-lg transition-shadow"
+                  style={{
+                    background: "linear-gradient(135deg,#059669,#10b981)",
+                  }}
+                >
+                  <CheckCircle size={16} /> Xác nhận đã nhận hàng (ACK)
+                </button>
+              )}
             <div className="bg-blue-50 rounded-xl p-4">
               <h3 className="text-sm font-bold text-blue-800 mb-3">
                 <User size={16} className="inline mr-2" />
@@ -102,20 +104,18 @@ export function DistributionDetailModal({
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-xs text-gray-500 block">Họ tên</span>
-                  <p className="font-semibold">
-                    {dist.household?.headName || "—"}
-                  </p>
+                  <p className="font-semibold">{dist.recipient?.name || "—"}</p>
                 </div>
                 <div>
                   <span className="text-xs text-gray-500 block">SĐT</span>
                   <p className="font-semibold text-blue-700">
-                    {dist.household?.phone || "—"}
+                    {dist.recipient.phone || "—"}
                   </p>
                 </div>
                 <div className="col-span-2">
                   <span className="text-xs text-gray-500 block">Địa chỉ</span>
                   <p className="font-semibold">
-                    {dist.household?.address || "—"}
+                    {dist.recipient?.address || "—"}
                   </p>
                 </div>
               </div>

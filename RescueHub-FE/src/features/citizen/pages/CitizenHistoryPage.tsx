@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  ackPublicTrackingRelief,
   getPublicMeHistory,
   getPublicTrackingMyReliefRequests,
   getPublicTrackingMyRescues,
@@ -17,6 +18,7 @@ import {
   type PublicTrackingMyHistoryItem,
 } from "../../../shared/services/publicApi";
 import { getAuthSession } from "../../auth/services/authStorage";
+import { motion } from "motion/react";
 
 const TRACKING_TOKEN_STORAGE_KEY = "rescuehub.public.trackingToken";
 const TRACKING_PHONE_STORAGE_KEY = "rescuehub.public.trackingPhone";
@@ -129,6 +131,11 @@ export const CitizenHistoryPage: React.FC = () => {
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [detailModal, setDetailModal] = useState<DetailModalState>(null);
+  const [isReliefAcking, setIsReliefAcking] = useState(false);
+  const [reliefAckNote, setReliefAckNote] = useState("");
+  const [reliefAckError, setReliefAckError] = useState("");
+  const [reliefAckSuccess, setReliefAckSuccess] = useState(false);
+  const [reliefDetail, setReliefDetail] = useState<any>(null);
 
   const normalizeLegacyRescueHistoryItem = (
     item: PublicTrackingMyHistoryItem,
@@ -369,6 +376,78 @@ export const CitizenHistoryPage: React.FC = () => {
 
     void loadHistory();
   }, [refreshTick]);
+
+  const loadReliefDetail = async (requestCode: string) => {
+    const authSession = getAuthSession();
+    const accessToken = authSession?.accessToken?.trim() || "";
+    const trackingToken =
+      (typeof window !== "undefined"
+        ? localStorage.getItem(TRACKING_TOKEN_STORAGE_KEY)?.trim()
+        : "") || "";
+
+    const token = accessToken || trackingToken;
+    if (!token) return;
+
+    try {
+      const { getPublicTrackingRelief } = await import(
+        "../../../shared/services/publicApi"
+      );
+      const detail = await getPublicTrackingRelief(requestCode, token);
+      setReliefDetail(detail);
+      return detail;
+    } catch {
+      setReliefDetail(null);
+      return null;
+    }
+  };
+
+  const handleAckRelief = async () => {
+    if (!reliefDetail?.requestCode || !reliefDetail?.canAckRelief) return;
+
+    const authSession = getAuthSession();
+    const accessToken = authSession?.accessToken?.trim() || "";
+    const trackingToken =
+      (typeof window !== "undefined"
+        ? localStorage.getItem(TRACKING_TOKEN_STORAGE_KEY)?.trim()
+        : "") || "";
+
+    const token = accessToken || trackingToken;
+    if (!token) {
+      setReliefAckError("Vui long dang nhap de xac nhan.");
+      return;
+    }
+
+    setIsReliefAcking(true);
+    setReliefAckError("");
+
+    try {
+      await ackPublicTrackingRelief(reliefDetail.requestCode, {
+        ackMethodCode: "MANUAL",
+        ackCode: "CITIZEN_APP",
+        note: reliefAckNote || "Nguoi dan xac nhan da nhan cuu tro",
+      }, token);
+
+      setReliefAckSuccess(true);
+      setReliefAckNote("");
+      await loadReliefDetail(reliefDetail.requestCode);
+      setRefreshTick((prev) => prev + 1);
+    } catch (error) {
+      setReliefAckError(
+        error instanceof Error ? error.message : "Khong the xac nhan cuu tro",
+      );
+    } finally {
+      setIsReliefAcking(false);
+    }
+  };
+
+  const openReliefDetail = async (item: ReliefHistoryItem) => {
+    setDetailModal({ kind: "relief", item });
+    setReliefAckNote("");
+    setReliefAckError("");
+    setReliefAckSuccess(false);
+    setReliefDetail(null);
+    await loadReliefDetail(item.requestCode);
+  };
 
   const formatDateTime = useMemo(
     () =>
@@ -669,7 +748,13 @@ export const CitizenHistoryPage: React.FC = () => {
                     <td className="px-3 py-2 text-right">
                       <button
                         type="button"
-                        onClick={() => setDetailModal(row.detail)}
+                        onClick={() => {
+                          if (row.kind === "relief") {
+                            void openReliefDetail(row.detail.item);
+                          } else {
+                            setDetailModal(row.detail);
+                          }
+                        }}
                         className="inline-flex items-center gap-1 rounded-md bg-blue-950 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-900"
                       >
                         <Eye size={12} />
@@ -840,6 +925,77 @@ export const CitizenHistoryPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Phan phoi */}
+                {reliefDetail?.distributions && reliefDetail.distributions.length > 0 && (
+                  <div>
+                    <p className="font-semibold">Lịch sử phân phối:</p>
+                    <div className="mt-2 space-y-2">
+                      {reliefDetail.distributions.map((dist: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center rounded-lg bg-slate-50 p-2"
+                        >
+                          <span className="text-sm">{dist.distribution_code}</span>
+                          <span className="text-xs text-slate-600">
+                            {dist.distributed_at
+                              ? new Date(dist.distributed_at).toLocaleString("vi-VN")
+                              : "-"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Xac nhan da nhan cuu tro */}
+                {(() => {
+                  const hasAcked = reliefDetail?.distributions?.some(
+                    (d: any) => d.ack_method_code
+                  );
+                  const canAck = !hasAcked;
+
+                  if (reliefAckSuccess) {
+                    return (
+                      <div className="mt-4 rounded-xl bg-green-100 p-4 text-center">
+                        <p className="font-semibold text-green-800">Đã xác nhận nhận cứu trợ</p>
+                      </div>
+                    );
+                  }
+
+                  if (!canAck) {
+                    return (
+                      <div className="mt-4 rounded-xl bg-green-100 p-4 text-center">
+                        <p className="font-semibold text-green-800">Đã xác nhận nhận cứu trợ</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="mt-4 rounded-xl border-2 border-green-500 bg-green-50 p-4 space-y-3">
+                      <p className="font-semibold text-green-800">Xác nhận đã nhận cứu trợ</p>
+                      <textarea
+                        value={reliefAckNote}
+                        onChange={(e) => setReliefAckNote(e.target.value)}
+                        placeholder="Ghi chú (tùy chọn): ví dụ: Đã nhận đầy đủ, Thiếu 1 thùng mì..."
+                        className="w-full rounded-lg border border-green-300 bg-white p-2 text-sm outline-none"
+                        rows={2}
+                      />
+                      {reliefAckError && (
+                        <p className="text-sm text-red-600">{reliefAckError}</p>
+                      )}
+                      <motion.button
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
+                        onClick={handleAckRelief}
+                        disabled={isReliefAcking}
+                        className="w-full rounded-lg bg-green-600 py-2 font-bold text-white disabled:opacity-60"
+                      >
+                        {isReliefAcking ? "Đang xử lý..." : "Xác nhận đã nhận cứu trợ"}
+                      </motion.button>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

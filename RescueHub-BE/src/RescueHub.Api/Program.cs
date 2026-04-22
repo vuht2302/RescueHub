@@ -15,6 +15,12 @@ using RescueHub.Modules.Media;
 using RescueHub.Modules.Public;
 using RescueHub.Persistence;
 
+// Prevent FileSystemWatcher exhaustion on container/PaaS hosts with low inotify limits.
+if (IsContainerOrPaaS() && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE")))
+{
+    Environment.SetEnvironmentVariable("DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE", "false");
+}
+
 var builder = WebApplication.CreateBuilder(args);
 var swaggerEnabled = builder.Configuration.GetValue("Swagger:Enabled", true);
 
@@ -207,3 +213,17 @@ app.MapControllers();
 app.MapHub<RescueRealtimeHub>("/realtime-hub");
 
 app.Run();
+
+static bool IsContainerOrPaaS()
+{
+    var runningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER");
+    if (string.Equals(runningInContainer, "true", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    // Common PaaS markers (Render, Azure App Service, Heroku-like dynos).
+    return !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER"))
+        || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID"))
+        || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DYNO"));
+}

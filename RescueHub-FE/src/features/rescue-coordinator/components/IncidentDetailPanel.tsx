@@ -464,7 +464,9 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
 
       {/* ── Action Buttons ── */}
       <div className="px-5 py-4 border-t border-gray-100 space-y-2 bg-white">
-        {requestStatus === "dispatched" ? (
+        {requestStatus ===
+        "completed" ? /* No buttons shown when status is completed */
+        null : requestStatus === "dispatched" ? (
           /* Only show Follow Mission button when status is dispatched */
           hasHandlingTeams &&
           onFollowMission && (

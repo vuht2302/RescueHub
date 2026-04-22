@@ -996,6 +996,52 @@ public sealed class DbAdminRepository(
         };
     }
 
+    public async Task<object> GetRescueReliefVolumeReport()
+    {
+        var now = DateTime.UtcNow;
+
+        var monthFrom = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthTo = monthFrom.AddMonths(1);
+
+        var quarterStartMonth = ((now.Month - 1) / 3) * 3 + 1;
+        var quarterFrom = new DateTime(now.Year, quarterStartMonth, 1, 0, 0, 0, DateTimeKind.Utc);
+        var quarterTo = quarterFrom.AddMonths(3);
+
+        var yearFrom = new DateTime(now.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var yearTo = yearFrom.AddYears(1);
+
+        async Task<object> BuildVolume(DateTime from, DateTime to)
+        {
+            var rescueCount = await dbContext.missions
+                .AsNoTracking()
+                .CountAsync(x => x.completed_at.HasValue && x.completed_at.Value >= from && x.completed_at.Value < to);
+
+            var reliefCount = await dbContext.distribution_acks
+                .AsNoTracking()
+                .CountAsync(x => x.ack_at >= from && x.ack_at < to);
+
+            return new
+            {
+                fromDateUtc = from,
+                toDateUtc = to,
+                rescueCount,
+                reliefCount
+            };
+        }
+
+        var monthly = await BuildVolume(monthFrom, monthTo);
+        var quarterly = await BuildVolume(quarterFrom, quarterTo);
+        var yearly = await BuildVolume(yearFrom, yearTo);
+
+        return new
+        {
+            generatedAtUtc = now,
+            monthly,
+            quarterly,
+            yearly
+        };
+    }
+
     public async Task<object> GetHotspotsReport(DateTime? fromDateUtc, DateTime? toDateUtc, int topN)
     {
         var range = ResolveRange(fromDateUtc, toDateUtc);

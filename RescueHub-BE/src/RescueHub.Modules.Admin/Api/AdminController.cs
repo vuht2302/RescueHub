@@ -410,6 +410,22 @@ public sealed class AdminController(IAdminService service) : BaseApiController
     }
 
     /// <summary>
+    /// Bao cao so luong cuu ho va cuu tro theo thang/quy/nam hien tai.
+    /// </summary>
+    [HttpGet("reports/rescue-relief/volumes")]
+    public async Task<ActionResult<ApiResponse<object>>> GetRescueReliefVolumeReport()
+    {
+        try
+        {
+            return OkResponse<object>(await service.GetRescueReliefVolumeReport(), "Lay bao cao so luong cuu ho va cuu tro thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Bao cao diem nong su co.
     /// </summary>
     [HttpGet("reports/hotspots")]

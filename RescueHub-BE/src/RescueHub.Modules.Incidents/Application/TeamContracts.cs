@@ -30,3 +30,8 @@ public sealed record TeamSupportRequest(
 public sealed record TeamReliefStatusRequest(
     string StatusCode,
     string? Note);
+
+public sealed record TeamSelfStatusRequest(
+    string StatusCode,
+    string? Note,
+    Guid? TeamId);

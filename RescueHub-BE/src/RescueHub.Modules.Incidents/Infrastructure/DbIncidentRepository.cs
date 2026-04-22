@@ -26,6 +26,14 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         "ABORTED"
     ];
 
+    private static readonly HashSet<string> TeamStatusCodes =
+    [
+        "AVAILABLE",
+        "BUSY",
+        "OFFLINE",
+        "MAINTENANCE"
+    ];
+
     public async Task<object> List()
     {
         var items = await dbContext.incidents
@@ -1545,6 +1553,69 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         }).ToList();
 
         return new { items };
+    }
+
+    public async Task<object> TeamUpdateMyStatus(Guid leaderUserId, TeamSelfStatusRequest request)
+    {
+        if (request is null)
+        {
+            throw new InvalidOperationException("Request khong duoc de trong.");
+        }
+
+        var statusCode = request.StatusCode?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(statusCode))
+        {
+            throw new InvalidOperationException("StatusCode la bat buoc.");
+        }
+
+        if (!TeamStatusCodes.Contains(statusCode))
+        {
+            throw new InvalidOperationException("StatusCode khong hop le. Chi nhan AVAILABLE, BUSY, OFFLINE, MAINTENANCE.");
+        }
+
+        var teams = await dbContext.teams
+            .Where(x => x.leader_user_id == leaderUserId)
+            .ToListAsync();
+
+        if (teams.Count == 0)
+        {
+            throw new InvalidOperationException("Tai khoan hien tai khong la leader cua team nao.");
+        }
+
+        team targetTeam;
+        if (request.TeamId.HasValue)
+        {
+            targetTeam = teams.FirstOrDefault(x => x.id == request.TeamId.Value)
+                ?? throw new InvalidOperationException("Khong tim thay team cua leader voi TeamId da cung cap.");
+        }
+        else if (teams.Count == 1)
+        {
+            targetTeam = teams[0];
+        }
+        else
+        {
+            throw new InvalidOperationException("Tai khoan dang la leader cua nhieu team. Vui long cung cap TeamId.");
+        }
+
+        targetTeam.status_code = statusCode;
+
+        var note = NormalizeOptionalText(request.Note);
+        if (note is not null)
+        {
+            targetTeam.notes = note;
+        }
+
+        var now = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            teamId = targetTeam.id,
+            teamCode = targetTeam.code,
+            statusCode = targetTeam.status_code,
+            note = targetTeam.notes,
+            updatedAt = now
+        };
     }
 
     public Task<object> GetMissionActionCodes()

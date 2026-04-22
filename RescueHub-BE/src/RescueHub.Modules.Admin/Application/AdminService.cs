@@ -85,6 +85,9 @@ public sealed class AdminService(IAdminRepository repository) : IAdminService
     public async Task<object> GetReliefByStatusReport(DateTime? fromDateUtc, DateTime? toDateUtc)
         => await repository.GetReliefByStatusReport(fromDateUtc, toDateUtc);
 
+    public async Task<object> GetRescueReliefVolumeReport()
+        => await repository.GetRescueReliefVolumeReport();
+
     public async Task<object> GetHotspotsReport(DateTime? fromDateUtc, DateTime? toDateUtc, int topN)
         => await repository.GetHotspotsReport(fromDateUtc, toDateUtc, topN);
 }

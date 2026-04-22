@@ -168,4 +168,30 @@ public sealed class TeamController(IIncidentService service) : BaseApiController
             return BadRequestResponse<object>(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Team leader cap nhat trang thai doi cua minh.
+    /// </summary>
+    [HttpPost("status")]
+    public async Task<ActionResult<ApiResponse<object>>> UpdateMyTeamStatus([FromBody] TeamSelfStatusRequest request)
+    {
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (!Guid.TryParse(userIdValue, out var leaderUserId))
+        {
+            return BadRequestResponse<object>("Khong xac dinh duoc user dang nhap.");
+        }
+
+        try
+        {
+            return OkResponse<object>(
+                await service.TeamUpdateMyStatus(leaderUserId, request),
+                "Cap nhat trang thai team thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
 }

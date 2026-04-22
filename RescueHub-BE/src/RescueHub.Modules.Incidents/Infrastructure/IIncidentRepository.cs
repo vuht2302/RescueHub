@@ -51,4 +51,6 @@ public interface IIncidentRepository
     Task<object> TeamCreateSupportRequest(Guid missionId, TeamSupportRequest request);
 
     Task<object> TeamUpdateReliefDistributionStatus(Guid distributionId, TeamReliefStatusRequest request);
+
+    Task<object> TeamUpdateMyStatus(Guid leaderUserId, TeamSelfStatusRequest request);
 }

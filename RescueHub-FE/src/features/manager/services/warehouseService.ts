@@ -65,9 +65,7 @@ export interface WarehousePayload {
   warehouseName: string;
   statusCode: string;
   address: string;
-  location?: WarehouseLocation;
-  adminAreaId?: string;
-  managerId?: string;
+  location: WarehouseLocation;
 }
 
 export interface WarehouseListParams {

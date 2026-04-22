@@ -3,7 +3,6 @@ namespace RescueHub.Modules.Incidents.Application;
 public sealed record CreateWarehouseRequest(
     string WarehouseCode,
     string WarehouseName,
-    Guid? AdminAreaId,
     string Address,
     GeoPointRequest? Location,
     Guid? ManagerUserId,
@@ -12,7 +11,6 @@ public sealed record CreateWarehouseRequest(
 public sealed record UpdateWarehouseRequest(
     string WarehouseCode,
     string WarehouseName,
-    Guid? AdminAreaId,
     string Address,
     GeoPointRequest? Location,
     Guid? ManagerUserId,

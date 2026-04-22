@@ -94,6 +94,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         var name = NormalizeRequired(request.WarehouseName, nameof(request.WarehouseName));
         var address = NormalizeRequired(request.Address, nameof(request.Address));
         var status = NormalizeCode(request.StatusCode);
+        var adminAreaId = await ResolveAdminAreaIdFromLocation(request.Location);
         EnsureAllowed(status, WarehouseStatusCodes, nameof(request.StatusCode));
 
         if (await dbContext.warehouses.AnyAsync(x => x.code == code))
@@ -101,7 +102,6 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             throw new InvalidOperationException($"Ma kho da ton tai: {code}");
         }
 
-        await EnsureAdminAreaExists(request.AdminAreaId);
         await EnsureUserExists(request.ManagerUserId);
 
         var entity = new warehouse
@@ -109,7 +109,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             id = Guid.NewGuid(),
             code = code,
             name = name,
-            admin_area_id = request.AdminAreaId,
+            admin_area_id = adminAreaId,
             address_text = address,
             geom = ToPointOrNull(request.Location),
             manager_user_id = request.ManagerUserId,
@@ -154,6 +154,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         var name = NormalizeRequired(request.WarehouseName, nameof(request.WarehouseName));
         var address = NormalizeRequired(request.Address, nameof(request.Address));
         var status = NormalizeCode(request.StatusCode);
+        var adminAreaId = await ResolveAdminAreaIdFromLocation(request.Location);
         EnsureAllowed(status, WarehouseStatusCodes, nameof(request.StatusCode));
 
         if (await dbContext.warehouses.AnyAsync(x => x.id != warehouseId && x.code == code))
@@ -161,12 +162,11 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             throw new InvalidOperationException($"Ma kho da ton tai: {code}");
         }
 
-        await EnsureAdminAreaExists(request.AdminAreaId);
         await EnsureUserExists(request.ManagerUserId);
 
         warehouse.code = code;
         warehouse.name = name;
-        warehouse.admin_area_id = request.AdminAreaId;
+        warehouse.admin_area_id = adminAreaId;
         warehouse.address_text = address;
         warehouse.geom = ToPointOrNull(request.Location);
         warehouse.manager_user_id = request.ManagerUserId;
@@ -1975,6 +1975,36 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         return fallback.id;
     }
 
+    private async Task<Guid?> ResolveAdminAreaIdFromLocation(GeoPointRequest? location)
+    {
+        if (location is null)
+        {
+            return null;
+        }
+
+        var lat = location.Lat;
+        var lng = location.Lng;
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180)
+        {
+            throw new InvalidOperationException("Toa do khong hop le.");
+        }
+
+        var point = new Point((double)lng, (double)lat) { SRID = 4326 };
+
+        var areas = await dbContext.admin_areas
+            .AsNoTracking()
+            .Where(x => x.geom != null)
+            .Select(x => new { x.id, x.level_code, x.geom })
+            .ToListAsync();
+
+        var matched = areas
+            .Where(x => x.geom != null && x.geom.Contains(point))
+            .OrderBy(x => AdminAreaPriority(x.level_code))
+            .FirstOrDefault();
+
+        return matched?.id;
+    }
+
     private async Task EnsureAdminAreaExists(Guid? adminAreaId)
     {
         if (!adminAreaId.HasValue)
@@ -2104,6 +2134,15 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 200);
         return (normalizedPage, normalizedPageSize);
     }
+
+    private static int AdminAreaPriority(string? levelCode)
+        => levelCode switch
+        {
+            "WARD" => 0,
+            "DISTRICT" => 1,
+            "PROVINCE" => 2,
+            _ => 9
+        };
 
     private static Point? ToPointOrNull(GeoPointRequest? point)
     {

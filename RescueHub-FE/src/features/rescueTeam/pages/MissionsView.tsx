@@ -14,7 +14,6 @@ import {
   requestMissionAbort,
   respondToMission,
   getTeamMissionDetail,
-  UpdateMissionStatusRequest,
 } from "../services/teamMissionService";
 import {
   MissionStatus,
@@ -45,11 +44,11 @@ const mapBackendStatusToUiStatus = (
   const normalizedResponseStatus = teamResponseStatus?.toUpperCase();
 
   if (normalizedStatusCode === "COMPLETED") {
-    return "Đã hoàn tất";
+    return "Hoàn thành";
   }
 
   if (normalizedStatusCode === "RESCUING") {
-    return "Đang xử lý";
+    return "Đang cứu hộ";
   }
 
   if (
@@ -105,47 +104,47 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   const [abortDetailNote, setAbortDetailNote] = useState("");
   const [isAbortSubmitting, setIsAbortSubmitting] = useState(false);
   const [abortError, setAbortError] = useState<string | null>(null);
-const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
-const [supportMissionId, setSupportMissionId] = useState<string | null>(null);
-const [supportTypeCode, setSupportTypeCode] = useState("MEDICAL");
-const [supportDetailNote, setSupportDetailNote] = useState("");
-const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
-const [supportError, setSupportError] = useState<string | null>(null);
-const openSupportModal = (missionId: string) => {
-  setSupportMissionId(missionId);
-  setSupportTypeCode("MEDICAL");
-  setSupportDetailNote("");
-  setSupportError(null);
-  setIsSupportModalOpen(true);
-};
-const handleSubmitSupportRequest = async () => {
-  if (!supportMissionId) return;
-
-  if (!supportDetailNote.trim()) {
-    setSupportError("Vui lòng nhập nội dung hỗ trợ");
-    return;
-  }
-
-  try {
-    setIsSubmittingSupport(true);
-    setSupportError(null);
-
-    await createSupportRequest(supportMissionId, {
-      supportTypeCode,
-      detailNote: supportDetailNote,
-    });
-
-    setIsSupportModalOpen(false);
-    setSupportMissionId(null);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [supportMissionId, setSupportMissionId] = useState<string | null>(null);
+  const [supportTypeCode, setSupportTypeCode] = useState("MEDICAL");
+  const [supportDetailNote, setSupportDetailNote] = useState("");
+  const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
+  const [supportError, setSupportError] = useState<string | null>(null);
+  const openSupportModal = (missionId: string) => {
+    setSupportMissionId(missionId);
+    setSupportTypeCode("MEDICAL");
     setSupportDetailNote("");
+    setSupportError(null);
+    setIsSupportModalOpen(true);
+  };
+  const handleSubmitSupportRequest = async () => {
+    if (!supportMissionId) return;
 
-    alert("Gửi yêu cầu hỗ trợ thành công");
-  } catch (err: any) {
-    setSupportError(err.message || "Gửi thất bại");
-  } finally {
-    setIsSubmittingSupport(false);
-  }
-};
+    if (!supportDetailNote.trim()) {
+      setSupportError("Vui lòng nhập nội dung hỗ trợ");
+      return;
+    }
+
+    try {
+      setIsSubmittingSupport(true);
+      setSupportError(null);
+
+      await createSupportRequest(supportMissionId, {
+        supportTypeCode,
+        detailNote: supportDetailNote,
+      });
+
+      setIsSupportModalOpen(false);
+      setSupportMissionId(null);
+      setSupportDetailNote("");
+
+      alert("Gửi yêu cầu hỗ trợ thành công");
+    } catch (err: any) {
+      setSupportError(err.message || "Gửi thất bại");
+    } finally {
+      setIsSubmittingSupport(false);
+    }
+  };
   const loadTeamMissions = async () => {
     setIsLoading(true);
     setLoadError(null);
@@ -352,13 +351,13 @@ const handleSubmitSupportRequest = async () => {
   };
 
   return (
-    <div className="col-span-1 xl:col-span-2 rounded-2xl bg-white border border-[#c8ced6] p-6 overflow-auto">
+    <div className="col-span-1 xl:col-span-2 rounded-xl bg-white border border-gray-200 p-6 overflow-auto shadow-sm">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-black text-blue-950 font-primary">
             Nhiệm vụ của đội
           </h2>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <p className="text-sm text-gray-500 mt-1">
             Xem nhanh mục tiêu, vị trí, mô tả hiện trường, nhân sự và phương
             tiện được gán cho từng nhiệm vụ.
           </p>
@@ -369,7 +368,7 @@ const handleSubmitSupportRequest = async () => {
             void loadTeamMissions();
           }}
           disabled={isLoading}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#c7ced7] bg-white px-3 py-2 text-sm font-semibold text-on-surface hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
         >
           <RefreshCw
             size={14}
@@ -380,11 +379,11 @@ const handleSubmitSupportRequest = async () => {
       </div>
 
       {isLoading ? (
-        <div className="rounded-2xl bg-white border border-[#c8ced6] p-6 shadow-md min-h-[420px] flex items-center justify-center text-sm text-on-surface-variant">
+        <div className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm min-h-105 flex items-center justify-center text-sm text-gray-500">
           Đang tải dữ liệu nhiệm vụ...
         </div>
       ) : loadError ? (
-        <div className="rounded-2xl bg-red-50 border border-red-200 p-6 min-h-[420px] flex flex-col items-center justify-center text-sm text-red-700 gap-3">
+        <div className="rounded-xl bg-red-50 border border-red-200 p-6 min-h-105 flex flex-col items-center justify-center text-sm text-red-700 gap-3">
           <AlertCircle size={20} />
           <p className="font-semibold">{loadError}</p>
           <button
@@ -398,7 +397,7 @@ const handleSubmitSupportRequest = async () => {
           </button>
         </div>
       ) : missions.length === 0 ? (
-        <div className="rounded-2xl border border-[#c8ced6] p-6 min-h-[420px] flex items-center justify-center text-sm text-on-surface-variant">
+        <div className="rounded-xl border border-gray-200 p-6 min-h-105 flex items-center justify-center text-sm text-gray-500">
           Chưa có nhiệm vụ nào.
         </div>
       ) : (
@@ -428,10 +427,10 @@ const handleSubmitSupportRequest = async () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-[#c7ced7]">
+          <div className="overflow-x-auto rounded-xl border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-[#f0f2f5] text-on-surface-variant">
-                <tr className="text-left border-b border-[#c7ced7]">
+              <thead className="bg-gray-50 text-gray-600">
+                <tr className="text-left border-b border-gray-200">
                   <th className="px-4 py-3 font-primary font-bold">
                     Mã nhiệm vụ
                   </th>
@@ -456,22 +455,22 @@ const handleSubmitSupportRequest = async () => {
                     <tr
                       key={mission.missionId}
                       onClick={() => setSelectedMissionId(mission.missionId)}
-                      className={`border-t border-[#c7ced7] cursor-pointer ${
-                        isSelected ? "bg-blue-50" : "hover:bg-[#f9fafb]"
+                      className={`border-t border-gray-200 cursor-pointer ${
+                        isSelected ? "bg-blue-50" : "hover:bg-gray-50"
                       }`}
                     >
                       <td className="px-4 py-3 font-primary font-black text-blue-950">
                         {mission.missionCode}
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-semibold text-on-surface">
+                        <p className="font-semibold text-gray-800">
                           {mission.objective}
                         </p>
-                        <p className="text-xs text-on-surface-variant mt-1">
+                        <p className="text-xs text-gray-500 mt-1">
                           {mission.teams[0]?.teamName ?? ""}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-sm text-on-surface-variant">
+                      <td className="px-4 py-3 text-sm text-gray-500">
                         {mission.incidentCode}
                       </td>
                       <td className="px-4 py-3">
@@ -502,7 +501,7 @@ const handleSubmitSupportRequest = async () => {
                               disabled={
                                 acceptingMissionId === mission.missionId
                               }
-                              className="text-xs bg-blue-950 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-900 disabled:bg-slate-400 flex items-center gap-1 transition-colors"
+                              className="text-xs bg-blue-950 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-900 disabled:bg-gray-400 flex items-center gap-1 transition-colors"
                             >
                               {acceptingMissionId === mission.missionId ? (
                                 <>
@@ -513,16 +512,16 @@ const handleSubmitSupportRequest = async () => {
                                 "Nhận và xem"
                               )}
                             </button>
- <button
-    onClick={(e) => {
-      e.stopPropagation();
-      openSupportModal(mission.missionId);
-    }}
-    className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
-    title="Yêu cầu hỗ trợ"
-  >
-    ⚠️
-  </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openSupportModal(mission.missionId);
+                              }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
+                              title="Yêu cầu hỗ trợ"
+                            >
+                              ⚠️
+                            </button>
                             <button
                               type="button"
                               onClick={(event) => {
@@ -600,7 +599,7 @@ const handleSubmitSupportRequest = async () => {
                     setCurrentPage((prev) => Math.max(1, prev - 1))
                   }
                   disabled={currentPage === 1}
-                  className="rounded-lg border border-[#c7ced7] px-3 py-1.5 text-sm font-semibold text-on-surface disabled:opacity-50"
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 disabled:opacity-50 hover:bg-gray-50"
                 >
                   Trước
                 </button>
@@ -609,7 +608,7 @@ const handleSubmitSupportRequest = async () => {
                   page === "..." ? (
                     <span
                       key={`ellipsis-${index}`}
-                      className="px-2 text-sm text-on-surface-variant"
+                      className="px-2 text-sm text-gray-500"
                     >
                       ...
                     </span>
@@ -621,7 +620,7 @@ const handleSubmitSupportRequest = async () => {
                       className={`min-w-9 rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
                         currentPage === page
                           ? "border-blue-900 bg-blue-950 text-white"
-                          : "border-[#c7ced7] text-on-surface hover:bg-[#f3f4f6]"
+                          : "border-gray-200 text-gray-700 hover:bg-gray-50"
                       }`}
                     >
                       {page}
@@ -635,7 +634,7 @@ const handleSubmitSupportRequest = async () => {
                     setCurrentPage((prev) => Math.min(totalPages, prev + 1))
                   }
                   disabled={currentPage === totalPages}
-                  className="rounded-lg border border-[#c7ced7] px-3 py-1.5 text-sm font-semibold text-on-surface disabled:opacity-50"
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 disabled:opacity-50 hover:bg-gray-50"
                 >
                   Sau
                 </button>
@@ -647,10 +646,7 @@ const handleSubmitSupportRequest = async () => {
 
       {acceptError && (
         <div className="fixed bottom-5 left-5 right-5 md:left-auto md:right-5 md:w-96 z-50 rounded-lg bg-red-50 border border-red-200 p-4 flex items-start gap-3">
-          <AlertCircle
-            size={20}
-            className="text-red-600 flex-shrink-0 mt-0.5"
-          />
+          <AlertCircle size={20} className="text-red-600 shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-red-700">
               Lỗi chấp nhận nhiệm vụ
@@ -692,29 +688,28 @@ const handleSubmitSupportRequest = async () => {
 
       {isAbortModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-[#c8ced6] bg-[#d7dce2] p-5 md:p-6 shadow-2xl">
+          <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5 md:p-6 shadow-xl">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-lg font-black tracking-[0.08em] text-[#1f2329] font-primary uppercase">
+              <h3 className="text-lg font-black text-gray-800 font-primary uppercase tracking-wide">
                 Yêu cầu hủy nhiệm vụ
               </h3>
               <button
                 type="button"
                 onClick={() => setIsAbortModalOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white border border-[#d6dde6] text-gray-600 hover:bg-gray-100"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-600 hover:bg-gray-200"
                 aria-label="Đóng modal hủy nhiệm vụ"
               >
                 <X size={18} />
               </button>
-              
             </div>
 
             <div className="mt-4 space-y-3">
-              <label className="block text-sm font-semibold text-[#1f2329]">
+              <label className="block text-sm font-semibold text-gray-700">
                 Lý do hủy
                 <select
                   value={abortReasonCode}
                   onChange={(event) => setAbortReasonCode(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-[#c7ced7] bg-[#eef2f5] px-3 py-2.5 text-sm"
+                  className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="RESOURCE_LIMIT">Thiếu nguồn lực</option>
                   <option value="UNSAFE_CONDITION">
@@ -724,95 +719,96 @@ const handleSubmitSupportRequest = async () => {
                   <option value="OTHER">Lý do khác</option>
                 </select>
               </label>
-
-              <label className="block text-sm font-semibold text-[#1f2329]">
+              <label className="block text-sm font-semibold text-gray-700">
                 Chi tiết lý do hủy
                 <textarea
                   value={abortDetailNote}
                   onChange={(event) => setAbortDetailNote(event.target.value)}
                   rows={4}
                   placeholder="Mô tả lý do cần hủy nhiệm vụ..."
-                  className="mt-2 w-full resize-none rounded-xl border border-[#c7ced7] bg-[#eef2f5] px-3 py-2.5 text-sm"
+                  className="mt-2 w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </label>
-
               {abortError && (
                 <p className="text-sm font-semibold text-red-700">
                   {abortError}
                 </p>
               )}
-
               <button
                 type="button"
                 onClick={() => {
                   void handleSubmitAbortRequest();
                 }}
                 disabled={isAbortSubmitting}
-                className="mt-2 w-full rounded-2xl bg-[#c9141b] px-4 py-3 text-2xl font-black text-white hover:bg-[#b01017] disabled:bg-slate-400"
               >
-                {isAbortSubmitting ? "Đang gửi..." : "Gửi yêu cầu hủy"}
+                Submit
               </button>
+              ;
             </div>
           </div>
         </div>
       )}
+
       {isSupportModalOpen && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-    <div className="w-full max-w-lg rounded-2xl border border-[#c8ced6] bg-white p-6 shadow-2xl">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-black text-blue-950">
-          Yêu cầu hỗ trợ
-        </h3>
-        <button onClick={() => setIsSupportModalOpen(false)}>
-          <X size={18} />
-        </button>
-      </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5 md:p-6 shadow-xl">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-black text-gray-800 font-primary uppercase tracking-wide">
+                Yêu cầu hỗ trợ
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsSupportModalOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-600 hover:bg-gray-200"
+                aria-label="Đóng modal hỗ trợ"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-      <div className="mt-4 space-y-4">
-        {/* TYPE */}
-        <div>
-          <label className="text-sm font-semibold">
-            Loại hỗ trợ
-          </label>
-          <select
-            value={supportTypeCode}
-            onChange={(e) => setSupportTypeCode(e.target.value)}
-            className="mt-1 w-full border rounded-lg px-3 py-2"
-          >
-            <option value="MEDICAL">Y tế</option>
-            <option value="RESCUE">Cứu hộ</option>
-            <option value="SUPPLY">Tiếp tế</option>
-          </select>
+            <div className="mt-4 space-y-3">
+              <label className="block text-sm font-semibold text-gray-700">
+                Loại hỗ trợ
+                <select
+                  value={supportTypeCode}
+                  onChange={(event) => setSupportTypeCode(event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="MEDICAL">Y tế</option>
+                  <option value="TECHNICAL">Công nghệ</option>
+                  <option value="LOGISTICS">Vận chuyển</option>
+                  <option value="OTHER">Lý do khác</option>
+                </select>
+              </label>
+              <label className="block text-sm font-semibold text-gray-700">
+                Nội dung hỗ trợ
+                <textarea
+                  value={supportDetailNote}
+                  onChange={(event) => setSupportDetailNote(event.target.value)}
+                  rows={4}
+                  placeholder="Mô tả nội dung hỗ trợ..."
+                  className="mt-2 w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+              {supportError && (
+                <p className="text-sm font-semibold text-red-700">
+                  {supportError}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  void handleSubmitSupportRequest();
+                }}
+                disabled={isSubmittingSupport}
+              >
+                Submit
+              </button>
+              ;
+            </div>
+          </div>
         </div>
-
-        {/* NOTE */}
-        <div>
-          <label className="text-sm font-semibold">
-            Nội dung
-          </label>
-          <textarea
-            value={supportDetailNote}
-            onChange={(e) => setSupportDetailNote(e.target.value)}
-            className="mt-1 w-full border rounded-lg px-3 py-2"
-            rows={4}
-          />
-        </div>
-
-        {supportError && (
-          <p className="text-red-500 text-sm">{supportError}</p>
-        )}
-
-        <button
-          onClick={handleSubmitSupportRequest}
-          disabled={isSubmittingSupport}
-          className="w-full bg-blue-950 text-white py-3 rounded-xl font-bold"
-        >
-          {isSubmittingSupport ? "Đang gửi..." : "Gửi yêu cầu"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 };

@@ -329,20 +329,6 @@ export const Sidebar: React.FC = () => {
           })}
         </nav>
 
-        {/* Bottom Action */}
-        <div className="p-4 border-t border-gray-200">
-          <button
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"
-            style={{
-              backgroundColor: "var(--color-blue-950)",
-              fontFamily: "var(--font-primary)",
-            }}
-          >
-            <Rocket size={18} />
-            Triển khai đơn vị
-          </button>
-        </div>
-
         {/* Logout */}
         <div className="p-4 border-t border-gray-200">
           <button
@@ -415,20 +401,6 @@ export const Sidebar: React.FC = () => {
             );
           })}
         </nav>
-
-        {/* Bottom Action */}
-        <div className="p-4 border-t border-gray-200">
-          <button
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"
-            style={{
-              backgroundColor: "var(--color-blue-950)",
-              fontFamily: "var(--font-primary)",
-            }}
-          >
-            <Rocket size={18} />
-            Triển khai đơn vị
-          </button>
-        </div>
 
         {/* Logout */}
         <div className="p-4 border-t border-gray-200">

@@ -7,8 +7,10 @@ import {
   getMissionByStatus,
   getReliefByStatus,
   getHotspots,
+  type HotspotItem,
 } from "@/src/shared/services/report.service";
 import { DonutChart } from "@/src/shared/components/DonutChart";
+import { IncidentHotspotMap } from "./IncidentHotspotMap";
 import { AlertTriangle, MapPin, TrendingUp, Flame } from "lucide-react";
 
 const ReportDashboard = () => {
@@ -218,7 +220,7 @@ const ReportDashboard = () => {
         </div>
       </div>
 
-      {/* HOTSPOTS - Redesigned with visual cards */}
+      {/* HOTSPOTS MAP - Visualize incident hotspots on map */}
       <div className="bg-white p-6 rounded-xl shadow">
         <div className="flex items-center gap-2 mb-5">
           <Flame className="w-6 h-6 text-red-600" />
@@ -227,87 +229,12 @@ const ReportDashboard = () => {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {hotspots?.items?.map((h: any, index: number) => {
-            const percentage =
-              maxIncidentCount > 0
-                ? (h.incidentCount / maxIncidentCount) * 100
-                : 0;
-
-            // Color based on ranking
-            const getRankColor = (rank: number) => {
-              if (rank === 0) return "from-red-600 to-red-500";
-              if (rank === 1) return "from-orange-500 to-orange-400";
-              if (rank === 2) return "from-yellow-500 to-yellow-400";
-              return "from-gray-400 to-gray-300";
-            };
-
-            const getRankIcon = (rank: number) => {
-              if (rank === 0) return "🔥";
-              if (rank === 1) return "⚠️";
-              if (rank === 2) return "📍";
-              return "📍";
-            };
-
-            return (
-              <div
-                key={index}
-                className="relative bg-gradient-to-br from-gray-50 to-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
-              >
-                {/* Rank Badge */}
-                <div className="absolute -top-2 -left-2 w-8 h-8 rounded-full bg-gradient-to-br from-red-600 to-red-500 text-white flex items-center justify-center font-bold text-sm shadow-lg">
-                  {index + 1}
-                </div>
-
-                <div className="ml-4">
-                  {/* Location Name */}
-                  <div className="flex items-start gap-2 mb-2">
-                    <span className="text-lg">{getRankIcon(index)}</span>
-                    <h3 className="font-semibold text-gray-800 leading-tight">
-                      {h.adminAreaName || h.fallbackAddress || "Không xác định"}
-                    </h3>
-                  </div>
-
-                  {/* Incident Count with Visual Bar */}
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm text-gray-600">Số sự cố</span>
-                      <span className="text-2xl font-black text-red-600">
-                        {h.incidentCount}
-                      </span>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full bg-gradient-to-r ${getRankColor(index)} rounded-full transition-all duration-500`}
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-
-                    {/* Percentage Label */}
-                    <div className="flex justify-between mt-1">
-                      <span className="text-xs text-gray-500">
-                        Mức độ nghiêm trọng
-                      </span>
-                      <span className="text-xs font-medium text-gray-600">
-                        {percentage.toFixed(0)}% so với cao nhất
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Empty State */}
-        {(!hotspots?.items || hotspots.items.length === 0) && (
-          <div className="text-center py-8 text-gray-500">
-            <MapPin className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>Chưa có dữ liệu hotspots</p>
-          </div>
-        )}
+        <IncidentHotspotMap
+          hotspots={hotspots?.items || []}
+          isLoading={loading}
+          onRefresh={fetchData}
+          className="h-[600px]"
+        />
       </div>
     </div>
   );

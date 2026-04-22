@@ -614,7 +614,6 @@ export const TransactionTab: React.FC = () => {
                 "Kho",
                 "Tham chiếu",
                 "Thời gian",
-                "Số dòng",
                 "Ghi chú",
                 "",
               ].map((h) => (
@@ -664,11 +663,7 @@ export const TransactionTab: React.FC = () => {
                   <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
                     {new Date(tx.happenedAt).toLocaleString("vi-VN")}
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="font-bold text-gray-700">
-                      {tx.lineCount ?? 0}
-                    </span>
-                  </td>
+
                   <td className="px-4 py-3 text-gray-500 max-w-[160px] truncate text-xs">
                     {tx.note || "—"}
                   </td>

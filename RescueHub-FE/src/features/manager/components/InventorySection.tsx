@@ -5,15 +5,7 @@ import { StockTab } from "./StockTab";
 import { ItemTab } from "./ItemTab";
 import { TransactionTab } from "./TransactionTab";
 
-type TabId =
-  | "warehouse"
-  | "stock"
-  | "item"
-  | "lot"
-  | "transaction"
-  | "relief-issue"
-  | "household"
-  | "distribution";
+type TabId = "warehouse" | "stock" | "item" | "lot" | "transaction";
 
 interface Tab {
   id: TabId;

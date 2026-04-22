@@ -2052,6 +2052,181 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         };
     }
 
+    public async Task<object> TeamUpdateReliefDistributionStatus(Guid distributionId, TeamReliefStatusRequest request)
+    {
+        if (request is null)
+        {
+            throw new InvalidOperationException("Request khong duoc de trong.");
+        }
+
+        var statusCode = request.StatusCode?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(statusCode))
+        {
+            throw new InvalidOperationException("StatusCode la bat buoc.");
+        }
+
+        if (statusCode is not ("PENDING" or "COMPLETED" or "CANCELLED"))
+        {
+            throw new InvalidOperationException("StatusCode khong hop le. Chi nhan PENDING, COMPLETED, CANCELLED.");
+        }
+
+        var distribution = await dbContext.distributions
+            .Include(x => x.household)
+            .Include(x => x.distribution_ack)
+            .FirstOrDefaultAsync(x => x.id == distributionId);
+
+        if (distribution is null)
+        {
+            throw new InvalidOperationException("Khong tim thay phieu phan phoi.");
+        }
+
+        var now = DateTime.UtcNow;
+        distribution.status_code = statusCode;
+
+        var note = NormalizeOptionalText(request.Note);
+        if (note is not null)
+        {
+            distribution.note = note;
+        }
+
+        relief_request? fulfilledReliefRequest = null;
+        if (statusCode == "COMPLETED")
+        {
+            var ack = distribution.distribution_ack;
+            if (ack is null)
+            {
+                ack = new distribution_ack
+                {
+                    id = Guid.NewGuid(),
+                    distribution_id = distribution.id,
+                    ack_method_code = distribution.ack_method_code,
+                    ack_code = null,
+                    ack_note = note,
+                    ack_at = now
+                };
+                dbContext.distribution_acks.Add(ack);
+            }
+            else
+            {
+                ack.ack_note = note;
+                ack.ack_at = now;
+            }
+
+            fulfilledReliefRequest = await ResolveReliefRequestForDistribution(distribution);
+            if (fulfilledReliefRequest is not null)
+            {
+                fulfilledReliefRequest.status_code = "FULFILLED";
+                fulfilledReliefRequest.updated_at = now;
+
+                if (note is not null)
+                {
+                    fulfilledReliefRequest.note = note;
+                }
+            }
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            distributionId = distribution.id,
+            distributionCode = distribution.code,
+            statusCode = distribution.status_code,
+            updatedAt = now,
+            reliefRequest = fulfilledReliefRequest is null
+                ? null
+                : new
+                {
+                    reliefRequestId = fulfilledReliefRequest.id,
+                    reliefRequestCode = fulfilledReliefRequest.code,
+                    statusCode = fulfilledReliefRequest.status_code,
+                    statusName = "Da nhan"
+                }
+        };
+    }
+
+    private async Task<relief_request?> ResolveReliefRequestForDistribution(distribution distribution)
+    {
+        IQueryable<relief_request> query = dbContext.relief_requests;
+
+        if (distribution.linked_incident_id.HasValue)
+        {
+            var incidentId = distribution.linked_incident_id.Value;
+            query = query.Where(x => x.linked_incident_id == incidentId);
+        }
+        else
+        {
+            var phone = distribution.household.phone;
+            if (string.IsNullOrWhiteSpace(phone))
+            {
+                return null;
+            }
+
+            query = query.Where(x => x.requester_phone == phone);
+        }
+
+        var candidates = await query
+            .OrderByDescending(x => x.updated_at)
+            .ThenByDescending(x => x.created_at)
+            .Take(30)
+            .ToListAsync();
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        var normalizedHouseholdPhone = NormalizePhoneForMatching(distribution.household.phone);
+        if (!string.IsNullOrWhiteSpace(normalizedHouseholdPhone))
+        {
+            candidates = candidates
+                .Where(x => string.Equals(NormalizePhoneForMatching(x.requester_phone), normalizedHouseholdPhone, StringComparison.Ordinal))
+                .ToList();
+        }
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        return candidates
+            .Where(x => x.status_code != "FULFILLED")
+            .OrderByDescending(x => x.updated_at)
+            .ThenByDescending(x => x.created_at)
+            .FirstOrDefault()
+            ?? candidates
+                .OrderByDescending(x => x.updated_at)
+                .ThenByDescending(x => x.created_at)
+                .First();
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static string NormalizePhoneForMatching(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var digits = new string(value.Where(char.IsDigit).ToArray());
+        if (digits.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if (digits.StartsWith("84", StringComparison.Ordinal) && digits.Length >= 10)
+        {
+            digits = "0" + digits[2..];
+        }
+
+        return digits;
+    }
+
     private static decimal EstimateDistanceKm(decimal? lat1, decimal? lng1, double? lat2, double? lng2)
     {
         if (!lat1.HasValue || !lng1.HasValue || !lat2.HasValue || !lng2.HasValue)

@@ -68,4 +68,7 @@ public sealed class IncidentService(IIncidentRepository repository) : IIncidentS
 
     public Task<object> TeamCreateSupportRequest(Guid missionId, TeamSupportRequest request)
         => repository.TeamCreateSupportRequest(missionId, request);
+
+    public Task<object> TeamUpdateReliefDistributionStatus(Guid distributionId, TeamReliefStatusRequest request)
+        => repository.TeamUpdateReliefDistributionStatus(distributionId, request);
 }

@@ -126,14 +126,29 @@ public sealed record CreateDistributionRequest(
 public sealed record DistributionAckRequest(
     string? Note);
 
+public sealed record UpdateReliefRequestStatusRequest(
+    string StatusCode,
+    string? Note);
+
+public sealed record ReliefPointLocationRequest(
+    decimal Lat,
+    decimal Lng,
+    string AddressText);
+
 public sealed record CreateReliefPointRequest(
     string Code,
     string Name,
     Guid CampaignId,
     Guid? AdminAreaId,
-    string AddressText,
-    GeoPointRequest Location,
+    ReliefPointLocationRequest Location,
     Guid? ManagerUserId,
-    string StatusCode,
-    DateTime? OpensAt,
-    DateTime? ClosesAt);
+    string StatusCode);
+
+public sealed record UpdateReliefPointRequest(
+    string Code,
+    string Name,
+    Guid CampaignId,
+    Guid? AdminAreaId,
+    ReliefPointLocationRequest Location,
+    Guid? ManagerUserId,
+    string StatusCode);

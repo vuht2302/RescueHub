@@ -60,11 +60,19 @@ public interface IWarehouseManagementService
 
     Task<object> ListDistributions(Guid? campaignId, Guid? reliefPointId, string? statusCode, int page, int pageSize);
 
+    Task<object> UpdateReliefRequestStatus(Guid reliefRequestId, UpdateReliefRequestStatusRequest request);
+
     Task<object> GetDistributionOptions();
 
     Task<object> ListReliefPoints(string? keyword, string? statusCode);
 
     Task<object> CreateReliefPoint(CreateReliefPointRequest request);
+
+    Task<object> GetReliefPoint(Guid reliefPointId);
+
+    Task<object> UpdateReliefPoint(Guid reliefPointId, UpdateReliefPointRequest request);
+
+    Task<object> DeleteReliefPoint(Guid reliefPointId);
 
     Task<object> GetDistribution(Guid distributionId);
 

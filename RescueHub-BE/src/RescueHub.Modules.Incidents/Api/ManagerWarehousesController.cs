@@ -386,6 +386,22 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
         => OkResponse<object>(await service.ListDistributions(campaignId, reliefPointId, statusCode, page, pageSize), "Lay danh sach phan phoi thanh cong");
 
     /// <summary>
+    /// Cap nhat trang thai yeu cau cuu tro.
+    /// </summary>
+    [HttpPut("relief-requests/{reliefRequestId:guid}/status")]
+    public async Task<ActionResult<ApiResponse<object>>> UpdateReliefRequestStatus([FromRoute] Guid reliefRequestId, [FromBody] UpdateReliefRequestStatusRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.UpdateReliefRequestStatus(reliefRequestId, request), "Cap nhat trang thai yeu cau cuu tro thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Lay metadata tao phieu phan phoi (reliefPointId, ackMethodCode, campaign).
     /// </summary>
     [HttpGet("distributions/options")]
@@ -408,6 +424,54 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
         try
         {
             return OkResponse<object>(await service.CreateReliefPoint(request), "Tao diem cuu tro thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Lay chi tiet diem cuu tro.
+    /// </summary>
+    [HttpGet("relief-points/{reliefPointId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> GetReliefPoint([FromRoute] Guid reliefPointId)
+    {
+        try
+        {
+            return OkResponse<object>(await service.GetReliefPoint(reliefPointId), "Lay chi tiet diem cuu tro thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Cap nhat diem cuu tro.
+    /// </summary>
+    [HttpPut("relief-points/{reliefPointId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> UpdateReliefPoint([FromRoute] Guid reliefPointId, [FromBody] UpdateReliefPointRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.UpdateReliefPoint(reliefPointId, request), "Cap nhat diem cuu tro thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Xoa diem cuu tro (dong diem cuu tro theo nghiep vu).
+    /// </summary>
+    [HttpDelete("relief-points/{reliefPointId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteReliefPoint([FromRoute] Guid reliefPointId)
+    {
+        try
+        {
+            return OkResponse<object>(await service.DeleteReliefPoint(reliefPointId), "Xoa diem cuu tro thanh cong");
         }
         catch (InvalidOperationException ex)
         {

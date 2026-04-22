@@ -150,4 +150,22 @@ public sealed class TeamController(IIncidentService service) : BaseApiController
             return BadRequestResponse<object>(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Team cap nhat trang thai phan phoi cuu tro.
+    /// </summary>
+    [HttpPost("distributions/{distributionId:guid}/status")]
+    public async Task<ActionResult<ApiResponse<object>>> UpdateReliefDistributionStatus([FromRoute] Guid distributionId, [FromBody] TeamReliefStatusRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(
+                await service.TeamUpdateReliefDistributionStatus(distributionId, request),
+                "Cap nhat trang thai phan phoi cuu tro thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
 }

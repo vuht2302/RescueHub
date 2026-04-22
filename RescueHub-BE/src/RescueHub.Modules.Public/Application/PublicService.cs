@@ -308,7 +308,12 @@ public sealed class PublicService(
             {
                 reliefRequestId = x.id,
                 requestCode = x.code,
-                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                status = new
+                {
+                    code = x.status_code,
+                    name = x.status_code == "FULFILLED" ? "Da nhan" : x.status_code,
+                    color = (string?)null
+                },
                 householdCount = x.household_count,
                 note = x.note,
                 requestedAt = x.created_at,
@@ -418,7 +423,12 @@ public sealed class PublicService(
             {
                 reliefRequestId = x.id,
                 requestCode = x.code,
-                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                status = new
+                {
+                    code = x.status_code,
+                    name = x.status_code == "FULFILLED" ? "Da nhan" : x.status_code,
+                    color = (string?)null
+                },
                 householdCount = x.household_count,
                 note = x.note,
                 requestedAt = x.created_at,
@@ -700,7 +710,12 @@ public sealed class PublicService(
         return new
         {
             requestCode = reliefRequest.code,
-            status = new { code = reliefRequest.status_code, name = reliefRequest.status_code, color = "#F59E0B" },
+            status = new
+            {
+                code = reliefRequest.status_code,
+                name = string.Equals(reliefRequest.status_code, "FULFILLED", StringComparison.OrdinalIgnoreCase) ? "Da nhan" : reliefRequest.status_code,
+                color = "#F59E0B"
+            },
             latestUpdate = reliefRequest.note,
             requestedAt = reliefRequest.created_at,
             items = reliefRequest.relief_request_items.Select(x => new

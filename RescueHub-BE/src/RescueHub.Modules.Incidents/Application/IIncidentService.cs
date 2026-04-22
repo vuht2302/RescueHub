@@ -47,4 +47,6 @@ public interface IIncidentService
     Task<object> TeamCreateAbortRequest(Guid missionId, TeamAbortRequest request);
 
     Task<object> TeamCreateSupportRequest(Guid missionId, TeamSupportRequest request);
+
+    Task<object> TeamUpdateReliefDistributionStatus(Guid distributionId, TeamReliefStatusRequest request);
 }

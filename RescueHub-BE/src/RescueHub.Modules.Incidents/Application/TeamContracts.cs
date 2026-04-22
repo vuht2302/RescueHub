@@ -26,3 +26,7 @@ public sealed record TeamAbortRequest(
 public sealed record TeamSupportRequest(
     string SupportTypeCode,
     string? DetailNote);
+
+public sealed record TeamReliefStatusRequest(
+    string StatusCode,
+    string? Note);

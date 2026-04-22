@@ -267,14 +267,19 @@ export async function getItems(token: string): Promise<Item[]> {
   return Array.isArray(data) ? data : (data as PagedResponse<Item>).items;
 }
 
-
-export async function getItemDetail(id: string, token: string): Promise<ItemDetail> {
+export async function getItemDetail(
+  id: string,
+  token: string,
+): Promise<ItemDetail> {
   return apiFetch<ItemDetail>(`${BASE}/items/${id}`, {
     headers: authHeaders(token),
   });
 }
 
-export async function createItem(payload: ItemPayload, token: string): Promise<Item> {
+export async function createItem(
+  payload: ItemPayload,
+  token: string,
+): Promise<Item> {
   return apiFetch<Item>(`${BASE}/items`, {
     method: "POST",
     headers: authHeaders(token),
@@ -648,6 +653,8 @@ export interface RecipientLocation {
 export interface DistributionPayload {
   campaignId: string;
   reliefPointId: string;
+  teamId?: string;
+  reliefRequestId?: string;
   recipientName: string;
   recipientPhone: string;
   recipientLocation?: RecipientLocation;
@@ -797,4 +804,34 @@ export async function getDistributionOptions(
   return apiFetch<DistributionOptions>(`${BASE}/distributions/options`, {
     headers: authHeaders(token),
   });
+}
+
+// ─── Manager Teams ───────────────────────────────────────────────────────────
+export interface ManagerTeam {
+  id: string;
+  teamCode?: string;
+  teamName?: string;
+  name?: string;
+  status?: CodeName | { code?: string; name?: string; color?: string | null };
+}
+
+export interface TeamListParams {
+  statusCode?: string;
+  keyword?: string;
+}
+
+export async function getManagerTeams(
+  token: string,
+  params: TeamListParams = {},
+): Promise<ManagerTeam[]> {
+  const q = new URLSearchParams();
+  if (params.statusCode) q.set("statusCode", params.statusCode);
+  if (params.keyword) q.set("keyword", params.keyword);
+
+  const data = await apiFetch<ManagerTeam[] | PagedResponse<ManagerTeam>>(
+    `${BASE}/teams?${q.toString()}`,
+    { headers: authHeaders(token) },
+  );
+
+  return Array.isArray(data) ? data : data.items;
 }

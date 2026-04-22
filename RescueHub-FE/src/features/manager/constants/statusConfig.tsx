@@ -45,7 +45,8 @@ export function StatusBadge({
   );
 }
 
-export function formatDate(iso: string) {
+export function formatDate(iso?: string | null) {
+  if (!iso) return "--";
   try {
     return new Date(iso).toLocaleString("vi-VN", {
       day: "2-digit",

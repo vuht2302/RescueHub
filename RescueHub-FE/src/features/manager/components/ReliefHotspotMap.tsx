@@ -1252,7 +1252,8 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                   <option value="">Chọn trạng thái</option>
                   {statusOptions.map((status) => (
                     <option key={status.code} value={status.code}>
-                      {status.name} ({status.code})
+                      {status.name}
+                      {/* ({status.code}) */}
                     </option>
                   ))}
                 </select>

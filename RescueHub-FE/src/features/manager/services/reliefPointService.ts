@@ -187,6 +187,7 @@ export async function getReliefPointFormOptions(
       masterData.statusCodes ??
       ([
         { code: "OPEN", name: "Hoạt động", color: null },
+        { code: "CLOSE", name: "Không hoạt động", color: null },
       ] as ReliefPointStatusOption[]);
 
     return {

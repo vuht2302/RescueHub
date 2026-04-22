@@ -54,8 +54,11 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
   const [requestSearch, setRequestSearch] = useState("");
   const [requestStatus, setRequestStatus] = useState("");
-  const [requestDetail, setRequestDetail] = useState<ReliefRequestDetail | null>(null);
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [requestDetail, setRequestDetail] =
+    useState<ReliefRequestDetail | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
+    null,
+  );
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Relief Issues state
@@ -67,10 +70,14 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   const [showCreateIssueModal, setShowCreateIssueModal] = useState(false);
 
   // Distributions state
-  const [distributions, setDistributions] = useState<DistributionListItem[]>([]);
+  const [distributions, setDistributions] = useState<DistributionListItem[]>(
+    [],
+  );
   const [isLoadingDist, setIsLoadingDist] = useState(false);
   const [viewDistId, setViewDistId] = useState<string | null>(null);
-  const [viewDistDetail, setViewDistDetail] = useState<Distribution | null>(null);
+  const [viewDistDetail, setViewDistDetail] = useState<Distribution | null>(
+    null,
+  );
   const [showReliefDistModal, setShowReliefDistModal] = useState(false);
   const [distPage, setDistPage] = useState(1);
   const [distTotalPages, setDistTotalPages] = useState(1);
@@ -113,9 +120,13 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
       const res = await getDistributions(getAuthSession()?.accessToken ?? "");
       if (Array.isArray(res)) {
         setDistributions(res);
-      } else if (res && 'items' in res) {
-        setDistributions((res as PagedResponse<DistributionListItem>).items ?? []);
-        setDistTotalPages((res as PagedResponse<DistributionListItem>).totalPages ?? 1);
+      } else if (res && "items" in res) {
+        setDistributions(
+          (res as PagedResponse<DistributionListItem>).items ?? [],
+        );
+        setDistTotalPages(
+          (res as PagedResponse<DistributionListItem>).totalPages ?? 1,
+        );
       } else {
         setDistributions([]);
       }
@@ -175,7 +186,10 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   };
 
   // Handle relief distribution created
-  const handleReliefDistributionCreated = (dist: { id: string; code: string }) => {
+  const handleReliefDistributionCreated = (dist: {
+    id: string;
+    code: string;
+  }) => {
     setShowReliefDistModal(false);
     void loadDistributions();
   };
@@ -261,7 +275,9 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
               ) : filteredRequests.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <ClipboardCheck size={32} className="text-gray-300 mb-2" />
-                  <p className="text-sm text-gray-500">Không có yêu cầu cứu trợ</p>
+                  <p className="text-sm text-gray-500">
+                    Không có yêu cầu cứu trợ
+                  </p>
                 </div>
               ) : (
                 filteredRequests.map((req) => (
@@ -272,19 +288,30 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                   >
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <div className="min-w-0">
-                        <h3 className="text-sm font-bold truncate">{req.requestCode}</h3>
+                        <h3 className="text-sm font-bold truncate">
+                          {req.requestCode}
+                        </h3>
                         <p className="text-[11px] text-gray-400 flex items-center gap-1">
                           <User size={10} />
                           {req.requester.name}
                         </p>
                       </div>
-                      <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${REQUEST_STATUS[req.status.code]?.cls || "bg-gray-100 text-gray-600"}`}>
-                        {REQUEST_STATUS[req.status.code]?.label || req.status.code}
+                      <span
+                        className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${REQUEST_STATUS[req.status.code]?.cls || "bg-gray-100 text-gray-600"}`}
+                      >
+                        {REQUEST_STATUS[req.status.code]?.label ||
+                          req.status.code}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 text-[11px] text-gray-500">
-                      <span><Phone size={10} className="inline mr-1" />{req.requester.phone}</span>
-                      <span><Home size={10} className="inline mr-1" />{req.householdCount} hộ</span>
+                      <span>
+                        <Phone size={10} className="inline mr-1" />
+                        {req.requester.phone}
+                      </span>
+                      <span>
+                        <Home size={10} className="inline mr-1" />
+                        {req.householdCount} hộ
+                      </span>
                     </div>
                   </div>
                 ))
@@ -299,7 +326,9 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
             {/* Header */}
             <div className="p-4 bg-white border-b border-gray-100">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500 font-semibold">{reliefIssues.length} phiếu cấp phát</span>
+                <span className="text-sm text-gray-500 font-semibold">
+                  {reliefIssues.length} phiếu cấp phát
+                </span>
                 <button
                   onClick={() => setShowCreateIssueModal(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
@@ -318,7 +347,9 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
               ) : reliefIssues.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Truck size={32} className="text-gray-300 mb-2" />
-                  <p className="text-sm text-gray-500">Chưa có phiếu cấp phát nào</p>
+                  <p className="text-sm text-gray-500">
+                    Chưa có phiếu cấp phát nào
+                  </p>
                 </div>
               ) : (
                 <>
@@ -330,15 +361,27 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <h3 className="text-sm font-bold font-mono text-blue-700">{issue.code}</h3>
-                          <p className="text-[11px] text-gray-400">{issue.fromWarehouse?.name} → {issue.reliefPoint?.name || "—"}</p>
+                          <h3 className="text-sm font-bold font-mono text-blue-700">
+                            {issue.code}
+                          </h3>
+                          <p className="text-[11px] text-gray-400">
+                            {issue.fromWarehouse?.name} →{" "}
+                            {issue.reliefPoint?.name || "—"}
+                          </p>
                         </div>
-                        <StatusBadge code={issue.status?.code ?? ""} statusMap={ISSUE_STATUS} />
+                        <StatusBadge
+                          code={issue.status?.code ?? ""}
+                          statusMap={ISSUE_STATUS}
+                        />
                       </div>
                       <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400">
                         <span>{issue.lineCount} dòng</span>
                         <span>•</span>
-                        <span>{new Date(issue.createdAt).toLocaleDateString("vi-VN")}</span>
+                        <span>
+                          {new Date(issue.createdAt).toLocaleDateString(
+                            "vi-VN",
+                          )}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -351,7 +394,9 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                       >
                         <ChevronLeft size={14} />
                       </button>
-                      <span className="text-xs text-gray-500">Trang {issuePage}/{issueTotalPages}</span>
+                      <span className="text-xs text-gray-500">
+                        Trang {issuePage}/{issueTotalPages}
+                      </span>
                       <button
                         disabled={issuePage >= issueTotalPages}
                         onClick={() => void loadReliefIssues(issuePage + 1)}
@@ -373,7 +418,9 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
             {/* Header */}
             <div className="p-4 bg-white border-b border-gray-100">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500 font-semibold">{distributions.length} phiếu phân phối</span>
+                <span className="text-sm text-gray-500 font-semibold">
+                  {distributions.length} phiếu phân phối
+                </span>
                 <button
                   onClick={() => setShowReliefDistModal(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors shadow-sm"
@@ -392,7 +439,9 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
               ) : distributions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Package size={32} className="text-gray-300 mb-2" />
-                  <p className="text-sm text-gray-500">Chưa có phiếu phân phối nào</p>
+                  <p className="text-sm text-gray-500">
+                    Chưa có phiếu phân phối nào
+                  </p>
                 </div>
               ) : (
                 <>
@@ -404,13 +453,23 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <h3 className="text-sm font-bold font-mono text-blue-700">{dist.code}</h3>
-                          <p className="text-[11px] text-gray-400">{getHouseholdName(dist)}</p>
+                          <h3 className="text-sm font-bold font-mono text-blue-700">
+                            {dist.code}
+                          </h3>
+                          <p className="text-[11px] text-gray-400">
+                            {getHouseholdName(dist)}
+                          </p>
                         </div>
-                        <StatusBadge code={dist.status?.code ?? ""} statusMap={DIST_STATUS} />
+                        <StatusBadge
+                          code={dist.status?.code ?? ""}
+                          statusMap={DIST_STATUS}
+                        />
                       </div>
                       <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400">
-                        <span><MapPin size={10} className="inline" /> {dist.reliefPoint?.name || "—"}</span>
+                        <span>
+                          <MapPin size={10} className="inline" />{" "}
+                          {dist.reliefPoint?.name || "—"}
+                        </span>
                         <span>•</span>
                         <span>{dist.lineCount} dòng</span>
                       </div>
@@ -425,7 +484,9 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                       >
                         <ChevronLeft size={14} />
                       </button>
-                      <span className="text-xs text-gray-500">Trang {distPage}/{distTotalPages}</span>
+                      <span className="text-xs text-gray-500">
+                        Trang {distPage}/{distTotalPages}
+                      </span>
                       <button
                         disabled={distPage >= distTotalPages}
                         onClick={() => void loadDistributions(distPage + 1)}
@@ -446,7 +507,10 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
       {requestDetail && (
         <ReliefRequestDetailModal
           detail={requestDetail}
-          onClose={() => { setRequestDetail(null); setSelectedRequestId(null); }}
+          onClose={() => {
+            setRequestDetail(null);
+            setSelectedRequestId(null);
+          }}
           onCreateDistribution={() => {
             setShowCreateModal(true);
           }}
@@ -454,7 +518,7 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
       )}
       {showCreateModal && requestDetail && (
         <CreateReliefDistributionModal
-          reliefRequest={requestDetail}
+          // reliefRequest={requestDetail}
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleDistributionCreated}
         />
@@ -474,7 +538,10 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
       {viewDistId && (
         <DistributionDetailModal
           distId={viewDistId}
-          onClose={() => { setViewDistId(null); setViewDistDetail(null); }}
+          onClose={() => {
+            setViewDistId(null);
+            setViewDistDetail(null);
+          }}
           onAckSuccess={() => {
             void loadDistributions();
           }}
@@ -497,7 +564,11 @@ interface ReliefRequestDetailModalProps {
   onCreateDistribution: () => void;
 }
 
-function ReliefRequestDetailModal({ detail, onClose, onCreateDistribution }: ReliefRequestDetailModalProps) {
+function ReliefRequestDetailModal({
+  detail,
+  onClose,
+  onCreateDistribution,
+}: ReliefRequestDetailModalProps) {
   return (
     <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -505,15 +576,22 @@ function ReliefRequestDetailModal({ detail, onClose, onCreateDistribution }: Rel
         <div className="px-6 py-4 border-b flex items-start justify-between flex-shrink-0">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-gray-900">{detail.requestCode}</h2>
+              <h2 className="text-lg font-black text-gray-900">
+                {detail.requestCode}
+              </h2>
               <span className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-bold bg-green-100 text-green-700">
                 <CheckCircle size={10} />
                 {REQUEST_STATUS[detail.status?.code || ""]?.label || "Đã duyệt"}
               </span>
             </div>
-            <p className="text-xs text-gray-400 mt-1">Nguồn: {detail.sourceTypeCode}</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Nguồn: {detail.sourceTypeCode}
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100">
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-gray-100"
+          >
             <X size={18} />
           </button>
         </div>
@@ -529,15 +607,21 @@ function ReliefRequestDetailModal({ detail, onClose, onCreateDistribution }: Rel
               <div className="bg-gray-50 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500">Họ tên</span>
-                  <span className="text-sm font-bold">{detail.requester.name}</span>
+                  <span className="text-sm font-bold">
+                    {detail.requester.name}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500">SĐT</span>
-                  <span className="text-sm font-bold text-blue-600">{detail.requester.phone}</span>
+                  <span className="text-sm font-bold text-blue-600">
+                    {detail.requester.phone}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500">Số hộ</span>
-                  <span className="text-sm font-bold">{detail.householdCount}</span>
+                  <span className="text-sm font-bold">
+                    {detail.householdCount}
+                  </span>
                 </div>
               </div>
             </section>
@@ -559,8 +643,12 @@ function ReliefRequestDetailModal({ detail, onClose, onCreateDistribution }: Rel
                   <FileText size={12} /> Chiến dịch
                 </h3>
                 <div className="bg-blue-50 rounded-xl p-4">
-                  <p className="text-sm font-bold text-blue-700">{detail.campaign.name}</p>
-                  <p className="text-xs text-blue-500 font-mono">{detail.campaign.code}</p>
+                  <p className="text-sm font-bold text-blue-700">
+                    {detail.campaign.name}
+                  </p>
+                  <p className="text-xs text-blue-500 font-mono">
+                    {detail.campaign.code}
+                  </p>
                 </div>
               </section>
             )}
@@ -574,19 +662,38 @@ function ReliefRequestDetailModal({ detail, onClose, onCreateDistribution }: Rel
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-gray-100">
-                      <th className="px-4 py-2 text-left font-bold text-gray-500">Vật phẩm</th>
-                      <th className="px-3 py-2 text-center font-bold text-gray-500">SL yêu cầu</th>
-                      <th className="px-3 py-2 text-center font-bold text-gray-500">SL duyệt</th>
-                      <th className="px-3 py-2 text-center font-bold text-gray-500">ĐV</th>
+                      <th className="px-4 py-2 text-left font-bold text-gray-500">
+                        Vật phẩm
+                      </th>
+                      <th className="px-3 py-2 text-center font-bold text-gray-500">
+                        SL yêu cầu
+                      </th>
+                      <th className="px-3 py-2 text-center font-bold text-gray-500">
+                        SL duyệt
+                      </th>
+                      <th className="px-3 py-2 text-center font-bold text-gray-500">
+                        ĐV
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {detail.requestedItems.map((item) => (
-                      <tr key={item.reliefRequestItemId} className="border-t border-gray-100">
-                        <td className="px-4 py-2.5 font-semibold">{item.supportTypeName}</td>
-                        <td className="px-3 py-2.5 text-center text-gray-600">{item.requestedQty}</td>
-                        <td className="px-3 py-2.5 text-center text-green-700 font-bold">{item.defaultApprovedQty || item.requestedQty}</td>
-                        <td className="px-3 py-2.5 text-center text-gray-500">{item.unitCode}</td>
+                      <tr
+                        key={item.reliefRequestItemId}
+                        className="border-t border-gray-100"
+                      >
+                        <td className="px-4 py-2.5 font-semibold">
+                          {item.supportTypeName}
+                        </td>
+                        <td className="px-3 py-2.5 text-center text-gray-600">
+                          {item.requestedQty}
+                        </td>
+                        <td className="px-3 py-2.5 text-center text-green-700 font-bold">
+                          {item.defaultApprovedQty || item.requestedQty}
+                        </td>
+                        <td className="px-3 py-2.5 text-center text-gray-500">
+                          {item.unitCode}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

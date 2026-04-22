@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { CheckCircle, Package, User, X, AlertCircle, Loader2 } from "lucide-react";
+import {
+  CheckCircle,
+  Package,
+  User,
+  X,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
+import { toast } from "react-toastify";
 import {
   getDistribution,
   ackDistribution,
@@ -58,10 +66,18 @@ export function DistributionDetailModal({
         ackPhone: dist.ack?.ackPhone || "",
         ackNote: dist.ack?.ackNote || "",
       };
-      await ackDistribution(distId, payload, getAuthSession()?.accessToken ?? "");
-      const updated = await getDistribution(distId, getAuthSession()?.accessToken ?? "");
+      await ackDistribution(
+        distId,
+        payload,
+        getAuthSession()?.accessToken ?? "",
+      );
+      const updated = await getDistribution(
+        distId,
+        getAuthSession()?.accessToken ?? "",
+      );
       setDist(updated);
       onAckSuccess?.();
+      toast.success("Xác nhận đã nhận hàng thành công!");
     } catch (e) {
       setAckError(e instanceof Error ? e.message : "Lỗi xác nhận");
     } finally {
@@ -110,39 +126,12 @@ export function DistributionDetailModal({
 
         {dist && (
           <div className="p-6 space-y-4">
-            {dist.ack?.ackCode && dist.status?.code !== "ACKNOWLEDGED" && (
-              <div className="space-y-2">
-                {ackError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-                    {ackError}
-                  </div>
-                )}
-                <button
-                  onClick={handleAck}
-                  disabled={ackLoading}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm hover:shadow-lg transition-shadow disabled:opacity-60"
-                  style={{
-                    background: "linear-gradient(135deg,#059669,#10b981)",
-                  }}
-                >
-                  {ackLoading ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" /> Đang xác nhận...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle size={16} /> Xác nhận đã nhận hàng (ACK)
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
             <div className="bg-blue-50 rounded-xl p-4">
               <h3 className="text-sm font-bold text-blue-800 mb-3">
                 <User size={16} className="inline mr-2" />
                 Hộ dân nhận cứu trợ
               </h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-3 gap-3 text-sm">
                 <div>
                   <span className="text-xs text-gray-500 block">Họ tên</span>
                   <p className="font-semibold">{dist.recipient?.name || "—"}</p>
@@ -150,10 +139,14 @@ export function DistributionDetailModal({
                 <div>
                   <span className="text-xs text-gray-500 block">SĐT</span>
                   <p className="font-semibold text-blue-700">
-                    {dist.recipient.phone || "—"}
+                    {dist.recipient?.phone || "—"}
                   </p>
                 </div>
-                <div className="col-span-2">
+                <div>
+                  <span className="text-xs text-gray-500 block">Ngày tạo</span>
+                  <p className="font-semibold">{formatDate(dist.createdAt)}</p>
+                </div>
+                <div className="col-span-3">
                   <span className="text-xs text-gray-500 block">Địa chỉ</span>
                   <p className="font-semibold">
                     {dist.recipient?.address || "—"}
@@ -171,16 +164,6 @@ export function DistributionDetailModal({
               <div>
                 <span className="text-xs text-gray-500 block">Chiến dịch</span>
                 <p className="font-semibold">{dist.campaign?.name || "—"}</p>
-              </div>
-              <div>
-                <span className="text-xs text-gray-500 block">
-                  Phương thức ACK
-                </span>
-                <p className="font-semibold">{dist.ackMethodCode || "—"}</p>
-              </div>
-              <div>
-                <span className="text-xs text-gray-500 block">Ngày tạo</span>
-                <p className="font-semibold">{formatDate(dist.createdAt)}</p>
               </div>
             </div>
             {dist.note && (
@@ -232,39 +215,32 @@ export function DistributionDetailModal({
                 </table>
               </div>
             </div>
-            {dist.ack && (
-              <div className="bg-green-50 rounded-xl p-4">
-                <h3 className="text-sm font-bold text-green-800 mb-3 flex items-center gap-2">
-                  <CheckCircle size={16} /> Xác nhận đã nhận
-                </h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-xs text-gray-500 block">
-                      Người nhận
-                    </span>
-                    <p className="font-semibold">{dist.ack.ackByName || "—"}</p>
+            {dist.status?.code === "PENDING" && (
+              <div className="space-y-2">
+                {ackError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                    {ackError}
                   </div>
-                  <div>
-                    <span className="text-xs text-gray-500 block">SĐT</span>
-                    <p className="font-semibold">{dist.ack.ackPhone || "—"}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-xs text-gray-500 block">
-                      Mã xác nhận
-                    </span>
-                    <p className="font-semibold font-mono">
-                      {dist.ack.ackCode || "—"}
-                    </p>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-xs text-gray-500 block">
-                      Thời gian nhận
-                    </span>
-                    <p className="font-semibold">
-                      {dist.ack.ackAt ? formatDate(dist.ack.ackAt) : "—"}
-                    </p>
-                  </div>
-                </div>
+                )}
+                <button
+                  onClick={handleAck}
+                  disabled={ackLoading}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm hover:shadow-lg transition-shadow disabled:opacity-60"
+                  style={{
+                    background: "linear-gradient(135deg,#059669,#10b981)",
+                  }}
+                >
+                  {ackLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Đang xác
+                      nhận...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={16} /> Xác nhận đã nhận hàng
+                    </>
+                  )}
+                </button>
               </div>
             )}
           </div>

@@ -36,13 +36,21 @@ interface RescueRequest {
   receivedAt: string;
   time: string;
   urgency: "critical" | "high" | "medium" | "low";
-  status: "pending" | "verified" | "dispatched" | "in-progress" | "completed";
+  status:
+    | "pending"
+    | "verified"
+    | "assessed"
+    | "assigned"
+    | "dispatched"
+    | "in-progress"
+    | "completed";
   description: string;
   verificationNote: string;
   victimCount: number;
   latitude: number;
   longitude: number;
   handlingTeamName?: string;
+  handlingTeams?: IncidentItem["handlingTeams"];
   incidentDetail?: IncidentDetail | null;
 }
 
@@ -97,6 +105,19 @@ const RescueCoordinatorPage: React.FC = () => {
     const hasHandlingTeam =
       incident.handlingTeams && incident.handlingTeams.length > 0;
 
+    // Map API status codes to frontend status
+    const statusMap: Record<string, RescueRequest["status"]> = {
+      NEW: "pending",
+      PENDING: "pending",
+      VERIFIED: "verified",
+      ASSESSED: "completed", // ASSESSED is similar to verified, ready for dispatch
+      ASSIGNED: "dispatched",
+      IN_PROGRESS: "in-progress",
+      RESCUED: "completed", // Treat rescued as completed
+      COMPLETED: "completed",
+      CANCELLED: "completed", // Treat cancelled as completed
+    };
+
     if (hasHandlingTeam) {
       const primaryTeam =
         incident.handlingTeams.find((t) => t.isPrimaryTeam) ||
@@ -104,20 +125,25 @@ const RescueCoordinatorPage: React.FC = () => {
       handlingTeamName = primaryTeam.teamName;
       const mStatus = primaryTeam.missionStatusCode;
 
-      if (mStatus === "ASSIGNED" || mStatus === "DISPATCHED")
+      // Map mission status codes
+      if (
+        mStatus === "ASSIGNED" ||
+        mStatus === "DISPATCHED" ||
+        mStatus === "EN_ROUTE"
+      )
         normalizedStatus = "dispatched";
-      else if (mStatus === "RESCUING" || mStatus === "IN_PROGRESS")
+      else if (
+        mStatus === "RESCUING" ||
+        mStatus === "IN_PROGRESS" ||
+        mStatus === "ON_SITE"
+      )
         normalizedStatus = "in-progress";
-      else if (mStatus === "COMPLETED") normalizedStatus = "completed";
+      else if (mStatus === "COMPLETED" || mStatus === "RETURNING")
+        normalizedStatus = "completed";
       else normalizedStatus = "dispatched";
     } else {
-      if (statusCode === "NEW" || statusCode === "PENDING")
-        normalizedStatus = "pending";
-      else if (statusCode === "VERIFIED" || statusCode === "ASSESSED")
-        normalizedStatus = "verified";
-      else if (statusCode === "ASSIGNED") normalizedStatus = "dispatched";
-      else if (statusCode === "IN_PROGRESS") normalizedStatus = "in-progress";
-      else if (statusCode === "COMPLETED") normalizedStatus = "completed";
+      // Use status map or default to pending
+      normalizedStatus = statusMap[statusCode] || "pending";
     }
 
     const reportedDate = new Date(incident.reportedAt);
@@ -147,6 +173,7 @@ const RescueCoordinatorPage: React.FC = () => {
       latitude: incident.location?.lat ?? 0,
       longitude: incident.location?.lng ?? 0,
       handlingTeamName,
+      handlingTeams: incident.handlingTeams,
       incidentDetail: null,
     };
   };
@@ -276,36 +303,62 @@ const RescueCoordinatorPage: React.FC = () => {
     }
   };
 
+  // Map status codes to Vietnamese display names
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return " Chờ xác minh";
-      case "verified":
-        return " Đã xác minh";
-      case "dispatched":
-        return " Đã điều phối";
-      case "in-progress":
-        return " Đang xử lý";
-      case "completed":
-        return "✓ Hoàn thành";
-      default:
-        return status;
-    }
+    const statusLabels: Record<string, string> = {
+      pending: " Chờ xác minh",
+      verified: "Đã xác minh",
+      assessed: "Đã đánh giá",
+      assigned: "Đã phân công",
+      dispatched: "Đã điều phối",
+      "in-progress": "Đang xử lý",
+      completed: "Hoàn thành",
+    };
+    return statusLabels[status] || status;
   };
 
+  // Map status codes to colors
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "bg-gray-100 text-gray-700";
-      case "verified":
-        return "bg-green-100 text-green-800";
-      case "dispatched":
-        return "bg-blue-100 text-blue-800";
-      case "in-progress":
-        return "bg-yellow-100 text-yellow-800";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
+    const statusColors: Record<string, string> = {
+      pending: "bg-gray-100 text-gray-700 border-gray-200",
+      verified: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      assessed: "bg-teal-100 text-teal-800 border-teal-200",
+      assigned: "bg-indigo-100 text-indigo-800 border-indigo-200",
+      dispatched: "bg-blue-100 text-blue-800 border-blue-200",
+      "in-progress": "bg-amber-100 text-amber-800 border-amber-200",
+      completed: "bg-green-100 text-green-800 border-green-200",
+    };
+    return statusColors[status] || "bg-gray-100 text-gray-700 border-gray-200";
+  };
+
+  // Get mission status color for handling teams
+  const getMissionStatusColor = (missionStatusCode: string): string => {
+    const colors: Record<string, string> = {
+      EN_ROUTE: "bg-blue-500",
+      ON_SITE: "bg-amber-500",
+      RESCUING: "bg-red-500",
+      IN_PROGRESS: "bg-amber-500",
+      COMPLETED: "bg-green-500",
+      RETURNING: "bg-gray-500",
+      ASSIGNED: "bg-indigo-500",
+      DISPATCHED: "bg-blue-500",
+    };
+    return colors[missionStatusCode] || "bg-gray-500";
+  };
+
+  // Get mission status label
+  const getMissionStatusLabel = (missionStatusCode: string): string => {
+    const labels: Record<string, string> = {
+      EN_ROUTE: "Đang di chuyển",
+      ON_SITE: "Tại hiện trường",
+      RESCUING: "Đang cứu hộ",
+      IN_PROGRESS: "Đang xử lý",
+      COMPLETED: "Hoàn thành",
+      RETURNING: "Đang quay về",
+      ASSIGNED: "Đã phân công",
+      DISPATCHED: "Đã điều phối",
+    };
+    return labels[missionStatusCode] || missionStatusCode;
   };
 
   const filteredRequests = useMemo(() => {
@@ -533,7 +586,7 @@ const RescueCoordinatorPage: React.FC = () => {
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="border-2 border-gray-200 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-700 focus:outline-none focus:border-blue-500 bg-white"
+                      className="border-2 border-gray-200 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-700 focus:outline-none bg-white"
                     >
                       <option value="">Tất cả trạng thái</option>
                       <option value="pending">Chờ xác minh</option>
@@ -567,7 +620,7 @@ const RescueCoordinatorPage: React.FC = () => {
                       </p>
                     )}
 
-                  <div className="space-y-2.5">
+                  <div className="space-y-3">
                     {filteredRequests.length === 0 && !isLoadingRequests && (
                       <p className="text-sm text-gray-400 py-6 text-center">
                         {statusFilter
@@ -582,24 +635,29 @@ const RescueCoordinatorPage: React.FC = () => {
                         cached?.location?.addressText ||
                         null;
                       const isSelected = selectedRequest?.id === request.id;
+                      const hasTeams =
+                        request.handlingTeams &&
+                        request.handlingTeams.length > 0;
+
                       return (
                         <div
                           key={request.id}
                           onClick={() => setSelectedRequest(request)}
                           className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
                             isSelected
-                              ? "border-blue-700 bg-blue-50 shadow-sm"
-                              : "border-gray-100 hover:border-blue-200 hover:shadow-sm bg-white"
-                          }`}
+                              ? "border-black-700 bg-black-50 shadow-sm"
+                              : "border-gray-100 hover:border-black-200 hover:shadow-sm bg-white"
+                          } ${hasTeams ? "border" : ""}`}
                           style={
                             isSelected
                               ? { borderColor: "var(--color-blue-950)" }
                               : {}
                           }
                         >
-                          <div className="flex justify-between items-start gap-2">
+                          <div className="flex justify-between items-start gap-3">
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
+                              {/* Header: Title + Status */}
+                              <div className="flex items-center gap-2 mb-1">
                                 <h3 className="font-bold text-gray-900 text-sm truncate">
                                   {request.title}
                                 </h3>
@@ -609,7 +667,14 @@ const RescueCoordinatorPage: React.FC = () => {
                                     SOS
                                   </span>
                                 )}
+                                {hasTeams && (
+                                  <span className="flex-shrink-0 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded">
+                                    👥 {request.handlingTeams?.length} đội
+                                  </span>
+                                )}
                               </div>
+
+                              {/* Location */}
                               <div className="flex items-start gap-1 text-xs text-gray-500 mt-1.5">
                                 <MapPin
                                   size={12}
@@ -619,6 +684,8 @@ const RescueCoordinatorPage: React.FC = () => {
                                   {locationText ?? "Đang tải vị trí..."}
                                 </span>
                               </div>
+
+                              {/* Time and Type */}
                               <div className="flex items-center gap-3 mt-2 flex-wrap">
                                 <span className="text-xs text-gray-400">
                                   {request.time}
@@ -628,18 +695,38 @@ const RescueCoordinatorPage: React.FC = () => {
                                     {cached.incidentType.name}
                                   </span>
                                 )}
-                                {request.handlingTeamName && (
-                                  <span
-                                    className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded font-bold truncate max-w-[150px]"
-                                    title={request.handlingTeamName}
-                                  >
-                                    {request.handlingTeamName}
-                                  </span>
-                                )}
                               </div>
+
+                              {/* Team Information - Show when has teams */}
+                              {hasTeams && (
+                                <div className="mt-3 pt-3 border-t border-gray-100">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {request.handlingTeams?.map(
+                                        (team, idx) => (
+                                          <span
+                                            key={team.teamId}
+                                            className="text-xs px-2 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded font-medium"
+                                            title={`${team.teamName} - ${getMissionStatusLabel(team.missionStatusCode)}`}
+                                          >
+                                            {team.teamCode}
+                                            <span
+                                              className={`inline-block w-2 h-2 rounded-full ml-1 ${getMissionStatusColor(team.missionStatusCode)}`}
+                                            />
+                                          </span>
+                                        ),
+                                      )}
+                                    </div>
+
+                                    {/* Follow Mission Button removed as requested */}
+                                  </div>
+                                </div>
+                              )}
                             </div>
+
+                            {/* Status Badge */}
                             <span
-                              className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold ${getStatusColor(request.status)}`}
+                              className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold border ${getStatusColor(request.status)}`}
                             >
                               {getStatusBadge(request.status)}
                             </span>
@@ -739,6 +826,13 @@ const RescueCoordinatorPage: React.FC = () => {
                       <IncidentDetailPanel
                         detail={selectedIncidentDetail}
                         requestStatus={selectedRequest.status}
+                        handlingTeams={selectedRequest.handlingTeams}
+                        onFollowMission={() => {
+                          setActiveMenu("current");
+                          toastSuccess(
+                            `Chuyển sang tab Nhiệm vụ để theo dõi ${selectedRequest.incidentCode}`,
+                          );
+                        }}
                         onVerify={() => setShowVerificationModal(true)}
                         onAssess={() => setShowAssessmentModal(true)}
                         onDispatch={() => setShowDispatchModal(true)}

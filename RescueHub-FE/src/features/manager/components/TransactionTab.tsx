@@ -27,7 +27,19 @@ const TYPE_OPTIONS = [
   { code: "RECEIPT", label: "Nhập kho" },
   { code: "ISSUE", label: "Xuất kho" },
 ];
-const REF_OPTIONS = ["MANUAL", "MISSION", "RELIEF_ISSUE", "DISTRIBUTION"];
+const REF_OPTIONS = ["MANUAL", "RELIEF_ISSUE", "TRANSFER", "DISTRIBUTION"];
+
+const REFERENCE_TYPE_LABELS: Record<string, string> = {
+  MANUAL: "Tạo thủ công",
+  RELIEF_ISSUE: "Phiếu cấp phát cứu trợ",
+  TRANSFER: "Chuyển kho/chuyển hàng nội bộ",
+  DISTRIBUTION: "Phiếu phân phối tới người nhận",
+};
+
+function referenceTypeLabel(code?: string | null) {
+  if (!code) return "—";
+  return REFERENCE_TYPE_LABELS[code] ?? code;
+}
 
 function DetailModal({ txId, onClose }: { txId: string; onClose: () => void }) {
   const [tx, setTx] = useState<StockTransaction | null>(null);
@@ -77,7 +89,9 @@ function DetailModal({ txId, onClose }: { txId: string; onClose: () => void }) {
                 <span className="text-xs text-gray-500 block">
                   Loại tham chiếu
                 </span>
-                <p className="font-semibold">{tx.referenceType}</p>
+                <p className="font-semibold">
+                  {referenceTypeLabel(tx.referenceType)}
+                </p>
               </div>
               <div className="col-span-2">
                 <span className="text-xs text-gray-500 block">Ghi chú</span>
@@ -287,7 +301,7 @@ function CreateModal({
               >
                 {REF_OPTIONS.map((v) => (
                   <option key={v} value={v}>
-                    {v}
+                    {referenceTypeLabel(v)}
                   </option>
                 ))}
               </select>
@@ -645,7 +659,7 @@ export const TransactionTab: React.FC = () => {
                     {tx.warehouse?.name}
                   </td>
                   <td className="px-4 py-3 text-gray-600 text-xs">
-                    {tx.referenceType}
+                    {referenceTypeLabel(tx.referenceType)}
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
                     {new Date(tx.happenedAt).toLocaleString("vi-VN")}

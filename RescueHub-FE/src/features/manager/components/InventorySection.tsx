@@ -1,21 +1,9 @@
 import React, { useState } from "react";
-import {
-  Warehouse,
-  Package,
-  Box,
-  ArrowRightLeft,
-  Truck,
-  Home,
-  PackagePlus,
-  Database,
-} from "lucide-react";
+import { Warehouse, Package, ArrowRightLeft, Database } from "lucide-react";
 import { WarehouseTab } from "./WarehouseTab";
 import { StockTab } from "./StockTab";
 import { ItemTab } from "./ItemTab";
-import { LotTab } from "./LotTab";
 import { TransactionTab } from "./TransactionTab";
-import { ReliefIssueTab } from "./ReliefIssueTab";
-import { DistributionTab } from "./DistributionTab";
 
 type TabId =
   | "warehouse"
@@ -31,7 +19,11 @@ interface Tab {
   id: TabId;
   label: string;
   shortLabel: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{
+    size?: number;
+    className?: string;
+    style?: React.CSSProperties;
+  }>;
   description: string;
 }
 
@@ -63,20 +55,6 @@ const TABS: Tab[] = [
     shortLabel: "Giao dịch",
     icon: ArrowRightLeft,
     description: "MAN-05 — Nhập/xuất/điều chuyển kho",
-  },
-  {
-    id: "relief-issue",
-    label: "Cấp phát",
-    shortLabel: "Cấp phát",
-    icon: Truck,
-    description: "MAN-06 — Phiếu cấp phát từ kho đến điểm cứu trợ",
-  },
-  {
-    id: "distribution",
-    label: "Phân phối",
-    shortLabel: "Phân phối",
-    icon: PackagePlus,
-    description: "MAN-08 — Phiếu phân phối đến hộ dân & xác nhận OTP",
   },
 ];
 
@@ -137,10 +115,7 @@ export const InventorySection: React.FC = () => {
         {activeTab === "warehouse" && <WarehouseTab />}
         {activeTab === "stock" && <StockTab />}
         {activeTab === "item" && <ItemTab />}
-        {activeTab === "lot" && <LotTab />}
         {activeTab === "transaction" && <TransactionTab />}
-        {activeTab === "relief-issue" && <ReliefIssueTab />}
-        {activeTab === "distribution" && <DistributionTab />}
       </div>
     </div>
   );

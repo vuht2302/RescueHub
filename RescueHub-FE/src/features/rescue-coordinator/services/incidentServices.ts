@@ -136,7 +136,9 @@ const INCIDENTS_API_URL = "https://rescuehub.onrender.com/api/v1/incidents";
 
 const INCIDENT_DETAIL_API_URL = (id: string) => `${INCIDENTS_API_URL}/${id}`;
 
-export async function getIncidents(accessToken: string): Promise<IncidentItem[]> {
+export async function getIncidents(
+  accessToken: string,
+): Promise<IncidentItem[]> {
   const response = await fetch(INCIDENTS_API_URL, {
     method: "GET",
     headers: {
@@ -155,14 +157,15 @@ export async function getIncidents(accessToken: string): Promise<IncidentItem[]>
     throw new Error(payload.message || "API trả về thất bại khi lấy sự cố");
   }
 
-  const items: IncidentItem[] = Array.isArray(payload.data)
-    ? payload.data
-    : [];
+  const items: IncidentItem[] = Array.isArray(payload.data) ? payload.data : [];
 
   return items;
 }
 
-export async function getIncidentDetail(id: string, accessToken: string): Promise<IncidentDetail> {
+export async function getIncidentDetail(
+  id: string,
+  accessToken: string,
+): Promise<IncidentDetail> {
   const url = INCIDENT_DETAIL_API_URL(id);
   const response = await fetch(url, {
     method: "GET",
@@ -173,13 +176,17 @@ export async function getIncidentDetail(id: string, accessToken: string): Promis
   });
 
   if (!response.ok) {
-    throw new Error(`Không thể tải chi tiết sự cố ${id}: HTTP ${response.status}`);
+    throw new Error(
+      `Không thể tải chi tiết sự cố ${id}: HTTP ${response.status}`,
+    );
   }
 
   const payload: IncidentDetailResponse = await response.json();
 
   if (!payload.success) {
-    throw new Error(payload.message || "API trả về thất bại khi lấy chi tiết sự cố");
+    throw new Error(
+      payload.message || "API trả về thất bại khi lấy chi tiết sự cố",
+    );
   }
 
   return payload.data;
@@ -188,7 +195,7 @@ export async function getIncidentDetail(id: string, accessToken: string): Promis
 export async function verifyIncident(
   incidentId: string,
   request: VerifyIncidentRequest,
-  accessToken: string
+  accessToken: string,
 ): Promise<void> {
   const url = `${INCIDENTS_API_URL}/${incidentId}/verify`;
   const response = await fetch(url, {
@@ -202,7 +209,9 @@ export async function verifyIncident(
   });
 
   if (!response.ok) {
-    throw new Error(`Không thể xác minh sự cố ${incidentId}: HTTP ${response.status}`);
+    throw new Error(
+      `Không thể xác minh sự cố ${incidentId}: HTTP ${response.status}`,
+    );
   }
 
   const payload = await response.json();
@@ -215,7 +224,7 @@ export async function verifyIncident(
 export async function assessIncident(
   incidentId: string,
   request: AssessIncidentRequest,
-  accessToken: string
+  accessToken: string,
 ): Promise<AssessIncidentResponse> {
   const url = `${INCIDENTS_API_URL}/${incidentId}/assess`;
   const response = await fetch(url, {
@@ -229,7 +238,9 @@ export async function assessIncident(
   });
 
   if (!response.ok) {
-    throw new Error(`Không thể đánh giá sự cố ${incidentId}: HTTP ${response.status}`);
+    throw new Error(
+      `Không thể đánh giá sự cố ${incidentId}: HTTP ${response.status}`,
+    );
   }
 
   const payload: AssessIncidentResponse = await response.json();
@@ -254,7 +265,7 @@ export const getIncidentDetailWithAuth = async (
 export async function rejectIncident(
   incidentId: string,
   request: VerifyIncidentRequest,
-  accessToken: string
+  accessToken: string,
 ): Promise<void> {
   const url = `${INCIDENTS_API_URL}/${incidentId}/verify`;
   const response = await fetch(url, {
@@ -268,7 +279,9 @@ export async function rejectIncident(
   });
 
   if (!response.ok) {
-    throw new Error(`Không thể từ chối sự cố ${incidentId}: HTTP ${response.status}`);
+    throw new Error(
+      `Không thể từ chối sự cố ${incidentId}: HTTP ${response.status}`,
+    );
   }
 
   const payload = await response.json();
@@ -319,7 +332,7 @@ export interface ReliefHotspotResponse {
 
 export async function getReliefHotspots(
   accessToken: string,
-  filters?: Partial<ReliefHotspotFilters>
+  filters?: Partial<ReliefHotspotFilters>,
 ): Promise<ReliefHotspotResponse["data"]> {
   const params = new URLSearchParams();
   if (filters?.statusCode) params.set("statusCode", filters.statusCode);
@@ -344,7 +357,9 @@ export async function getReliefHotspots(
   const payload: ReliefHotspotResponse = await response.json();
 
   if (!payload.success) {
-    throw new Error(payload.message || "API trả về thất bại khi lấy vùng cứu trợ");
+    throw new Error(
+      payload.message || "API trả về thất bại khi lấy vùng cứu trợ",
+    );
   }
 
   return payload.data;
@@ -466,7 +481,9 @@ export interface StandardizeReliefRequestBody {
 
 const RELIEF_REQUESTS_API_URL = `${INCIDENTS_API_URL}/relief-requests`;
 
-export async function getReliefRequests(accessToken: string): Promise<ReliefRequestListResponse["data"]> {
+export async function getReliefRequests(
+  accessToken: string,
+): Promise<ReliefRequestListResponse["data"]> {
   const response = await fetch(RELIEF_REQUESTS_API_URL, {
     method: "GET",
     headers: {
@@ -476,13 +493,17 @@ export async function getReliefRequests(accessToken: string): Promise<ReliefRequ
   });
 
   if (!response.ok) {
-    throw new Error(`Không thể tải danh sách yêu cầu cứu trợ: HTTP ${response.status}`);
+    throw new Error(
+      `Không thể tải danh sách yêu cầu cứu trợ: HTTP ${response.status}`,
+    );
   }
 
   const payload: ReliefRequestListResponse = await response.json();
 
   if (!payload.success) {
-    throw new Error(payload.message || "API trả về thất bại khi lấy yêu cầu cứu trợ");
+    throw new Error(
+      payload.message || "API trả về thất bại khi lấy yêu cầu cứu trợ",
+    );
   }
 
   return payload.data;
@@ -490,7 +511,7 @@ export async function getReliefRequests(accessToken: string): Promise<ReliefRequ
 
 export async function getReliefRequestDetail(
   reliefRequestId: string,
-  accessToken: string
+  accessToken: string,
 ): Promise<ReliefRequestDetail> {
   const url = `${RELIEF_REQUESTS_API_URL}/${reliefRequestId}`;
   const response = await fetch(url, {
@@ -502,13 +523,17 @@ export async function getReliefRequestDetail(
   });
 
   if (!response.ok) {
-    throw new Error(`Không thể tải chi tiết yêu cầu cứu trợ: HTTP ${response.status}`);
+    throw new Error(
+      `Không thể tải chi tiết yêu cầu cứu trợ: HTTP ${response.status}`,
+    );
   }
 
   const payload: ReliefRequestDetailResponse = await response.json();
 
   if (!payload.success) {
-    throw new Error(payload.message || "API trả về thất bại khi lấy chi tiết yêu cầu cứu trợ");
+    throw new Error(
+      payload.message || "API trả về thất bại khi lấy chi tiết yêu cầu cứu trợ",
+    );
   }
 
   return payload.data;
@@ -517,7 +542,7 @@ export async function getReliefRequestDetail(
 export async function standardizeReliefRequest(
   reliefRequestId: string,
   body: StandardizeReliefRequestBody,
-  accessToken: string
+  accessToken: string,
 ): Promise<void> {
   const url = `${RELIEF_REQUESTS_API_URL}/${reliefRequestId}/standardize`;
   const response = await fetch(url, {
@@ -531,7 +556,9 @@ export async function standardizeReliefRequest(
   });
 
   if (!response.ok) {
-    throw new Error(`Không thể chuẩn hoá yêu cầu cứu trợ: HTTP ${response.status}`);
+    throw new Error(
+      `Không thể chuẩn hoá yêu cầu cứu trợ: HTTP ${response.status}`,
+    );
   }
 
   const payload = await response.json();
@@ -543,7 +570,7 @@ export async function standardizeReliefRequest(
 export async function rejectReliefRequest(
   reliefRequestId: string,
   body: RejectReliefRequestBody,
-  accessToken: string
+  accessToken: string,
 ): Promise<void> {
   const url = `${RELIEF_REQUESTS_API_URL}/${reliefRequestId}/reject`;
   const response = await fetch(url, {
@@ -557,7 +584,9 @@ export async function rejectReliefRequest(
   });
 
   if (!response.ok) {
-    throw new Error(`Không thể từ chối yêu cầu cứu trợ: HTTP ${response.status}`);
+    throw new Error(
+      `Không thể từ chối yêu cầu cứu trợ: HTTP ${response.status}`,
+    );
   }
 
   const payload = await response.json();

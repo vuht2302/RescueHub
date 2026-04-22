@@ -20,7 +20,7 @@ import { InventorySection } from "../components/InventorySection";
 import { ImportExportSection } from "../components/ImportExportSection";
 import { VehicleManagementSection } from "../components/VehicleManagementSection";
 import { PendingVerificationSection } from "../components/PendingVerificationSection";
-import { ReliefHotspotMap } from "../../rescue-coordinator/components/ReliefHotspotMap";
+import { ReliefHotspotMap } from "../components/ReliefHotspotMap";
 import { ReliefRequestsPage } from "../../rescue-coordinator/pages/ReliefRequestsPage";
 import { ReliefDistributionPage } from "../pages/ReliefDistributionPage";
 import { getAuthSession } from "../../../features/auth/services/authStorage";

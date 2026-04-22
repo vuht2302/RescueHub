@@ -7,7 +7,6 @@ import { VerificationModal } from "../components/VerificationModal";
 import { SeverityAssessmentModal } from "../components/SeverityAssessmentModal";
 import { CurrentMissionsSection } from "../components/CurrentMissionsSection";
 import { MissionMapSection } from "../components/MissionMapSection";
-import { ReliefHotspotMap } from "../components/ReliefHotspotMap";
 import { ReliefRequestsPage } from "../pages/ReliefRequestsPage";
 import { IncidentDetailPanel } from "../components/IncidentDetailPanel";
 import { TeamManagementSection } from "../components/TeamManagementSection";
@@ -475,15 +474,11 @@ const RescueCoordinatorPage: React.FC = () => {
               activeMenu === "map" ||
               activeMenu === "hotspot" ||
               activeMenu === "teams"
-                ? "col-span-1 h-full"
+                ? "col-span-1 h-full flex flex-col"
                 : "col-span-2"
             } space-y-6`}
           >
             {activeMenu === "map" && <MissionMapSection />}
-
-            {activeMenu === "hotspot" && (
-              <ReliefHotspotMap className="flex-1" />
-            )}
 
             {activeMenu === "relief-requests" && (
               <ReliefRequestsPage className="flex-1" />

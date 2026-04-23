@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Mail, Lock, User } from "lucide-react";
+import { X, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -13,22 +13,31 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   onSwitchToLogin,
 }) => {
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
+
     if (password !== confirmPassword) {
-      alert("Mật khẩu không khớp!");
+      setErrorMessage("Mật khẩu không khớp!");
       return;
     }
+
+    if (password.length < 6) {
+      setErrorMessage("Mật khẩu phải có ít nhất 6 ký tự");
+      return;
+    }
+
     setIsLoading(true);
-    // Simulate signup
     setTimeout(() => {
       setIsLoading(false);
       onClose();
@@ -36,207 +45,158 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto"
-        style={{ fontFamily: "var(--font-primary)" }}
-      >
-        {/* Header */}
-        <div
-          className="bg-blue-950 px-6 py-6 flex justify-between items-center sticky top-0 z-10"
-          style={{ backgroundColor: "var(--color-blue-950)" }}
-        >
-          <h2
-            className="text-2xl font-black text-white"
-            style={{ fontFamily: "var(--font-primary)" }}
-          >
-            Đăng Kí
-          </h2>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <div className="relative w-full max-w-sm">
+        {/* Main Card */}
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 px-6 py-5 text-center">
+            <h2 className="text-xl font-bold text-white">
+              Đăng Kí
+            </h2>
+          </div>
+
+          {/* Close button */}
           <button
             onClick={onClose}
-            className="text-white hover:bg-white/10 p-2 rounded-lg transition-colors"
+            className="absolute top-3 right-3 text-white/80 hover:text-white p-1 rounded transition-colors z-10"
           >
-            <X size={24} />
+            <X size={18} />
           </button>
-        </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Full Name Field */}
-          <div>
-            <label
-              className="block text-sm font-bold text-gray-700 mb-2"
-              style={{ fontFamily: "var(--font-primary)" }}
-            >
-              Họ và tên
-            </label>
-            <div className="relative">
-              <User
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={20}
-              />
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {/* Full Name Field */}
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-slate-700">
+                Họ và tên
+              </label>
+              <div className="relative">
+                <User
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={18}
+                />
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Nguyễn Văn A"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-slate-600 focus:outline-none transition-all text-sm"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password Field */}
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-slate-700">
+                Mật khẩu
+              </label>
+              <div className="relative">
+                <Lock
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={18}
+                />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Ít nhất 6 ký tự"
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-slate-600 focus:outline-none transition-all text-sm"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm Password Field */}
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-slate-700">
+                Xác nhận mật khẩu
+              </label>
+              <div className="relative">
+                <Lock
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={18}
+                />
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Nhập lại mật khẩu"
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-slate-600 focus:outline-none transition-all text-sm"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Terms & Conditions */}
+            <label className="flex items-start gap-2 cursor-pointer">
               <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Nguyễn Văn A"
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-950 focus:outline-none transition-colors"
-                style={{ borderColor: "var(--color-blue-950)" }}
+                type="checkbox"
+                checked={agreeTerms}
+                onChange={(e) => setAgreeTerms(e.target.checked)}
+                className="w-4 h-4 mt-0.5 rounded border-slate-300"
                 required
               />
-            </div>
-          </div>
-
-          {/* Email Field */}
-          <div>
-            <label
-              className="block text-sm font-bold text-gray-700 mb-2"
-              style={{ fontFamily: "var(--font-primary)" }}
-            >
-              Email
+              <span className="text-sm text-slate-600">
+                Tôi đồng ý với{" "}
+                <button type="button" className="text-slate-700 hover:underline font-medium">
+                  Điều khoản
+                </button>{" "}
+                và{" "}
+                <button type="button" className="text-slate-700 hover:underline font-medium">
+                  Chính sách bảo mật
+                </button>
+              </span>
             </label>
-            <div className="relative">
-              <Mail
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={20}
-              />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-950 focus:outline-none transition-colors"
-                style={{ borderColor: "var(--color-blue-950)" }}
-                required
-              />
-            </div>
-          </div>
 
-          {/* Password Field */}
-          <div>
-            <label
-              className="block text-sm font-bold text-gray-700 mb-2"
-              style={{ fontFamily: "var(--font-primary)" }}
+            {/* Error Message */}
+            {errorMessage && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                {errorMessage}
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isLoading || !agreeTerms}
+              className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
             >
-              Mật khẩu
-            </label>
-            <div className="relative">
-              <Lock
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={20}
-              />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-950 focus:outline-none transition-colors"
-                style={{ borderColor: "var(--color-blue-950)" }}
-                required
-              />
-            </div>
-          </div>
+              {isLoading ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                "Đăng Kí"
+              )}
+            </button>
 
-          {/* Confirm Password Field */}
-          <div>
-            <label
-              className="block text-sm font-bold text-gray-700 mb-2"
-              style={{ fontFamily: "var(--font-primary)" }}
-            >
-              Xác nhận mật khẩu
-            </label>
-            <div className="relative">
-              <Lock
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={20}
-              />
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-950 focus:outline-none transition-colors"
-                style={{ borderColor: "var(--color-blue-950)" }}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Terms & Conditions */}
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={agreeTerms}
-              onChange={(e) => setAgreeTerms(e.target.checked)}
-              className="w-5 h-5 mt-1 rounded"
-              required
-            />
-            <span className="text-sm text-gray-600">
-              Tôi đồng ý với{" "}
+            {/* Switch to Login */}
+            <p className="text-center text-sm text-slate-600">
+              Đã có tài khoản?{" "}
               <button
                 type="button"
-                className="text-blue-950 hover:underline font-semibold"
-                style={{ color: "var(--color-blue-950)" }}
+                onClick={onSwitchToLogin}
+                className="text-slate-700 font-semibold hover:underline"
               >
-                Điều khoản dịch vụ
-              </button>{" "}
-              và{" "}
-              <button
-                type="button"
-                className="text-blue-950 hover:underline font-semibold"
-                style={{ color: "var(--color-blue-950)" }}
-              >
-                Chính sách bảo mật
+                Đăng nhập
               </button>
-            </span>
-          </label>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isLoading || !agreeTerms}
-            className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 rounded-lg transition-colors disabled:opacity-50"
-            style={{ fontFamily: "var(--font-primary)" }}
-          >
-            {isLoading ? "Đang đăng kí..." : "Đăng Kí"}
-          </button>
-
-          {/* Divider */}
-          <div className="relative flex items-center gap-3 my-4">
-            <div className="flex-1 h-[1px] bg-gray-300"></div>
-            <span className="text-sm text-gray-500">hoặc</span>
-            <div className="flex-1 h-[1px] bg-gray-300"></div>
-          </div>
-
-          {/* Social Signup */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              className="border-2 border-gray-300 hover:border-blue-950 text-gray-700 font-semibold py-2 rounded-lg transition-colors"
-            >
-              Google
-            </button>
-            <button
-              type="button"
-              className="border-2 border-gray-300 hover:border-blue-950 text-gray-700 font-semibold py-2 rounded-lg transition-colors"
-            >
-              Facebook
-            </button>
-          </div>
-
-          {/* Switch to Login */}
-          <div className="text-center text-sm text-gray-600">
-            Đã có tài khoản?{" "}
-            <button
-              type="button"
-              onClick={onSwitchToLogin}
-              className="text-blue-950 font-bold hover:underline"
-              style={{ color: "var(--color-blue-950)" }}
-            >
-              Đăng nhập
-            </button>
-          </div>
-        </form>
+            </p>
+          </form>
+        </div>
       </div>
     </div>
   );

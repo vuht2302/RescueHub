@@ -60,12 +60,6 @@ const managerMenuItems: ManagerMenuItem[] = [
     icon: Car,
     color: "text-black-600",
   },
-  {
-    id: "event",
-    label: "Quản lý sự kiện",
-    icon: SquareMenu,
-    color: "text-black-600",
-  },
 
   {
     id: "relief-distribution",
@@ -77,12 +71,6 @@ const managerMenuItems: ManagerMenuItem[] = [
     id: "relief-hotspot",
     label: "Vùng cứu trợ",
     icon: TrendingUp,
-    color: "text-black-600",
-  },
-  {
-    id: "settings",
-    label: "Cài đặt",
-    icon: Settings,
     color: "text-black-600",
   },
 ];

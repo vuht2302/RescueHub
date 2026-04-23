@@ -12,14 +12,17 @@ import {
   Building2,
   Plus,
   X,
+  Trash2,
 } from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
+import { ConfirmationModal } from "../../../shared/components/ConfirmationModal";
 import {
   getReliefHotspots,
   type ReliefHotspotItem,
 } from "../../rescue-coordinator/services/incidentServices";
 import {
   createManagerReliefPoint,
+  deleteManagerReliefPoint,
   getReliefPointFormOptions,
   getManagerReliefPoints,
   type CreateReliefPointPayload,
@@ -97,6 +100,9 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [campaignOptions, setCampaignOptions] = useState<
     ReliefPointCampaignOption[]
   >([]);
@@ -123,7 +129,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
         throw new Error("Không có token xác thực.");
       }
 
-      const points = await getManagerReliefPoints(authSession.accessToken);
+      const points = await getManagerReliefPoints(authSession.accessToken, "OPEN");
       setReliefPoints(points);
     } catch (err) {
       console.error("Lỗi khi tải điểm cứu trợ:", err);
@@ -242,6 +248,37 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       );
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleDeleteReliefPoint = async () => {
+    if (!selectedReliefPoint) return;
+
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteReliefPoint = async () => {
+    if (!selectedReliefPoint) return;
+
+    setDeleteError(null);
+    setIsDeleting(true);
+
+    try {
+      const authSession = getAuthSession();
+      if (!authSession?.accessToken) {
+        throw new Error("Không có token xác thực.");
+      }
+
+      await deleteManagerReliefPoint(authSession.accessToken, selectedReliefPoint.id);
+      setSelectedReliefPoint(null);
+      setIsDeleteConfirmOpen(false);
+      await fetchReliefPoints();
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error ? err.message : "Không thể xóa điểm cứu trợ.",
+      );
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -683,9 +720,26 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
         {/* Selected Relief Point Info Overlay */}
         {selectedReliefPoint && (
           <div className="absolute bottom-5 left-5 bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-lg border border-[#007399]/30 max-w-xs z-10">
-            <p className="text-[10px] uppercase tracking-widest font-bold text-[#007399] flex items-center gap-1.5 mb-1">
-              <Building2 size={12} /> Điểm cứu trợ
-            </p>
+            <div className="flex items-start justify-between">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-[#007399] flex items-center gap-1.5 mb-1">
+                <Building2 size={12} /> Điểm cứu trợ
+              </p>
+              <button
+                onClick={handleDeleteReliefPoint}
+                disabled={isDeleting}
+                className="p-1 hover:bg-red-50 rounded transition-colors group"
+                title="Xóa điểm cứu trợ"
+              >
+                {isDeleting ? (
+                  <div className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
+                ) : (
+                  <Trash2
+                    size={14}
+                    className="text-red-500 group-hover:text-red-700"
+                  />
+                )}
+              </button>
+            </div>
             <p className="text-base font-black text-on-surface truncate">
               {selectedReliefPoint.name}
             </p>
@@ -706,6 +760,9 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                 {selectedReliefPoint.campaign.name}
               </span>
             </div>
+            {deleteError && (
+              <p className="text-[10px] text-red-500 mt-1">{deleteError}</p>
+            )}
           </div>
         )}
 
@@ -1310,6 +1367,18 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
             </form>
           </div>
         </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {selectedReliefPoint && (
+        <ConfirmationModal
+          isOpen={isDeleteConfirmOpen}
+          onClose={() => setIsDeleteConfirmOpen(false)}
+          onConfirm={confirmDeleteReliefPoint}
+          title="Xóa điểm cứu trợ"
+          message={`Bạn có chắc chắn muốn xóa điểm cứu trợ "${selectedReliefPoint.name}" không? Hành động này không thể hoàn tác.`}
+          confirmText="Xóa"
+          cancelText="Hủy"
+        />
       )}
     </div>
   );

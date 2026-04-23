@@ -230,7 +230,9 @@ export function CreateReliefIssueModal({
         .filter((s) => s.qtyAvailable > 0)
         .map((s) => itemsWithLots.find((i) => i.id === s.item.id))
         .filter((item): item is ItemWithLots => item != null)
-    : itemsWithLots.filter((item) => item.isActive && item.lots.length > 0);
+    : itemsWithLots.filter(
+        (item) => item.isActive && Array.isArray(item.lots) && item.lots.length > 0,
+      );
 
   const selectedReliefPoint = reliefPoints.find((p) => p.id === reliefPointId);
 
@@ -249,7 +251,7 @@ export function CreateReliefIssueModal({
     }
     const item = itemsWithLots.find((i) => i.id === itemId);
     return (
-      item?.lots.map((l) => ({
+      item?.lots?.map((l) => ({
         ...l,
         qtyAvailable: 0,
       })) ?? []

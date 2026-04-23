@@ -200,9 +200,14 @@ export async function getReliefPointFormOptions(
 
 export async function getManagerReliefPoints(
   token: string,
+  statusCode?: string,
 ): Promise<ReliefPointItem[]> {
+  const url = statusCode
+    ? `${RELIEF_POINTS_API_URL}?statusCode=${statusCode}`
+    : RELIEF_POINTS_API_URL;
+
   const data = await apiFetch<ReliefPointItem[] | { items: ReliefPointItem[] }>(
-    RELIEF_POINTS_API_URL,
+    url,
     {
       method: "GET",
       headers: authHeaders(token),
@@ -223,4 +228,16 @@ export async function createManagerReliefPoint(
   });
 
   return data;
+}
+
+export async function deleteManagerReliefPoint(
+  token: string,
+  reliefPointId: string,
+): Promise<boolean> {
+  await apiFetch<null>(`${RELIEF_POINTS_API_URL}/${reliefPointId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+
+  return true;
 }

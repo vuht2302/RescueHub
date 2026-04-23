@@ -74,7 +74,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         }`}
       >
         {/* Main Card */}
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div className="relative bg-white rounded-3xl shadow-2xl overflow-hidden">
           {/* Header */}
           <div className="px-8 pt-8 pb-6 text-center bg-gradient-to-b from-slate-50 to-white">
             <h2 className="text-2xl font-bold text-slate-800 mb-1">
@@ -85,7 +85,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           {/* Close button */}
           <button
             onClick={handleClose}
-            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-all"
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-all z-10"
           >
             <X size={20} />
           </button>

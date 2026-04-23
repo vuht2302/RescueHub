@@ -70,7 +70,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
         }`}
       >
         {/* Main Card */}
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div className="relative bg-white rounded-3xl shadow-2xl overflow-hidden">
           {/* Header */}
           <div className="px-8 pt-8 pb-6 text-center bg-gradient-to-b from-slate-50 to-white">
             <h2 className="text-2xl font-bold text-slate-800 mb-1">
@@ -81,7 +81,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
           {/* Close button */}
           <button
             onClick={handleClose}
-            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-all"
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-all z-10"
           >
             <X size={20} />
           </button>
@@ -170,13 +170,27 @@ export const SignupModal: React.FC<SignupModalProps> = ({
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-500 p-1 rounded-lg transition-colors"
                 >
-                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showConfirmPassword ? (
+                    <EyeOff size={18} />
+                  ) : (
+                    <Eye size={18} />
+                  )}
                 </button>
               </div>
               {confirmPassword && password !== confirmPassword && (
                 <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   Mật khẩu không khớp
                 </p>
@@ -202,17 +216,27 @@ export const SignupModal: React.FC<SignupModalProps> = ({
                       stroke="currentColor"
                       strokeWidth={3}
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
                 </div>
                 <span className="text-sm text-slate-600 leading-relaxed group-hover:text-slate-700 transition-colors">
                   Tôi đồng ý với{" "}
-                  <button type="button" className="text-emerald-600 hover:underline font-medium">
+                  <button
+                    type="button"
+                    className="text-emerald-600 hover:underline font-medium"
+                  >
                     Điều khoản sử dụng
                   </button>{" "}
                   và{" "}
-                  <button type="button" className="text-emerald-600 hover:underline font-medium">
+                  <button
+                    type="button"
+                    className="text-emerald-600 hover:underline font-medium"
+                  >
                     Chính sách bảo mật
                   </button>
                 </span>
@@ -222,8 +246,18 @@ export const SignupModal: React.FC<SignupModalProps> = ({
             {/* Error Message */}
             {errorMessage && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 flex items-center gap-2">
-                <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-5 h-5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 {errorMessage}
               </div>

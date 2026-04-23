@@ -72,6 +72,9 @@ public sealed class IncidentService(IIncidentRepository repository) : IIncidentS
     public Task<object> TeamUpdateReliefDistributionStatus(Guid distributionId, TeamReliefStatusRequest request)
         => repository.TeamUpdateReliefDistributionStatus(distributionId, request);
 
+    public Task<object> GetMyReliefHistory(Guid leaderUserId, Guid? teamId, string? statusCode, int page, int pageSize)
+        => repository.GetMyReliefHistory(leaderUserId, teamId, statusCode, page, pageSize);
+
     public Task<object> TeamUpdateMyStatus(Guid leaderUserId, TeamSelfStatusRequest request)
         => repository.TeamUpdateMyStatus(leaderUserId, request);
 }

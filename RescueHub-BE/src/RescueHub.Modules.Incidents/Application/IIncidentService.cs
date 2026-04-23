@@ -50,5 +50,7 @@ public interface IIncidentService
 
     Task<object> TeamUpdateReliefDistributionStatus(Guid distributionId, TeamReliefStatusRequest request);
 
+    Task<object> GetMyReliefHistory(Guid leaderUserId, Guid? teamId, string? statusCode, int page, int pageSize);
+
     Task<object> TeamUpdateMyStatus(Guid leaderUserId, TeamSelfStatusRequest request);
 }

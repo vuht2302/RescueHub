@@ -12,6 +12,9 @@ public sealed class TeamManagementService(ITeamManagementRepository repository) 
     public Task<object> GetTeam(Guid teamId)
         => repository.GetTeam(teamId);
 
+    public Task<object> GetTeamRescueHistory(Guid teamId, string? responseStatus, int page, int pageSize)
+        => repository.GetTeamRescueHistory(teamId, responseStatus, page, pageSize);
+
     public Task<object> CreateTeam(CreateTeamRequest request)
         => repository.CreateTeam(request);
 

@@ -103,7 +103,6 @@ public sealed record UpdateHouseholdRequest(
 
 public sealed record CreateDistributionLineRequest(
     Guid ItemId,
-    Guid LotId,
     decimal Qty,
     string UnitCode);
 
@@ -115,7 +114,6 @@ public sealed record RecipientLocationRequest(
 public sealed record CreateDistributionRequest(
     Guid? CampaignId,
     Guid? ReliefPointId,
-    Guid ReliefRequestId,
     Guid TeamId,
     CreateDistributionLineRequest[] Lines,
     string AckMethodCode,

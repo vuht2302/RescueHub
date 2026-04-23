@@ -170,6 +170,36 @@ public sealed class TeamController(IIncidentService service) : BaseApiController
     }
 
     /// <summary>
+    /// Team leader xem lich su cuu tro cua doi minh.
+    /// </summary>
+    [HttpGet("distributions/history")]
+    public async Task<ActionResult<ApiResponse<object>>> GetMyReliefHistory(
+        [FromQuery] Guid? teamId,
+        [FromQuery] string? statusCode,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (!Guid.TryParse(userIdValue, out var leaderUserId))
+        {
+            return BadRequestResponse<object>("Khong xac dinh duoc user dang nhap.");
+        }
+
+        try
+        {
+            return OkResponse<object>(
+                await service.GetMyReliefHistory(leaderUserId, teamId, statusCode, page, pageSize),
+                "Lay lich su cuu tro thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Team leader cap nhat trang thai doi cua minh.
     /// </summary>
     [HttpPost("status")]

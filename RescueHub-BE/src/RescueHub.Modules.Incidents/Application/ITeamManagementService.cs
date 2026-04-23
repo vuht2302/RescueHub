@@ -8,6 +8,8 @@ public interface ITeamManagementService
 
     Task<object> GetTeam(Guid teamId);
 
+    Task<object> GetTeamRescueHistory(Guid teamId, string? responseStatus, int page, int pageSize);
+
     Task<object> CreateTeam(CreateTeamRequest request);
 
     Task<object> UpdateTeam(Guid teamId, UpdateTeamRequest request);

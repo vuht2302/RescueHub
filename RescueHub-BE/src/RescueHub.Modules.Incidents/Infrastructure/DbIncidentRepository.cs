@@ -34,6 +34,13 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         "MAINTENANCE"
     ];
 
+    private static readonly HashSet<string> DistributionStatusCodes =
+    [
+        "PENDING",
+        "COMPLETED",
+        "CANCELLED"
+    ];
+
     public async Task<object> List()
     {
         var items = await dbContext.incidents
@@ -2213,6 +2220,100 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
                     statusCode = fulfilledReliefRequest.status_code,
                     statusName = "Da nhan"
                 }
+        };
+    }
+
+    public async Task<object> GetMyReliefHistory(Guid leaderUserId, Guid? teamId, string? statusCode, int page, int pageSize)
+    {
+        var teams = await dbContext.teams
+            .AsNoTracking()
+            .Where(x => x.leader_user_id == leaderUserId)
+            .OrderBy(x => x.code)
+            .Select(x => new { x.id, x.code, x.name })
+            .ToListAsync();
+
+        if (teams.Count == 0)
+        {
+            throw new InvalidOperationException("Tai khoan hien tai khong la leader cua team nao.");
+        }
+
+        var targetTeam = teamId.HasValue
+            ? teams.FirstOrDefault(x => x.id == teamId.Value)
+            : teams.Count == 1
+                ? teams[0]
+                : null;
+
+        if (targetTeam is null)
+        {
+            throw new InvalidOperationException("Tai khoan dang la leader cua nhieu team. Vui long cung cap teamId.");
+        }
+
+        var normalizedStatusCode = string.IsNullOrWhiteSpace(statusCode)
+            ? null
+            : statusCode.Trim().ToUpperInvariant();
+
+        if (normalizedStatusCode is not null && !DistributionStatusCodes.Contains(normalizedStatusCode))
+        {
+            throw new InvalidOperationException("StatusCode khong hop le. Chi nhan PENDING, COMPLETED, CANCELLED.");
+        }
+
+        var normalizedPage = page <= 0 ? 1 : page;
+        var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 200);
+
+        var teamPrefix = $"TEAM:{targetTeam.id}";
+        var query = dbContext.distributions
+            .AsNoTracking()
+            .Include(x => x.campaign)
+            .Include(x => x.relief_point)
+            .Include(x => x.household)
+            .Include(x => x.linked_incident)
+            .Include(x => x.distribution_ack)
+            .Where(x => x.note != null && x.note.StartsWith(teamPrefix))
+            .AsQueryable();
+
+        if (normalizedStatusCode is not null)
+        {
+            query = query.Where(x => x.status_code == normalizedStatusCode);
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(x => x.created_at)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(x => new
+            {
+                distributionId = x.id,
+                distributionCode = x.code,
+                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                team = new { id = targetTeam.id, code = targetTeam.code, name = targetTeam.name },
+                campaign = x.campaign == null ? null : new { id = x.campaign.id, code = x.campaign.code, name = x.campaign.name },
+                reliefPoint = x.relief_point == null ? null : new { id = x.relief_point.id, code = x.relief_point.code, name = x.relief_point.name },
+                incident = x.linked_incident == null ? null : new { id = x.linked_incident.id, code = x.linked_incident.code, statusCode = x.linked_incident.status_code },
+                recipient = new
+                {
+                    id = x.household.id,
+                    code = x.household.code,
+                    name = x.household.head_name,
+                    phone = x.household.phone,
+                    address = x.household.address_text
+                },
+                lineCount = x.distribution_lines.Count,
+                note = x.note,
+                ackAt = x.distribution_ack == null ? null : x.distribution_ack.ack_at,
+                createdAt = x.created_at
+            })
+            .ToListAsync();
+
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)normalizedPageSize);
+
+        return new
+        {
+            items,
+            page = normalizedPage,
+            pageSize = normalizedPageSize,
+            totalItems,
+            totalPages
         };
     }
 

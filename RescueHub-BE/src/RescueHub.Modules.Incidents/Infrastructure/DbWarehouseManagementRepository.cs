@@ -1487,7 +1487,6 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             {
                 id = x.id,
                 item = new { id = x.item.id, code = x.item.code, name = x.item.name },
-                lot = new { id = x.item_lot.id, lotNo = x.item_lot.lot_no },
                 qty = x.qty,
                 unitCode = x.unit_code
             }).ToList(),
@@ -1515,10 +1514,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         await EnsureReliefPointExists(request.ReliefPointId);
         await EnsureTeamExists(request.TeamId);
 
-        var reliefRequest = await dbContext.relief_requests
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.id == request.ReliefRequestId)
-            ?? throw new InvalidOperationException("Khong tim thay relief request.");
+        var reliefRequest = await ResolveReliefRequestForDistributionCreation(request.TeamId, request.CampaignId);
 
         var team = await dbContext.teams
             .AsNoTracking()
@@ -1600,19 +1596,19 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         dbContext.stock_transactions.Add(stockTransaction);
 
         var movementLines = request.Lines
-            .Select(x => new StockMovementLine(x.ItemId, x.LotId, x.Qty, x.UnitCode))
+            .Select(x => new StockMovementLine(x.ItemId, null, x.Qty, x.UnitCode))
             .ToArray();
         var createdTransactionLines = await ApplyStockMovement(stockTransaction.id, warehouseId, "ISSUE", movementLines);
         dbContext.stock_transaction_lines.AddRange(createdTransactionLines);
 
-        var distributionLines = request.Lines.Select(x => new distribution_line
+        var distributionLines = createdTransactionLines.Select(x => new distribution_line
         {
             id = Guid.NewGuid(),
             distribution_id = distribution.id,
-            item_id = x.ItemId,
-            item_lot_id = x.LotId,
-            qty = x.Qty,
-            unit_code = NormalizeCode(x.UnitCode)
+            item_id = x.item_id,
+            item_lot_id = x.item_lot_id,
+            qty = x.qty,
+            unit_code = x.unit_code
         }).ToArray();
         dbContext.distribution_lines.AddRange(distributionLines);
 
@@ -1941,6 +1937,45 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 throw new InvalidOperationException($"Lot {lot.lot_no} da het han, khong duoc cap phat.");
             }
         }
+    }
+
+    private async Task<relief_request> ResolveReliefRequestForDistributionCreation(Guid teamId, Guid? campaignId)
+    {
+        var incidentIds = await dbContext.mission_teams
+            .AsNoTracking()
+            .Where(x => x.team_id == teamId)
+            .OrderByDescending(x => x.assigned_at)
+            .Select(x => x.mission.incident_id)
+            .Distinct()
+            .ToArrayAsync();
+
+        if (incidentIds.Length == 0)
+        {
+            throw new InvalidOperationException("Team chua duoc manager gan mission nao.");
+        }
+
+        var query = dbContext.relief_requests
+            .AsNoTracking()
+            .Where(x => x.linked_incident_id.HasValue && incidentIds.Contains(x.linked_incident_id.Value))
+            .Where(x => x.status_code != "REJECTED" && x.status_code != "FULFILLED");
+
+        if (campaignId.HasValue)
+        {
+            query = query.Where(x => x.campaign_id == campaignId.Value);
+        }
+
+        var reliefRequest = await query
+            .OrderByDescending(x => x.status_code == "APPROVED")
+            .ThenByDescending(x => x.updated_at)
+            .ThenByDescending(x => x.created_at)
+            .FirstOrDefaultAsync();
+
+        if (reliefRequest is null)
+        {
+            throw new InvalidOperationException("Khong tim thay relief request phu hop voi team duoc gan.");
+        }
+
+        return reliefRequest;
     }
 
     private async Task<Guid> ResolveWarehouseForDistribution(Guid? reliefPointId)

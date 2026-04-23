@@ -2164,7 +2164,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         var note = NormalizeOptionalText(request.Note);
         if (note is not null)
         {
-            distribution.note = note;
+            distribution.note = MergeDistributionNote(distribution.note, note);
         }
 
         relief_request? fulfilledReliefRequest = null;
@@ -2260,6 +2260,13 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         var normalizedPage = page <= 0 ? 1 : page;
         var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 200);
 
+        var incidentIds = await dbContext.mission_teams
+            .AsNoTracking()
+            .Where(x => x.team_id == targetTeam.id)
+            .Select(x => x.mission.incident_id)
+            .Distinct()
+            .ToArrayAsync();
+
         var teamPrefix = $"TEAM:{targetTeam.id}";
         var query = dbContext.distributions
             .AsNoTracking()
@@ -2268,7 +2275,9 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             .Include(x => x.household)
             .Include(x => x.linked_incident)
             .Include(x => x.distribution_ack)
-            .Where(x => x.note != null && x.note.StartsWith(teamPrefix))
+            .Where(x =>
+                (x.linked_incident_id.HasValue && incidentIds.Contains(x.linked_incident_id.Value)) ||
+                (x.note != null && x.note.StartsWith(teamPrefix)))
             .AsQueryable();
 
         if (normalizedStatusCode is not null)
@@ -2300,7 +2309,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
                 },
                 lineCount = x.distribution_lines.Count,
                 note = x.note,
-                ackAt = x.distribution_ack == null ? null : x.distribution_ack.ack_at,
+                ackAt = x.distribution_ack == null ? null : (DateTime?)x.distribution_ack.ack_at,
                 createdAt = x.created_at
             })
             .ToListAsync();
@@ -2376,6 +2385,30 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
     {
         var normalized = value?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static string MergeDistributionNote(string? existingNote, string incomingNote)
+    {
+        var existing = NormalizeOptionalText(existingNote);
+        var incoming = NormalizeOptionalText(incomingNote);
+        if (incoming is null)
+        {
+            return existing ?? string.Empty;
+        }
+
+        if (existing is null)
+        {
+            return incoming;
+        }
+
+        if (existing.StartsWith("TEAM:", StringComparison.OrdinalIgnoreCase))
+        {
+            var separatorIndex = existing.IndexOf(';');
+            var teamTag = separatorIndex >= 0 ? existing[..separatorIndex] : existing;
+            return $"{teamTag}; {incoming}";
+        }
+
+        return incoming;
     }
 
     private static string NormalizePhoneForMatching(string? value)

@@ -643,7 +643,7 @@ export interface DistributionLinePayload {
 
 export interface DistributionPayload {
   campaignId: string;
-  reliefPointId: string;
+  adminAreaId: string;
   teamId: string;
   lines: DistributionLinePayload[];
   ackMethodCode: string;
@@ -855,4 +855,49 @@ export async function getReliefCampaigns(
   return Array.isArray(data)
     ? data
     : (data as PagedResponse<ReliefCampaign>).items;
+}
+
+export interface ReliefPointSummary {
+  id: string;
+  code: string;
+  name: string;
+  statusCode: string;
+}
+
+export interface ReliefCampaignDetail extends ReliefCampaign {
+  reliefPoints: ReliefPointSummary[];
+}
+
+export async function getReliefCampaign(
+  campaignId: string,
+  token: string,
+): Promise<ReliefCampaignDetail> {
+  return apiFetch<ReliefCampaignDetail>(
+    `${BASE}/relief-campaigns/${campaignId}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export interface CreateReliefCampaignPayload {
+  code: string;
+  name: string;
+  adminAreaId: string;
+  startAt: string;
+  endAt: string;
+  statusCode: string;
+  description?: string;
+  reliefPointIds: string[];
+}
+
+export async function createReliefCampaign(
+  payload: CreateReliefCampaignPayload,
+  token: string,
+): Promise<ReliefCampaign> {
+  return apiFetch<ReliefCampaign>(`${BASE}/relief-campaigns`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
 }

@@ -6,20 +6,26 @@ import {
   RefreshCw,
   Plus,
   X,
+  Map,
+  Truck,
 } from "lucide-react";
 import {
   getReliefCampaigns,
+  getReliefCampaign,
   type ReliefCampaign,
+  type ReliefCampaignDetail,
 } from "../services/warehouseService";
 import { getAuthSession } from "../../auth/services/authStorage";
 import { StatusBadge, CAMPAIGN_STATUS } from "../constants/statusConfig";
 
 interface ReliefCampaignTabProps {
   onSelectCampaign?: (campaign: ReliefCampaign) => void;
+  onCreateDistribution?: (campaignId: string, reliefPointId?: string) => void;
 }
 
 export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
   onSelectCampaign,
+  onCreateDistribution,
 }) => {
   const [campaigns, setCampaigns] = useState<ReliefCampaign[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -106,8 +112,8 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
         </div>
       </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Table */}
+      <div className="flex-1 overflow-auto">
         {isLoading && campaigns.length === 0 ? (
           <div className="flex items-center justify-center py-12">
             <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
@@ -128,61 +134,84 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
             <p className="text-sm text-gray-500">Chưa có chiến dịch cứu trợ</p>
           </div>
         ) : (
-          campaigns.map((campaign) => (
-            <div
-              key={campaign.id}
-              onClick={() => handleCampaignClick(campaign)}
-              className={`px-4 py-3 border-b border-gray-50 cursor-pointer transition-all hover:bg-blue-50 ${
-                selectedCampaign?.id === campaign.id
-                  ? "bg-blue-50 border-l-4 border-l-blue-800"
-                  : ""
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2 mb-1.5">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-blue-700 truncate">
-                    {campaign.name}
-                  </h3>
-                  <p className="text-[11px] text-gray-400 font-mono">
-                    {campaign.code}
-                  </p>
-                </div>
-                <StatusBadge
-                  code={campaign.status?.code ?? ""}
-                  statusMap={CAMPAIGN_STATUS}
-                />
-              </div>
-
-              {campaign.description && (
-                <p className="text-[11px] text-gray-500 mb-2 line-clamp-2">
-                  {campaign.description}
-                </p>
-              )}
-
-              <div className="flex items-center gap-3 text-[11px] text-gray-400">
-                {campaign.adminArea && (
-                  <span className="flex items-center gap-1">
-                    <MapPin size={10} />
-                    {campaign.adminArea.name}
-                  </span>
-                )}
-                <span className="flex items-center gap-1">
-                  <Calendar size={10} />
-                  {formatDate(campaign.startAt)}
-                </span>
-                <span className="bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded text-[10px] font-semibold">
-                  {campaign.reliefPointCount} điểm
-                </span>
-              </div>
-            </div>
-          ))
+          <table className="w-full">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
+                <th className="px-4 py-3">Chiến dịch</th>
+                <th className="px-4 py-3">Khu vực</th>
+                <th className="px-4 py-3">Ngày bắt đầu</th>
+                <th className="px-4 py-3">Trạm</th>
+                <th className="px-4 py-3">Trạng thái</th>
+                <th className="px-4 py-3 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {campaigns.map((campaign) => (
+                <tr
+                  key={campaign.id}
+                  onClick={() => handleCampaignClick(campaign)}
+                  className={`cursor-pointer transition-colors hover:bg-blue-50 ${
+                    selectedCampaign?.id === campaign.id ? "bg-blue-50" : ""
+                  }`}
+                >
+                  <td className="px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-blue-700 truncate">
+                        {campaign.name}
+                      </p>
+                      <p className="text-[11px] text-gray-400 font-mono">
+                        {campaign.code}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="flex items-center gap-1 text-sm text-gray-600">
+                      <MapPin size={12} />
+                      {campaign.adminArea?.name || "—"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="flex items-center gap-1 text-sm text-gray-600">
+                      <Calendar size={12} />
+                      {formatDate(campaign.startAt)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded text-xs font-semibold">
+                      {campaign.reliefPointCount} trạm
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge
+                      code={campaign.status?.code ?? ""}
+                      statusMap={CAMPAIGN_STATUS}
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {onCreateDistribution && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCreateDistribution(campaign.id);
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg text-xs font-semibold transition-colors ml-auto"
+                      >
+                        <Truck size={12} />
+                        Tạo phân phối
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
       {/* Campaign Detail Modal */}
       {selectedCampaign && (
         <CampaignDetailModal
-          campaign={selectedCampaign}
+          campaignId={selectedCampaign.id}
           onClose={() => setSelectedCampaign(null)}
         />
       )}
@@ -192,11 +221,18 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
 
 // Campaign Detail Modal
 interface CampaignDetailModalProps {
-  campaign: ReliefCampaign;
+  campaignId: string;
   onClose: () => void;
 }
 
-function CampaignDetailModal({ campaign, onClose }: CampaignDetailModalProps) {
+function CampaignDetailModal({
+  campaignId,
+  onClose,
+}: CampaignDetailModalProps) {
+  const [detail, setDetail] = useState<ReliefCampaignDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString("vi-VN", {
@@ -208,6 +244,57 @@ function CampaignDetailModal({ campaign, onClose }: CampaignDetailModalProps) {
     });
   };
 
+  useEffect(() => {
+    const loadDetail = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await getReliefCampaign(
+          campaignId,
+          getAuthSession()?.accessToken ?? "",
+        );
+        setDetail(data);
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : "Lỗi tải chi tiết chiến dịch",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    void loadDetail();
+  }, [campaignId]);
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="flex-1 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !detail) {
+    return (
+      <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="flex-1 flex flex-col items-center justify-center p-8">
+            <p className="text-red-500 mb-4">{error ?? "Không có dữ liệu"}</p>
+            <button
+              onClick={onClose}
+              className="px-6 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -216,15 +303,15 @@ function CampaignDetailModal({ campaign, onClose }: CampaignDetailModalProps) {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-black text-gray-900">
-                {campaign.name}
+                {detail.name}
               </h2>
               <StatusBadge
-                code={campaign.status?.code ?? ""}
+                code={detail.status?.code ?? ""}
                 statusMap={CAMPAIGN_STATUS}
               />
             </div>
             <p className="text-xs text-gray-400 font-mono mt-1">
-              {campaign.code}
+              {detail.code}
             </p>
           </div>
           <button
@@ -239,9 +326,9 @@ function CampaignDetailModal({ campaign, onClose }: CampaignDetailModalProps) {
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-4">
             {/* Description */}
-            {campaign.description && (
+            {detail.description && (
               <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-sm text-gray-700">{campaign.description}</p>
+                <p className="text-sm text-gray-700">{detail.description}</p>
               </div>
             )}
 
@@ -254,17 +341,17 @@ function CampaignDetailModal({ campaign, onClose }: CampaignDetailModalProps) {
                 </p>
                 <p className="text-sm font-bold text-blue-700 flex items-center gap-1">
                   <MapPin size={12} />
-                  {campaign.adminArea?.name || "—"}
+                  {detail.adminArea?.name || "—"}
                 </p>
               </div>
 
               {/* Relief Points */}
               <div className="bg-orange-50 rounded-xl p-4">
                 <p className="text-[10px] uppercase tracking-wider text-orange-400 font-bold mb-1">
-                  Điểm cứu trợ
+                  Trạm cứu trợ
                 </p>
                 <p className="text-sm font-bold text-orange-700">
-                  {campaign.reliefPointCount} điểm
+                  {detail.reliefPointCount} trạm
                 </p>
               </div>
 
@@ -275,7 +362,7 @@ function CampaignDetailModal({ campaign, onClose }: CampaignDetailModalProps) {
                 </p>
                 <p className="text-sm font-semibold flex items-center gap-1">
                   <Calendar size={12} />
-                  {formatDate(campaign.startAt)}
+                  {formatDate(detail.startAt)}
                 </p>
               </div>
 
@@ -286,10 +373,50 @@ function CampaignDetailModal({ campaign, onClose }: CampaignDetailModalProps) {
                 </p>
                 <p className="text-sm font-semibold flex items-center gap-1">
                   <Calendar size={12} />
-                  {formatDate(campaign.endAt) || "Chưa kết thúc"}
+                  {formatDate(detail.endAt) || "Chưa kết thúc"}
                 </p>
               </div>
             </div>
+
+            {/* Relief Points List */}
+            {detail.reliefPoints && detail.reliefPoints.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <Map size={14} />
+                  Danh sách trạm cứu trợ
+                </h3>
+                <div className="space-y-2">
+                  {detail.reliefPoints.map((point) => (
+                    <div
+                      key={point.id}
+                      className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">
+                          {point.name}
+                        </p>
+                        <p className="text-xs text-gray-400 font-mono">
+                          {point.code}
+                        </p>
+                      </div>
+                      <StatusBadge
+                        code={point.statusCode}
+                        statusMap={{
+                          OPEN: {
+                            label: "Hoạt động",
+                            cls: "bg-green-100 text-green-700",
+                          },
+                          CLOSE: {
+                            label: "Đóng",
+                            cls: "bg-gray-100 text-gray-600",
+                          },
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

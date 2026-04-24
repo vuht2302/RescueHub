@@ -21,6 +21,7 @@ import {
   TeamMissionDetail,
 } from "../types/mission";
 import { createSupportRequest } from "@/src/shared/services/team.service";
+import { createFieldReport } from "@/src/shared/services/fieldReport.service";
 
 const priorityStyles: Record<string, string> = {
   "Khẩn cấp": "bg-red-100 text-red-700",
@@ -117,6 +118,58 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
     setSupportError(null);
     setIsSupportModalOpen(true);
   };
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+const [reportMissionId, setReportMissionId] = useState<string | null>(null);
+const [reportLoading, setReportLoading] = useState(false);
+const [reportError, setReportError] = useState<string | null>(null);
+const [reportData, setReportData] = useState({
+reportTypeCode: "PROGRESS",
+  summary: "",
+  victimRescuedCount: 0,
+  victimUnreachableCount: 0,
+  casualtyCount: 0,
+  nextActionNote: "",
+});
+const openReportModal = (missionId: string) => {
+  setReportMissionId(missionId);
+  setReportError(null);
+  setIsReportModalOpen(true);
+};
+const handleSubmitReport = async () => {
+  if (!reportMissionId) return;
+
+  if (!reportData.summary.trim()) {
+    setReportError("Vui lòng nhập mô tả báo cáo");
+    return;
+  }
+
+  try {
+    setReportLoading(true);
+    setReportError(null);
+
+    await createFieldReport(reportMissionId, {
+      ...reportData,
+  
+      sceneDetails: [
+        {
+          factorCode: "GENERAL",
+          valueText: reportData.summary,
+        },
+      ],
+      fileIds: [],
+    });
+
+    alert("Gửi báo cáo thành công");
+
+    setIsReportModalOpen(false);
+    setReportMissionId(null);
+  } catch (err: any) {
+    console.log(err); 
+    setReportError(err.message || "Gửi báo cáo thất bại");
+  } finally {
+    setReportLoading(false);
+  }
+};
   const handleSubmitSupportRequest = async () => {
     if (!supportMissionId) return;
 
@@ -349,7 +402,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
       setIsAbortSubmitting(false);
     }
   };
-
+const toNumber = (val: string) => (val ? Number(val) : 0);
   return (
     <div className="col-span-1 xl:col-span-2 rounded-xl bg-white border border-gray-200 p-6 overflow-auto shadow-sm">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -560,6 +613,16 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                                   <Eye size={14} />
                                 </button>
                               )}
+                               <button
+  onClick={(e) => {
+    e.stopPropagation();
+    openReportModal(mission.missionId);
+  }}
+  className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-green-50 text-green-700 hover:bg-green-100"
+  title="Báo cáo hiện trường"
+>
+  📝
+</button>
                               <button
                                 type="button"
                                 onClick={(event) => {
@@ -816,6 +879,141 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
           </div>
         </div>
       )}
+      {isReportModalOpen && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl">
+      
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-bold">Báo cáo hiện trường</h3>
+        <button onClick={() => setIsReportModalOpen(false)}>
+          <X size={18} />
+        </button>
+      </div>
+
+      <div className="mt-4 space-y-4">
+
+        {/* SUMMARY */}
+        <div>
+          <label className="text-sm font-semibold text-gray-700">
+            Mô tả hiện trường
+          </label>
+          <textarea
+            value={reportData.summary}
+            onChange={(e) =>
+              setReportData({ ...reportData, summary: e.target.value })
+            }
+            className="mt-1 w-full border rounded-lg p-2"
+            rows={3}
+          />
+        </div>
+
+        <div>
+  <label className="text-sm font-semibold text-gray-700">
+    Loại báo cáo
+  </label>
+  <select
+    value={reportData.reportTypeCode}
+    onChange={(e) =>
+      setReportData({ ...reportData, reportTypeCode: e.target.value })
+    }
+    className="mt-1 w-full border rounded-lg p-2"
+  >
+    <option value="PROGRESS">Đang xử lý</option>
+    <option value="ON_SITE">Đã có mặt</option>
+    <option value="FINAL">Hoàn tất</option>
+  </select>
+</div>
+
+        {/* RESCUED */}
+        <div>
+          <label className="text-sm font-semibold text-gray-700">
+            Số người cứu được
+          </label>
+          <input
+            type="number"
+            value={reportData.victimRescuedCount}
+          onChange={(e) =>
+  setReportData({
+    ...reportData,
+    victimRescuedCount: toNumber(e.target.value),
+  })
+}
+            className="mt-1 w-full border rounded-lg p-2"
+          />
+        </div>
+
+        {/* UNREACHABLE */}
+        <div>
+          <label className="text-sm font-semibold text-gray-700">
+            Số người chưa tiếp cận
+          </label>
+          <input
+            type="number"
+            value={reportData.victimUnreachableCount}
+            onChange={(e) =>
+              setReportData({
+                ...reportData,
+                victimUnreachableCount: Number(e.target.value),
+              })
+            }
+            className="mt-1 w-full border rounded-lg p-2"
+          />
+        </div>
+
+        {/* CASUALTY */}
+        <div>
+          <label className="text-sm font-semibold text-gray-700">
+            Số thương vong
+          </label>
+          <input
+            type="number"
+            value={reportData.casualtyCount}
+            onChange={(e) =>
+              setReportData({
+                ...reportData,
+                casualtyCount: Number(e.target.value),
+              })
+            }
+            className="mt-1 w-full border rounded-lg p-2"
+          />
+        </div>
+
+        {/* NEXT ACTION */}
+        <div>
+          <label className="text-sm font-semibold text-gray-700">
+            Hành động tiếp theo
+          </label>
+          <textarea
+            value={reportData.nextActionNote}
+            onChange={(e) =>
+              setReportData({
+                ...reportData,
+                nextActionNote: e.target.value,
+              })
+            }
+            className="mt-1 w-full border rounded-lg p-2"
+            rows={3}
+          />
+        </div>
+
+        {/* ERROR */}
+        {reportError && (
+          <p className="text-red-500 text-sm">{reportError}</p>
+        )}
+
+        {/* BUTTON */}
+        <button
+          onClick={handleSubmitReport}
+          disabled={reportLoading}
+          className="w-full bg-green-700 text-white py-3 rounded-xl font-bold"
+        >
+          {reportLoading ? "Đang gửi..." : "Gửi báo cáo"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

@@ -16,6 +16,8 @@ public interface IWarehouseManagementService
 
     Task<object> ListItems(string? keyword, string? categoryCode, bool? isActive);
 
+    Task<object> GetItemOptions();
+
     Task<object> GetItem(Guid itemId);
 
     Task<object> CreateItem(CreateItemRequest request);
@@ -57,6 +59,32 @@ public interface IWarehouseManagementService
     Task<object> DeleteHousehold(Guid householdId);
 
     Task<object> ListDistributions(Guid? campaignId, Guid? reliefPointId, string? statusCode, int page, int pageSize);
+
+    Task<object> ListReliefCampaigns(string? keyword, string? statusCode);
+
+    Task<object> GetReliefCampaign(Guid campaignId);
+
+    Task<object> GetDistributionContextByCampaign(Guid campaignId);
+
+    Task<object> CreateReliefCampaign(CreateReliefCampaignRequest request);
+
+    Task<object> UpdateReliefCampaign(Guid campaignId, UpdateReliefCampaignRequest request);
+
+    Task<object> DeleteReliefCampaign(Guid campaignId);
+
+    Task<object> UpdateReliefRequestStatus(Guid reliefRequestId, UpdateReliefRequestStatusRequest request);
+
+    Task<object> GetDistributionOptions();
+
+    Task<object> ListReliefPoints(string? keyword, string? statusCode);
+
+    Task<object> CreateReliefPoint(CreateReliefPointRequest request);
+
+    Task<object> GetReliefPoint(Guid reliefPointId);
+
+    Task<object> UpdateReliefPoint(Guid reliefPointId, UpdateReliefPointRequest request);
+
+    Task<object> DeleteReliefPoint(Guid reliefPointId);
 
     Task<object> GetDistribution(Guid distributionId);
 

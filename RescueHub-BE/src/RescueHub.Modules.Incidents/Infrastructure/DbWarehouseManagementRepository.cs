@@ -8,6 +8,8 @@ namespace RescueHub.Modules.Incidents.Infrastructure;
 
 public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext) : IWarehouseManagementRepository
 {
+    private sealed record StockMovementLine(Guid ItemId, Guid? LotId, decimal Qty, string UnitCode);
+
     private static readonly HashSet<string> WarehouseStatusCodes = ["ACTIVE", "INACTIVE"];
     private static readonly HashSet<string> ItemUnitCodes = ["THUNG", "GOI", "CHAI", "SUAT", "KIT", "CAI"];
     private static readonly HashSet<string> IssuePolicyCodes = ["FIFO", "FEFO"];
@@ -15,6 +17,8 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
     private static readonly HashSet<string> StockTransactionTypeCodes = ["RECEIPT", "ISSUE"];
     private static readonly HashSet<string> ReliefIssueStatusCodes = ["DRAFT", "ISSUED", "DELIVERED", "CANCELLED"];
     private static readonly HashSet<string> DistributionStatusCodes = ["PENDING", "COMPLETED", "CANCELLED"];
+    private static readonly HashSet<string> ReliefPointStatusCodes = ["OPEN", "CLOSED", "PAUSED"];
+    private static readonly HashSet<string> CampaignStatusCodes = ["PLANNED", "ACTIVE", "CLOSED", "CANCELLED"];
     private static readonly HashSet<string> AckMethodCodes = ["OTP", "MANUAL"];
 
     public async Task<object> ListWarehouses(string? keyword, string? statusCode)
@@ -91,6 +95,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         var name = NormalizeRequired(request.WarehouseName, nameof(request.WarehouseName));
         var address = NormalizeRequired(request.Address, nameof(request.Address));
         var status = NormalizeCode(request.StatusCode);
+        var adminAreaId = await ResolveAdminAreaIdFromLocation(request.Location);
         EnsureAllowed(status, WarehouseStatusCodes, nameof(request.StatusCode));
 
         if (await dbContext.warehouses.AnyAsync(x => x.code == code))
@@ -98,7 +103,6 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             throw new InvalidOperationException($"Ma kho da ton tai: {code}");
         }
 
-        await EnsureAdminAreaExists(request.AdminAreaId);
         await EnsureUserExists(request.ManagerUserId);
 
         var entity = new warehouse
@@ -106,7 +110,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             id = Guid.NewGuid(),
             code = code,
             name = name,
-            admin_area_id = request.AdminAreaId,
+            admin_area_id = adminAreaId,
             address_text = address,
             geom = ToPointOrNull(request.Location),
             manager_user_id = request.ManagerUserId,
@@ -151,6 +155,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         var name = NormalizeRequired(request.WarehouseName, nameof(request.WarehouseName));
         var address = NormalizeRequired(request.Address, nameof(request.Address));
         var status = NormalizeCode(request.StatusCode);
+        var adminAreaId = await ResolveAdminAreaIdFromLocation(request.Location);
         EnsureAllowed(status, WarehouseStatusCodes, nameof(request.StatusCode));
 
         if (await dbContext.warehouses.AnyAsync(x => x.id != warehouseId && x.code == code))
@@ -158,12 +163,11 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             throw new InvalidOperationException($"Ma kho da ton tai: {code}");
         }
 
-        await EnsureAdminAreaExists(request.AdminAreaId);
         await EnsureUserExists(request.ManagerUserId);
 
         warehouse.code = code;
         warehouse.name = name;
-        warehouse.admin_area_id = request.AdminAreaId;
+        warehouse.admin_area_id = adminAreaId;
         warehouse.address_text = address;
         warehouse.geom = ToPointOrNull(request.Location);
         warehouse.manager_user_id = request.ManagerUserId;
@@ -304,29 +308,41 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 id = x.id,
                 itemCode = x.code,
                 itemName = x.name,
+                itemCategoryCode = x.item_category.code,
                 itemCategory = new { id = x.item_category.id, code = x.item_category.code, name = x.item_category.name },
                 unitCode = x.unit_code,
                 requiresLotTracking = x.requires_lot_tracking,
                 requiresExpiryTracking = x.requires_expiry_tracking,
                 issuePolicyCode = x.issue_policy_code,
-                isActive = x.is_active,
-                lotCount = x.item_lots.Count,
-                lots = x.item_lots
-                    .OrderByDescending(l => l.received_at)
-                    .Take(5)
-                    .Select(l => new
-                    {
-                        id = l.id,
-                        lotNo = l.lot_no,
-                        expDate = l.exp_date,
-                        statusCode = l.status_code,
-                        receivedAt = l.received_at
-                    })
-                    .ToList()
+                expDate = x.exp_date,
+                receivedAt = x.received_at,
+                isActive = x.is_active
             })
             .ToListAsync();
 
         return new { items };
+    }
+
+    public async Task<object> GetItemOptions()
+    {
+        var itemCategories = await dbContext.item_categories
+            .AsNoTracking()
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name
+            })
+            .ToListAsync();
+
+        return new
+        {
+            itemCategories,
+            unitCodes = ItemUnitCodes.Order().Select(x => new { code = x, name = x }).ToArray(),
+            issuePolicyCodes = IssuePolicyCodes.Order().Select(x => new { code = x, name = x }).ToArray(),
+            lotStatusCodes = LotStatusCodes.Order().Select(x => new { code = x, name = x }).ToArray()
+        };
     }
 
     public async Task<object> GetItem(Guid itemId)
@@ -347,25 +363,15 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             id = item.id,
             itemCode = item.code,
             itemName = item.name,
+            itemCategoryCode = item.item_category.code,
             itemCategory = new { id = item.item_category.id, code = item.item_category.code, name = item.item_category.name },
             unitCode = item.unit_code,
             requiresLotTracking = item.requires_lot_tracking,
             requiresExpiryTracking = item.requires_expiry_tracking,
             issuePolicyCode = item.issue_policy_code,
-            isActive = item.is_active,
-            lots = item.item_lots
-                .OrderByDescending(x => x.received_at)
-                .Select(x => new
-                {
-                    id = x.id,
-                    lotNo = x.lot_no,
-                    mfgDate = x.mfg_date,
-                    expDate = x.exp_date,
-                    donorName = x.donor_name,
-                    statusCode = x.status_code,
-                    receivedAt = x.received_at
-                })
-                .ToList()
+            expDate = item.exp_date,
+            receivedAt = item.received_at,
+            isActive = item.is_active
         };
     }
 
@@ -379,6 +385,11 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
 
         EnsureAllowed(unitCode, ItemUnitCodes, nameof(request.UnitCode));
         EnsureAllowed(issuePolicyCode, IssuePolicyCodes, nameof(request.IssuePolicyCode));
+
+        if (request.ExpDate.HasValue && request.ReceivedAt.HasValue && request.ExpDate.Value < DateOnly.FromDateTime(request.ReceivedAt.Value))
+        {
+            throw new InvalidOperationException("expDate khong duoc nho hon ngay receivedAt.");
+        }
 
         if (await dbContext.items.AnyAsync(x => x.code == code))
         {
@@ -401,13 +412,22 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             requires_lot_tracking = request.RequiresLotTracking,
             requires_expiry_tracking = request.RequiresExpiryTracking,
             issue_policy_code = issuePolicyCode,
+            exp_date = request.ExpDate,
+            received_at = request.ReceivedAt ?? DateTime.UtcNow,
             is_active = request.IsActive
         };
 
         dbContext.items.Add(entity);
         await dbContext.SaveChangesAsync();
 
-        return new { id = entity.id, itemCode = entity.code };
+        return new
+        {
+            id = entity.id,
+            itemCode = entity.code,
+            itemCategoryCode = category.code,
+            expDate = entity.exp_date,
+            receivedAt = entity.received_at
+        };
     }
 
     public async Task<object> UpdateItem(Guid itemId, UpdateItemRequest request)
@@ -427,6 +447,12 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         EnsureAllowed(unitCode, ItemUnitCodes, nameof(request.UnitCode));
         EnsureAllowed(issuePolicyCode, IssuePolicyCodes, nameof(request.IssuePolicyCode));
 
+        var effectiveReceivedAt = request.ReceivedAt ?? entity.received_at;
+        if (request.ExpDate.HasValue && request.ExpDate.Value < DateOnly.FromDateTime(effectiveReceivedAt))
+        {
+            throw new InvalidOperationException("expDate khong duoc nho hon ngay receivedAt.");
+        }
+
         if (await dbContext.items.AnyAsync(x => x.id != itemId && x.code == code))
         {
             throw new InvalidOperationException($"Ma item da ton tai: {code}");
@@ -445,10 +471,23 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         entity.requires_lot_tracking = request.RequiresLotTracking;
         entity.requires_expiry_tracking = request.RequiresExpiryTracking;
         entity.issue_policy_code = issuePolicyCode;
+        entity.exp_date = request.ExpDate;
+        if (request.ReceivedAt.HasValue)
+        {
+            entity.received_at = request.ReceivedAt.Value;
+        }
         entity.is_active = request.IsActive;
 
         await dbContext.SaveChangesAsync();
-        return new { id = entity.id, updated = true };
+        return new
+        {
+            id = entity.id,
+            updated = true,
+            itemCode = entity.code,
+            itemCategoryCode = category.code,
+            expDate = entity.exp_date,
+            receivedAt = entity.received_at
+        };
     }
 
     public async Task<object> DeleteItem(Guid itemId)
@@ -744,7 +783,11 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
 
         dbContext.stock_transactions.Add(transaction);
 
-        var createdLines = await ApplyStockMovement(transaction.id, request.WarehouseId, transactionType, request.Lines);
+        var movementLines = request.Lines
+            .Select(x => new StockMovementLine(x.ItemId, null, x.Qty, x.UnitCode))
+            .ToArray();
+
+        var createdLines = await ApplyStockMovement(transaction.id, request.WarehouseId, transactionType, movementLines);
         dbContext.stock_transaction_lines.AddRange(createdLines);
 
         await dbContext.SaveChangesAsync();
@@ -873,7 +916,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         dbContext.relief_issues.Add(issue);
 
         var transactionLines = request.Lines
-            .Select(x => new CreateStockTransactionLineRequest(x.ItemId, x.LotId, x.IssueQty, x.UnitCode))
+            .Select(x => new StockMovementLine(x.ItemId, x.LotId, x.IssueQty, x.UnitCode))
             .ToArray();
 
         var stockTransaction = new stock_transaction
@@ -1135,6 +1178,538 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         return new { items, page, pageSize, totalItems, totalPages };
     }
 
+    public async Task<object> ListReliefCampaigns(string? keyword, string? statusCode)
+    {
+        var query = dbContext.relief_campaigns
+            .AsNoTracking()
+            .Include(x => x.admin_area)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var q = keyword.Trim();
+            query = query.Where(x => x.code.Contains(q) || x.name.Contains(q));
+        }
+
+        if (!string.IsNullOrWhiteSpace(statusCode))
+        {
+            var normalized = NormalizeCode(statusCode);
+            query = query.Where(x => x.status_code == normalized);
+        }
+
+        var items = await query
+            .OrderByDescending(x => x.start_at)
+            .ThenBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                adminArea = x.admin_area == null ? null : new { id = x.admin_area.id, code = x.admin_area.code, name = x.admin_area.name },
+                startAt = x.start_at,
+                endAt = x.end_at,
+                description = x.description,
+                reliefPointCount = x.relief_points.Count
+            })
+            .ToListAsync();
+
+        return new { items };
+    }
+
+    public async Task<object> GetReliefCampaign(Guid campaignId)
+    {
+        var campaign = await dbContext.relief_campaigns
+            .AsNoTracking()
+            .Include(x => x.admin_area)
+            .Include(x => x.relief_points)
+            .FirstOrDefaultAsync(x => x.id == campaignId)
+            ?? throw new InvalidOperationException("Khong tim thay chien dich.");
+
+        return new
+        {
+            id = campaign.id,
+            code = campaign.code,
+            name = campaign.name,
+            status = new { code = campaign.status_code, name = campaign.status_code, color = (string?)null },
+            adminArea = campaign.admin_area == null ? null : new { id = campaign.admin_area.id, code = campaign.admin_area.code, name = campaign.admin_area.name },
+            startAt = campaign.start_at,
+            endAt = campaign.end_at,
+            description = campaign.description,
+            reliefPoints = campaign.relief_points
+                .OrderBy(x => x.code)
+                .Select(x => new
+                {
+                    id = x.id,
+                    code = x.code,
+                    name = x.name,
+                    statusCode = x.status_code
+                })
+                .ToList()
+        };
+    }
+
+    public async Task<object> GetDistributionContextByCampaign(Guid campaignId)
+    {
+        var campaign = await dbContext.relief_campaigns
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.id == campaignId)
+            ?? throw new InvalidOperationException("Khong tim thay chien dich.");
+
+        var reliefPoints = await dbContext.relief_points
+            .AsNoTracking()
+            .Where(x => x.campaign_id == campaignId && x.status_code == "OPEN")
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                x.id,
+                x.code,
+                x.name
+            })
+            .ToListAsync();
+
+        var reliefRequests = await dbContext.relief_requests
+            .AsNoTracking()
+            .Where(x =>
+                x.campaign_id == campaignId &&
+                x.linked_incident_id.HasValue &&
+                x.status_code != "REJECTED" &&
+                x.status_code != "FULFILLED")
+            .OrderByDescending(x => x.status_code == "APPROVED")
+            .ThenByDescending(x => x.updated_at)
+            .ThenByDescending(x => x.created_at)
+            .Select(x => new
+            {
+                x.id,
+                x.code,
+                x.linked_incident_id,
+                x.status_code
+            })
+            .ToListAsync();
+
+        var incidentIds = reliefRequests
+            .Where(x => x.linked_incident_id.HasValue)
+            .Select(x => x.linked_incident_id!.Value)
+            .Distinct()
+            .ToArray();
+
+        var incidentTeamAssignments = await dbContext.mission_teams
+            .AsNoTracking()
+            .Where(x => incidentIds.Contains(x.mission.incident_id))
+            .Select(x => new
+            {
+                incidentId = x.mission.incident_id,
+                teamId = x.team_id,
+                teamCode = x.team.code,
+                teamName = x.team.name
+            })
+            .Distinct()
+            .ToListAsync();
+
+        var teams = incidentTeamAssignments
+            .GroupBy(x => x.teamId)
+            .Select(x => new
+            {
+                id = x.Key,
+                code = x.First().teamCode,
+                name = x.First().teamName
+            })
+            .OrderBy(x => x.code)
+            .ToList();
+
+        var teamIdsByIncident = incidentTeamAssignments
+            .GroupBy(x => x.incidentId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(v => v.teamId).Distinct().ToArray());
+
+        var combinations = new List<object>();
+        foreach (var reliefRequest in reliefRequests)
+        {
+            if (!reliefRequest.linked_incident_id.HasValue ||
+                !teamIdsByIncident.TryGetValue(reliefRequest.linked_incident_id.Value, out var validTeamIds))
+            {
+                continue;
+            }
+
+            foreach (var teamId in validTeamIds)
+            {
+                foreach (var reliefPoint in reliefPoints)
+                {
+                    combinations.Add(new
+                    {
+                        reliefPointId = reliefPoint.id,
+                        teamId,
+                        reliefRequestId = (Guid?)reliefRequest.id
+                    });
+                }
+            }
+        }
+
+        return new
+        {
+            campaign = new
+            {
+                id = campaign.id,
+                code = campaign.code,
+                name = campaign.name,
+                statusCode = campaign.status_code
+            },
+            reliefPoints = reliefPoints.Select(x => new { id = x.id, code = x.code, name = x.name }).ToList(),
+            teams,
+            reliefRequests = reliefRequests.Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                linkedIncidentId = x.linked_incident_id,
+                statusCode = x.status_code
+            }).ToList(),
+            combinations
+        };
+    }
+
+    public async Task<object> CreateReliefCampaign(CreateReliefCampaignRequest request)
+    {
+        var code = NormalizeCode(request.Code);
+        var name = NormalizeRequired(request.Name, nameof(request.Name));
+        var statusCode = NormalizeCode(request.StatusCode);
+        EnsureAllowed(statusCode, CampaignStatusCodes, nameof(request.StatusCode));
+        ValidateCampaignDates(request.StartAt, request.EndAt);
+
+        await EnsureAdminAreaExists(request.AdminAreaId);
+
+        if (await dbContext.relief_campaigns.AnyAsync(x => x.code == code))
+        {
+            throw new InvalidOperationException($"Ma chien dich da ton tai: {code}");
+        }
+
+        var entity = new relief_campaign
+        {
+            id = Guid.NewGuid(),
+            code = code,
+            name = name,
+            status_code = statusCode,
+            linked_incident_id = null,
+            admin_area_id = request.AdminAreaId,
+            start_at = request.StartAt,
+            end_at = request.EndAt,
+            description = NormalizeOptional(request.Description)
+        };
+
+        dbContext.relief_campaigns.Add(entity);
+        await AssignCampaignReliefPoints(entity.id, request.ReliefPointIds);
+        await dbContext.SaveChangesAsync();
+
+        return new { id = entity.id, code = entity.code, created = true };
+    }
+
+    public async Task<object> UpdateReliefCampaign(Guid campaignId, UpdateReliefCampaignRequest request)
+    {
+        var entity = await dbContext.relief_campaigns.FirstOrDefaultAsync(x => x.id == campaignId)
+            ?? throw new InvalidOperationException("Khong tim thay chien dich.");
+
+        var code = NormalizeCode(request.Code);
+        var name = NormalizeRequired(request.Name, nameof(request.Name));
+        var statusCode = NormalizeCode(request.StatusCode);
+        EnsureAllowed(statusCode, CampaignStatusCodes, nameof(request.StatusCode));
+        ValidateCampaignDates(request.StartAt, request.EndAt);
+
+        await EnsureAdminAreaExists(request.AdminAreaId);
+
+        if (await dbContext.relief_campaigns.AnyAsync(x => x.id != campaignId && x.code == code))
+        {
+            throw new InvalidOperationException($"Ma chien dich da ton tai: {code}");
+        }
+
+        entity.code = code;
+        entity.name = name;
+        entity.admin_area_id = request.AdminAreaId;
+        entity.start_at = request.StartAt;
+        entity.end_at = request.EndAt;
+        entity.status_code = statusCode;
+        entity.description = NormalizeOptional(request.Description);
+
+        await AssignCampaignReliefPoints(entity.id, request.ReliefPointIds);
+        await dbContext.SaveChangesAsync();
+
+        return new { id = entity.id, code = entity.code, updated = true };
+    }
+
+    public async Task<object> DeleteReliefCampaign(Guid campaignId)
+    {
+        var entity = await dbContext.relief_campaigns.FirstOrDefaultAsync(x => x.id == campaignId)
+            ?? throw new InvalidOperationException("Khong tim thay chien dich.");
+
+        entity.status_code = "CANCELLED";
+        await dbContext.SaveChangesAsync();
+
+        return new { id = entity.id, deleted = true, mode = "SOFT_CANCEL" };
+    }
+
+    public async Task<object> UpdateReliefRequestStatus(Guid reliefRequestId, UpdateReliefRequestStatusRequest request)
+    {
+        var entity = await dbContext.relief_requests.FirstOrDefaultAsync(x => x.id == reliefRequestId)
+            ?? throw new InvalidOperationException("Khong tim thay relief request.");
+
+        var statusCode = NormalizeCode(request.StatusCode);
+        var allowedStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "NEW",
+            "APPROVED",
+            "REJECTED",
+            "FULFILLED",
+            "NOT_RECEIVED",
+            "CANCELLED"
+        };
+
+        EnsureAllowed(statusCode, allowedStatuses, nameof(request.StatusCode));
+
+        var current = entity.status_code?.Trim().ToUpperInvariant() ?? string.Empty;
+        if (current is "CANCELLED" or "FULFILLED" && !string.Equals(current, statusCode, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Khong the chuyen trang thai tu {current} sang {statusCode}.");
+        }
+
+        entity.status_code = statusCode;
+        entity.note = NormalizeOptional(request.Note);
+        entity.updated_at = DateTime.UtcNow;
+
+        await dbContext.SaveChangesAsync();
+        return new
+        {
+            reliefRequestId = entity.id,
+            requestCode = entity.code,
+            status = entity.status_code,
+            updatedAt = entity.updated_at
+        };
+    }
+
+    public async Task<object> GetDistributionOptions()
+    {
+        var campaigns = await dbContext.relief_campaigns
+            .AsNoTracking()
+            .Where(x => x.status_code == "PLANNED" || x.status_code == "ACTIVE")
+            .OrderByDescending(x => x.start_at)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                statusCode = x.status_code,
+                startAt = x.start_at,
+                endAt = x.end_at
+            })
+            .ToListAsync();
+
+        var reliefPoints = await dbContext.relief_points
+            .AsNoTracking()
+            .Include(x => x.campaign)
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                statusCode = x.status_code,
+                addressText = x.address_text,
+                campaign = x.campaign == null
+                    ? null
+                    : new { id = x.campaign.id, code = x.campaign.code, name = x.campaign.name },
+                location = ToLocationItem(x.geom)
+            })
+            .ToListAsync();
+
+        return new
+        {
+            campaigns,
+            reliefPoints,
+            ackMethodCodes = AckMethodCodes.Order().Select(x => new { code = x, name = x }).ToArray(),
+            distributionStatusCodes = DistributionStatusCodes.Order().Select(x => new { code = x, name = x }).ToArray()
+        };
+    }
+
+    public async Task<object> ListReliefPoints(string? keyword, string? statusCode)
+    {
+        var query = dbContext.relief_points
+            .AsNoTracking()
+            .Include(x => x.campaign)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var q = keyword.Trim();
+            query = query.Where(x => x.code.Contains(q) || x.name.Contains(q) || x.address_text.Contains(q));
+        }
+
+        if (!string.IsNullOrWhiteSpace(statusCode))
+        {
+            var normalized = NormalizeCode(statusCode);
+            query = query.Where(x => x.status_code == normalized);
+        }
+
+        var items = await query
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                addressText = x.address_text,
+                location = ToLocationItem(x.geom),
+                campaign = x.campaign == null
+                    ? null
+                    : new { id = x.campaign.id, code = x.campaign.code, name = x.campaign.name }
+            })
+            .ToListAsync();
+
+        return new { items };
+    }
+
+    public async Task<object> CreateReliefPoint(CreateReliefPointRequest request)
+    {
+        var code = NormalizeCode(request.Code);
+        var name = NormalizeRequired(request.Name, nameof(request.Name));
+        var addressText = NormalizeRequired(request.Location?.AddressText, nameof(request.Location.AddressText));
+        var statusCode = NormalizeCode(request.StatusCode);
+
+        if (request.Location is null)
+        {
+            throw new InvalidOperationException("Location la bat buoc.");
+        }
+
+        if (request.Location.Lat < -90 || request.Location.Lat > 90 ||
+            request.Location.Lng < -180 || request.Location.Lng > 180)
+        {
+            throw new InvalidOperationException("Toa do location khong hop le.");
+        }
+
+        EnsureAllowed(statusCode, ReliefPointStatusCodes, nameof(request.StatusCode));
+        await EnsureUserExists(request.ManagerUserId);
+
+        if (await dbContext.relief_points.AnyAsync(x => x.code == code))
+        {
+            throw new InvalidOperationException($"Ma diem cuu tro da ton tai: {code}");
+        }
+
+        var adminAreaId = await ResolveAdminAreaIdFromLocation(new GeoPointRequest(request.Location.Lat, request.Location.Lng));
+        var campaign = await ResolveCampaignForReliefPoint(adminAreaId);
+
+        var entity = new relief_point
+        {
+            id = Guid.NewGuid(),
+            code = code,
+            name = name,
+            campaign_id = campaign.id,
+            admin_area_id = adminAreaId,
+            address_text = addressText,
+            geom = new Point((double)request.Location.Lng, (double)request.Location.Lat) { SRID = 4326 },
+            manager_user_id = request.ManagerUserId,
+            status_code = statusCode,
+            opens_at = null,
+            closes_at = null
+        };
+
+        dbContext.relief_points.Add(entity);
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            id = entity.id,
+            code = entity.code,
+            name = entity.name,
+            statusCode = entity.status_code,
+            addressText = entity.address_text,
+            campaign = new { id = campaign.id, code = campaign.code, name = campaign.name },
+            adminAreaId,
+            location = new { lat = request.Location.Lat, lng = request.Location.Lng }
+        };
+    }
+
+    public async Task<object> GetReliefPoint(Guid reliefPointId)
+    {
+        var entity = await dbContext.relief_points
+            .AsNoTracking()
+            .Include(x => x.campaign)
+            .FirstOrDefaultAsync(x => x.id == reliefPointId)
+            ?? throw new InvalidOperationException("Khong tim thay diem cuu tro.");
+
+        return new
+        {
+            id = entity.id,
+            code = entity.code,
+            name = entity.name,
+            statusCode = entity.status_code,
+            addressText = entity.address_text,
+            campaign = entity.campaign == null ? null : new { id = entity.campaign.id, code = entity.campaign.code, name = entity.campaign.name },
+            location = ToLocationItem(entity.geom),
+            opensAt = entity.opens_at,
+            closesAt = entity.closes_at
+        };
+    }
+
+    public async Task<object> UpdateReliefPoint(Guid reliefPointId, UpdateReliefPointRequest request)
+    {
+        var entity = await dbContext.relief_points.FirstOrDefaultAsync(x => x.id == reliefPointId)
+            ?? throw new InvalidOperationException("Khong tim thay diem cuu tro.");
+
+        var code = NormalizeCode(request.Code);
+        var name = NormalizeRequired(request.Name, nameof(request.Name));
+        var addressText = NormalizeRequired(request.Location?.AddressText, nameof(request.Location.AddressText));
+        var statusCode = NormalizeCode(request.StatusCode);
+
+        if (request.Location is null)
+        {
+            throw new InvalidOperationException("Location la bat buoc.");
+        }
+
+        if (request.Location.Lat < -90 || request.Location.Lat > 90 ||
+            request.Location.Lng < -180 || request.Location.Lng > 180)
+        {
+            throw new InvalidOperationException("Toa do location khong hop le.");
+        }
+
+        EnsureAllowed(statusCode, ReliefPointStatusCodes, nameof(request.StatusCode));
+        await EnsureCampaignExists(request.CampaignId);
+        await EnsureAdminAreaExists(request.AdminAreaId);
+        await EnsureUserExists(request.ManagerUserId);
+
+        if (await dbContext.relief_points.AnyAsync(x => x.id != reliefPointId && x.code == code))
+        {
+            throw new InvalidOperationException($"Ma diem cuu tro da ton tai: {code}");
+        }
+
+        entity.code = code;
+        entity.name = name;
+        entity.campaign_id = request.CampaignId;
+        entity.admin_area_id = request.AdminAreaId;
+        entity.address_text = addressText;
+        entity.geom = new Point((double)request.Location.Lng, (double)request.Location.Lat) { SRID = 4326 };
+        entity.manager_user_id = request.ManagerUserId;
+        entity.status_code = statusCode;
+
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            id = entity.id,
+            updated = true,
+            code = entity.code,
+            statusCode = entity.status_code
+        };
+    }
+
+    public async Task<object> DeleteReliefPoint(Guid reliefPointId)
+    {
+        var entity = await dbContext.relief_points.FirstOrDefaultAsync(x => x.id == reliefPointId)
+            ?? throw new InvalidOperationException("Khong tim thay diem cuu tro.");
+
+        entity.status_code = "CLOSED";
+        await dbContext.SaveChangesAsync();
+
+        return new { id = entity.id, deleted = true, mode = "SOFT_CLOSE" };
+    }
+
     public async Task<object> GetDistribution(Guid distributionId)
     {
         var distribution = await dbContext.distributions
@@ -1177,7 +1752,6 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             {
                 id = x.id,
                 item = new { id = x.item.id, code = x.item.code, name = x.item.name },
-                lot = new { id = x.item_lot.id, lotNo = x.item_lot.lot_no },
                 qty = x.qty,
                 unitCode = x.unit_code
             }).ToList(),
@@ -1201,22 +1775,22 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             throw new InvalidOperationException("Danh sach lines khong duoc rong.");
         }
 
-        var recipientName = NormalizeRequired(request.RecipientName, nameof(request.RecipientName));
-        var recipientAddress = NormalizeRequired(request.RecipientAddress, nameof(request.RecipientAddress));
-        var recipientMemberCount = request.RecipientMemberCount <= 0 ? 1 : request.RecipientMemberCount;
-        var recipientVulnerableCount = request.RecipientVulnerableCount;
-        if (recipientVulnerableCount < 0 || recipientVulnerableCount > recipientMemberCount)
-        {
-            throw new InvalidOperationException("RecipientVulnerableCount khong hop le.");
-        }
-
-        await EnsureAdminAreaExists(request.RecipientAdminAreaId);
-
         await EnsureCampaignExists(request.CampaignId);
         await EnsureReliefPointExists(request.ReliefPointId);
-        await EnsureIncidentExists(request.IncidentId);
+        await EnsureTeamExists(request.TeamId);
 
-        var normalizedRecipientPhone = NormalizeOptional(request.RecipientPhone);
+        var reliefRequest = await ResolveReliefRequestForDistributionCreation(request.TeamId, request.CampaignId);
+
+        var team = await dbContext.teams
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.id == request.TeamId)
+            ?? throw new InvalidOperationException("Khong tim thay team duoc phan cong.");
+
+        var recipientName = NormalizeRequired(reliefRequest.requester_name, nameof(reliefRequest.requester_name));
+        var recipientAddress = NormalizeRequired(reliefRequest.address_text, nameof(reliefRequest.address_text));
+        var normalizedRecipientPhone = NormalizeOptional(reliefRequest.requester_phone);
+        var recipientMemberCount = reliefRequest.household_count <= 0 ? 1 : reliefRequest.household_count;
+
         var household = await dbContext.households.FirstOrDefaultAsync(x =>
             x.head_name == recipientName &&
             x.address_text == recipientAddress &&
@@ -1230,20 +1804,19 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 code = GenerateCode("HH"),
                 head_name = recipientName,
                 phone = normalizedRecipientPhone,
-                admin_area_id = request.RecipientAdminAreaId,
+                admin_area_id = reliefRequest.admin_area_id,
                 address_text = recipientAddress,
-                geom = ToPointOrNull(request.RecipientLocation),
+                geom = reliefRequest.geom,
                 member_count = recipientMemberCount,
-                vulnerable_count = recipientVulnerableCount
+                vulnerable_count = 0
             };
             dbContext.households.Add(household);
         }
         else
         {
-            household.admin_area_id = request.RecipientAdminAreaId;
+            household.admin_area_id = reliefRequest.admin_area_id;
             household.member_count = recipientMemberCount;
-            household.vulnerable_count = recipientVulnerableCount;
-            household.geom = ToPointOrNull(request.RecipientLocation);
+            household.geom = reliefRequest.geom;
         }
 
         var ackMethod = NormalizeCode(request.AckMethodCode);
@@ -1257,13 +1830,15 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         {
             id = Guid.NewGuid(),
             code = GenerateCode("DS"),
-            campaign_id = request.CampaignId,
+            campaign_id = request.CampaignId ?? reliefRequest.campaign_id,
             relief_point_id = request.ReliefPointId,
             household_id = household.id,
-            linked_incident_id = request.IncidentId,
+            linked_incident_id = reliefRequest.linked_incident_id,
             ack_method_code = ackMethod,
             status_code = "PENDING",
-            note = NormalizeOptional(request.Note),
+            note = NormalizeOptional(request.Note) is { Length: > 0 } note
+                ? $"TEAM:{team.id}; {note}"
+                : $"TEAM:{team.id}",
             created_by_user_id = null,
             created_at = DateTime.UtcNow
         };
@@ -1286,19 +1861,19 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         dbContext.stock_transactions.Add(stockTransaction);
 
         var movementLines = request.Lines
-            .Select(x => new CreateStockTransactionLineRequest(x.ItemId, x.LotId, x.Qty, x.UnitCode))
+            .Select(x => new StockMovementLine(x.ItemId, null, x.Qty, x.UnitCode))
             .ToArray();
         var createdTransactionLines = await ApplyStockMovement(stockTransaction.id, warehouseId, "ISSUE", movementLines);
         dbContext.stock_transaction_lines.AddRange(createdTransactionLines);
 
-        var distributionLines = request.Lines.Select(x => new distribution_line
+        var distributionLines = createdTransactionLines.Select(x => new distribution_line
         {
             id = Guid.NewGuid(),
             distribution_id = distribution.id,
-            item_id = x.ItemId,
-            item_lot_id = x.LotId,
-            qty = x.Qty,
-            unit_code = NormalizeCode(x.UnitCode)
+            item_id = x.item_id,
+            item_lot_id = x.item_lot_id,
+            qty = x.qty,
+            unit_code = x.unit_code
         }).ToArray();
         dbContext.distribution_lines.AddRange(distributionLines);
 
@@ -1320,7 +1895,9 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         {
             distributionId = distribution.id,
             distributionCode = distribution.code,
-            ackCode
+            ackCode,
+            team = new { id = team.id, code = team.code, name = team.name },
+            reliefRequest = new { id = reliefRequest.id, code = reliefRequest.code }
         };
     }
 
@@ -1337,26 +1914,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             throw new InvalidOperationException("Phieu phan phoi da duoc xac nhan truoc do.");
         }
 
-        var ackMethod = NormalizeCode(request.AckMethodCode);
-        EnsureAllowed(ackMethod, AckMethodCodes, nameof(request.AckMethodCode));
-
-        if (!string.Equals(ack.ack_method_code, ackMethod, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("AckMethodCode khong khop voi phieu phan phoi.");
-        }
-
-        if (ackMethod == "OTP")
-        {
-            var inputCode = NormalizeRequired(request.AckCode, nameof(request.AckCode));
-            if (!string.Equals(ack.ack_code, inputCode, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("Ma ACK khong dung.");
-            }
-        }
-
-        ack.ack_by_name = NormalizeOptional(request.AckByName);
-        ack.ack_phone = NormalizeOptional(request.AckPhone);
-        ack.ack_note = NormalizeOptional(request.AckNote);
+        ack.ack_note = NormalizeOptional(request.Note);
         ack.ack_at = DateTime.UtcNow;
 
         distribution.status_code = "COMPLETED";
@@ -1370,7 +1928,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         Guid stockTransactionId,
         Guid warehouseId,
         string transactionType,
-        IReadOnlyCollection<CreateStockTransactionLineRequest> lines)
+        IReadOnlyCollection<StockMovementLine> lines)
     {
         var result = new List<stock_transaction_line>();
 
@@ -1388,14 +1946,6 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             var item = await dbContext.items.FirstOrDefaultAsync(x => x.id == line.ItemId)
                 ?? throw new InvalidOperationException($"Khong tim thay item: {line.ItemId}");
 
-            var lot = await dbContext.item_lots.FirstOrDefaultAsync(x => x.id == line.LotId)
-                ?? throw new InvalidOperationException($"Khong tim thay lot: {line.LotId}");
-
-            if (lot.item_id != item.id)
-            {
-                throw new InvalidOperationException("Lot khong thuoc item duoc khai bao.");
-            }
-
             if (!string.Equals(item.unit_code, unitCode, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException($"UnitCode khong hop le voi item {item.code}. Unit hop le: {item.unit_code}");
@@ -1403,6 +1953,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
 
             if (transactionType == "RECEIPT")
             {
+                var lot = await ResolveLotForReceipt(item, line.LotId);
                 var toBin = await EnsureDefaultBinForWarehouse(warehouseId);
                 var receiptBalance = await GetOrCreateStockBalance(warehouseId, toBin.id, item.id, lot.id);
                 receiptBalance.qty_on_hand += qty;
@@ -1422,43 +1973,151 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 continue;
             }
 
-            ValidateIssueLot(lot);
+            var remainingQty = qty;
+            var candidateBalances = await ResolveIssueBalances(warehouseId, item.id, item.issue_policy_code, line.LotId);
 
-            var balance = await dbContext.stock_balances
-                .Where(x =>
-                    x.warehouse_id == warehouseId &&
-                    x.item_id == item.id &&
-                    x.item_lot_id == lot.id &&
-                    x.qty_on_hand > 0)
-                .OrderByDescending(x => x.qty_on_hand)
-                .FirstOrDefaultAsync()
-                ?? throw new InvalidOperationException("Khong tim thay ton kho cho line ISSUE.");
+            foreach (var balance in candidateBalances)
+            {
+                if (remainingQty <= 0)
+                {
+                    break;
+                }
 
-            if (balance.qty_on_hand < qty)
+                var lot = balance.item_lot;
+                ValidateIssueLot(lot);
+
+                if (balance.qty_on_hand <= 0)
+                {
+                    continue;
+                }
+
+                var deductQty = Math.Min(remainingQty, balance.qty_on_hand);
+                balance.qty_on_hand -= deductQty;
+                remainingQty -= deductQty;
+
+                result.Add(new stock_transaction_line
+                {
+                    id = Guid.NewGuid(),
+                    stock_transaction_id = stockTransactionId,
+                    item_id = item.id,
+                    item_lot_id = lot.id,
+                    from_bin_id = balance.warehouse_bin_id,
+                    to_bin_id = null,
+                    qty = deductQty,
+                    unit_code = unitCode
+                });
+            }
+
+            if (remainingQty > 0)
             {
                 throw new InvalidOperationException("So luong ton kho khong du de ISSUE.");
             }
-
-            balance.qty_on_hand -= qty;
-
-            result.Add(new stock_transaction_line
-            {
-                id = Guid.NewGuid(),
-                stock_transaction_id = stockTransactionId,
-                item_id = item.id,
-                item_lot_id = lot.id,
-                from_bin_id = balance.warehouse_bin_id,
-                to_bin_id = null,
-                qty = qty,
-                unit_code = unitCode
-            });
         }
 
         return result;
     }
 
+    private async Task<item_lot> ResolveLotForReceipt(item item, Guid? requestedLotId)
+    {
+        if (requestedLotId.HasValue)
+        {
+            var lot = await dbContext.item_lots.FirstOrDefaultAsync(x => x.id == requestedLotId.Value)
+                ?? throw new InvalidOperationException($"Khong tim thay lot: {requestedLotId.Value}");
+
+            if (lot.item_id != item.id)
+            {
+                throw new InvalidOperationException("Lot khong thuoc item duoc khai bao.");
+            }
+
+            return lot;
+        }
+
+        var trackedLot = dbContext.item_lots.Local
+            .Where(x => x.item_id == item.id && x.status_code != "EXPIRED" && x.status_code != "QUARANTINED")
+            .OrderByDescending(x => x.received_at)
+            .FirstOrDefault();
+        if (trackedLot is not null)
+        {
+            return trackedLot;
+        }
+
+        var existingLot = await dbContext.item_lots
+            .Where(x => x.item_id == item.id && x.status_code != "EXPIRED" && x.status_code != "QUARANTINED")
+            .OrderByDescending(x => x.received_at)
+            .FirstOrDefaultAsync();
+
+        if (existingLot is not null)
+        {
+            return existingLot;
+        }
+
+        var suffix = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+        var autoLotNo = $"AUTO-{item.code}-{suffix}";
+
+        var lotEntity = new item_lot
+        {
+            id = Guid.NewGuid(),
+            item_id = item.id,
+            lot_no = autoLotNo,
+            mfg_date = null,
+            exp_date = item.exp_date,
+            donor_name = "SYSTEM",
+            received_at = DateTime.UtcNow,
+            status_code = "AVAILABLE"
+        };
+
+        dbContext.item_lots.Add(lotEntity);
+        return lotEntity;
+    }
+
+    private async Task<List<stock_balance>> ResolveIssueBalances(Guid warehouseId, Guid itemId, string issuePolicyCode, Guid? requestedLotId)
+    {
+        var baseQuery = dbContext.stock_balances
+            .Include(x => x.item_lot)
+            .Where(x =>
+                x.warehouse_id == warehouseId &&
+                x.item_id == itemId &&
+                x.qty_on_hand > 0);
+
+        if (requestedLotId.HasValue)
+        {
+            return await baseQuery
+                .Where(x => x.item_lot_id == requestedLotId.Value)
+                .OrderByDescending(x => x.qty_on_hand)
+                .ToListAsync();
+        }
+
+        var normalizedPolicy = NormalizeCode(issuePolicyCode);
+        if (normalizedPolicy == "FEFO")
+        {
+            return await baseQuery
+                .OrderBy(x => x.item_lot.exp_date == null ? 1 : 0)
+                .ThenBy(x => x.item_lot.exp_date)
+                .ThenBy(x => x.item_lot.received_at)
+                .ThenByDescending(x => x.qty_on_hand)
+                .ToListAsync();
+        }
+
+        return await baseQuery
+            .OrderBy(x => x.item_lot.received_at)
+            .ThenBy(x => x.item_lot.exp_date == null ? 1 : 0)
+            .ThenBy(x => x.item_lot.exp_date)
+            .ThenByDescending(x => x.qty_on_hand)
+            .ToListAsync();
+    }
+
     private async Task<stock_balance> GetOrCreateStockBalance(Guid warehouseId, Guid binId, Guid itemId, Guid lotId)
     {
+        var trackedBalance = dbContext.stock_balances.Local.FirstOrDefault(x =>
+            x.warehouse_id == warehouseId &&
+            x.warehouse_bin_id == binId &&
+            x.item_id == itemId &&
+            x.item_lot_id == lotId);
+        if (trackedBalance is not null)
+        {
+            return trackedBalance;
+        }
+
         var balance = await dbContext.stock_balances.FirstOrDefaultAsync(x =>
             x.warehouse_id == warehouseId &&
             x.warehouse_bin_id == binId &&
@@ -1545,6 +2204,61 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         }
     }
 
+    private async Task<relief_request> ResolveReliefRequestForDistributionCreation(Guid teamId, Guid? campaignId)
+    {
+        var incidentIds = await dbContext.mission_teams
+            .AsNoTracking()
+            .Where(x => x.team_id == teamId)
+            .OrderByDescending(x => x.assigned_at)
+            .Select(x => x.mission.incident_id)
+            .Distinct()
+            .ToArrayAsync();
+
+        var baseQuery = dbContext.relief_requests
+            .AsNoTracking()
+            .Where(x => x.status_code != "REJECTED" && x.status_code != "FULFILLED")
+            .AsQueryable();
+
+        if (campaignId.HasValue)
+        {
+            baseQuery = baseQuery.Where(x => x.campaign_id == campaignId.Value);
+        }
+
+        if (incidentIds.Length > 0)
+        {
+            var byTeamIncidents = await baseQuery
+                .Where(x => x.linked_incident_id.HasValue && incidentIds.Contains(x.linked_incident_id.Value))
+                .OrderByDescending(x => x.status_code == "APPROVED")
+                .ThenByDescending(x => x.updated_at)
+                .ThenByDescending(x => x.created_at)
+                .FirstOrDefaultAsync();
+
+            if (byTeamIncidents is not null)
+            {
+                return byTeamIncidents;
+            }
+        }
+
+        // Fallback: team chua co mission lien quan campaign, nhung campaign van co relief request hop le.
+        var reliefRequest = await baseQuery
+            .OrderByDescending(x => x.status_code == "APPROVED")
+            .ThenByDescending(x => x.updated_at)
+            .ThenByDescending(x => x.created_at)
+            .FirstOrDefaultAsync();
+
+        if (reliefRequest is null)
+        {
+            if (campaignId.HasValue)
+            {
+                throw new InvalidOperationException("Khong tim thay relief request hop le trong campaign.");
+            }
+
+            throw new InvalidOperationException("Khong tim thay relief request phu hop. Vui long cung cap CampaignId hoac gan mission cho team.");
+        }
+
+        return reliefRequest;
+    }
+
     private async Task<Guid> ResolveWarehouseForDistribution(Guid? reliefPointId)
     {
         if (!reliefPointId.HasValue)
@@ -1575,6 +2289,72 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         }
 
         return fallback.id;
+    }
+
+    private async Task<relief_campaign> ResolveCampaignForReliefPoint(Guid? adminAreaId)
+    {
+        var now = DateTime.UtcNow;
+        var query = dbContext.relief_campaigns
+            .AsNoTracking()
+            .Where(x =>
+                x.status_code == "PLANNED" ||
+                x.status_code == "ACTIVE" ||
+                (x.start_at <= now && x.status_code != "CLOSED" && x.status_code != "CANCELLED"))
+            .AsQueryable();
+
+        if (adminAreaId.HasValue)
+        {
+            query = query.Where(x => x.admin_area_id == adminAreaId.Value);
+        }
+
+        var campaign = await query
+            .OrderByDescending(x => x.status_code == "ACTIVE")
+            .ThenByDescending(x => x.start_at)
+            .FirstOrDefaultAsync();
+
+        if (campaign is not null)
+        {
+            return campaign;
+        }
+
+        campaign = await dbContext.relief_campaigns
+            .AsNoTracking()
+            .Where(x => x.status_code == "PLANNED" || x.status_code == "ACTIVE")
+            .OrderByDescending(x => x.status_code == "ACTIVE")
+            .ThenByDescending(x => x.start_at)
+            .FirstOrDefaultAsync();
+
+        return campaign ?? throw new InvalidOperationException("Khong tim thay chien dich cuu tro de gan diem cuu tro.");
+    }
+
+    private async Task<Guid?> ResolveAdminAreaIdFromLocation(GeoPointRequest? location)
+    {
+        if (location is null)
+        {
+            return null;
+        }
+
+        var lat = location.Lat;
+        var lng = location.Lng;
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180)
+        {
+            throw new InvalidOperationException("Toa do khong hop le.");
+        }
+
+        var point = new Point((double)lng, (double)lat) { SRID = 4326 };
+
+        var areas = await dbContext.admin_areas
+            .AsNoTracking()
+            .Where(x => x.geom != null)
+            .Select(x => new { x.id, x.level_code, x.geom })
+            .ToListAsync();
+
+        var matched = areas
+            .Where(x => x.geom != null && x.geom.Contains(point))
+            .OrderBy(x => AdminAreaPriority(x.level_code))
+            .FirstOrDefault();
+
+        return matched?.id;
     }
 
     private async Task EnsureAdminAreaExists(Guid? adminAreaId)
@@ -1619,6 +2399,38 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         }
     }
 
+    private async Task AssignCampaignReliefPoints(Guid campaignId, Guid[]? reliefPointIds)
+    {
+        if (reliefPointIds is null)
+        {
+            return;
+        }
+
+        var normalizedIds = reliefPointIds
+            .Where(x => x != Guid.Empty)
+            .Distinct()
+            .ToArray();
+
+        if (normalizedIds.Length == 0)
+        {
+            return;
+        }
+
+        var reliefPoints = await dbContext.relief_points
+            .Where(x => normalizedIds.Contains(x.id))
+            .ToListAsync();
+
+        if (reliefPoints.Count != normalizedIds.Length)
+        {
+            throw new InvalidOperationException("Co relief point khong hop le trong danh sach ReliefPointIds.");
+        }
+
+        foreach (var reliefPoint in reliefPoints)
+        {
+            reliefPoint.campaign_id = campaignId;
+        }
+    }
+
     private async Task EnsureReliefPointExists(Guid? reliefPointId)
     {
         if (!reliefPointId.HasValue)
@@ -1647,6 +2459,15 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         }
     }
 
+    private async Task EnsureTeamExists(Guid teamId)
+    {
+        var exists = await dbContext.teams.AnyAsync(x => x.id == teamId);
+        if (!exists)
+        {
+            throw new InvalidOperationException($"Khong tim thay team: {teamId}");
+        }
+    }
+
     private async Task EnsureItemExists(Guid itemId)
     {
         var exists = await dbContext.items.AnyAsync(x => x.id == itemId);
@@ -1661,6 +2482,14 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         if (mfgDate.HasValue && expDate.HasValue && expDate.Value < mfgDate.Value)
         {
             throw new InvalidOperationException("ExpDate khong duoc nho hon MfgDate.");
+        }
+    }
+
+    private static void ValidateCampaignDates(DateTime startAt, DateTime? endAt)
+    {
+        if (endAt.HasValue && endAt.Value < startAt)
+        {
+            throw new InvalidOperationException("EndAt khong duoc nho hon StartAt.");
         }
     }
 
@@ -1697,6 +2526,15 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 200);
         return (normalizedPage, normalizedPageSize);
     }
+
+    private static int AdminAreaPriority(string? levelCode)
+        => levelCode switch
+        {
+            "WARD" => 0,
+            "DISTRICT" => 1,
+            "PROVINCE" => 2,
+            _ => 9
+        };
 
     private static Point? ToPointOrNull(GeoPointRequest? point)
     {

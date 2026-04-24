@@ -27,6 +27,17 @@ interface IncidentDetailPanelProps {
   onAssess: () => void;
   onDispatch: () => void;
   requestStatus: string;
+  handlingTeams?: Array<{
+    teamId: string;
+    teamCode: string;
+    teamName: string;
+    isPrimaryTeam: boolean;
+    missionId: string;
+    missionCode: string;
+    missionStatusCode: string;
+    assignedAt: string;
+  }>;
+  onFollowMission?: () => void;
 }
 
 const PRIORITY_CONFIG: Record<
@@ -85,6 +96,35 @@ function formatTime(isoDate: string) {
   });
 }
 
+// Mission status helpers
+const getMissionStatusColor = (missionStatusCode: string): string => {
+  const colors: Record<string, string> = {
+    EN_ROUTE: "bg-blue-500",
+    ON_SITE: "bg-amber-500",
+    RESCUING: "bg-red-500",
+    IN_PROGRESS: "bg-amber-500",
+    COMPLETED: "bg-green-500",
+    RETURNING: "bg-gray-500",
+    ASSIGNED: "bg-indigo-500",
+    DISPATCHED: "bg-blue-500",
+  };
+  return colors[missionStatusCode] || "bg-gray-500";
+};
+
+const getMissionStatusLabel = (missionStatusCode: string): string => {
+  const labels: Record<string, string> = {
+    EN_ROUTE: "Đang di chuyển",
+    ON_SITE: "Tại hiện trường",
+    RESCUING: "Đang cứu hộ",
+    IN_PROGRESS: "Đang xử lý",
+    COMPLETED: "Hoàn thành",
+    RETURNING: "Đang quay về",
+    ASSIGNED: "Đã phân công",
+    DISPATCHED: "Đã điều phối",
+  };
+  return labels[missionStatusCode] || missionStatusCode;
+};
+
 // ─── Image Gallery Component ───────────────────────────────────────────────────
 interface ImageGalleryProps {
   images: Array<{ fileId: string; url: string }>;
@@ -118,7 +158,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
   const isErr = errored[current];
 
   return (
-    <div className="relative rounded-xl overflow-hidden border border-gray-100 shadow-sm" style={{ height: 160 }}>
+    <div
+      className="relative rounded-xl overflow-hidden border border-gray-100 shadow-sm"
+      style={{ height: 160 }}
+    >
       {isErr ? (
         <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 gap-2">
           <ImageOff size={24} className="text-gray-400" />
@@ -157,7 +200,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
 
       {/* Bottom bar */}
       <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 pb-2">
-        <p className="text-white text-xs font-semibold drop-shadow">Ảnh hiện trường</p>
+        <p className="text-white text-xs font-semibold drop-shadow">
+          Ảnh hiện trường
+        </p>
         {images.length > 1 && (
           <div className="flex items-center gap-1">
             {images.map((_, i) => (
@@ -184,47 +229,49 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
   onVerify,
   onAssess,
   onDispatch,
+  requestStatus,
+  handlingTeams,
+  onFollowMission,
 }) => {
   const priority = getPriorityConfig(detail.severity?.code);
   const hasLocation = detail.location?.lat && detail.location?.lng;
+  const hasHandlingTeams = handlingTeams && handlingTeams.length > 0;
 
   return (
     <div className="flex flex-col h-full overflow-y-auto" style={{ gap: 0 }}>
       {/* ── Header Badge ── */}
-      <div className="px-5 pt-5 pb-3">
+      <div className="px-5 pt-5 pb-3 border-b border-gray-100">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
               Mã sự cố
             </p>
-            <h2 className="text-xl font-black text-gray-900 leading-tight">
+            <h2 className="text-xl font-bold text-gray-800 leading-tight">
               {detail.incidentCode}
             </h2>
           </div>
 
-          {/* Priority Badge */}
-          <div
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold flex-shrink-0 ${priority.bg} ${priority.color} ${priority.border}`}
-          >
+          {/* Priority Badge - Simplified */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium flex-shrink-0 border border-gray-200 text-gray-700">
             <span className={`w-2 h-2 rounded-full ${priority.dot}`} />
             {priority.label}
           </div>
         </div>
 
-        {/* Incident type row */}
+        {/* Incident type row - Simplified */}
         <div className="flex items-center gap-2 mt-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-gray-100 text-gray-700 text-xs font-semibold">
+          <span className="inline-flex items-center gap-1.5 text-xs text-gray-600">
             {INCIDENT_TYPE_ICON[detail.incidentType?.code ?? ""] ?? (
               <AlertTriangle size={14} />
             )}
             {detail.incidentType?.name ?? "Chưa phân loại"}
           </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-gray-100 text-gray-700 text-xs font-semibold">
+          <span className="inline-flex items-center gap-1.5 text-xs text-gray-600 ml-2">
             <Radio size={12} />
             {detail.channel?.name ?? "—"}
           </span>
           {detail.isSOS && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-600 text-white text-xs font-bold animate-pulse">
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-medium ml-2">
               🆘 SOS
             </span>
           )}
@@ -232,7 +279,7 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
       </div>
 
       {/* ── Incident Image Gallery ── */}
-      <div className="mx-5 mb-3">
+      <div className="mx-5 my-3">
         <ImageGallery
           images={(detail.files ?? []).filter((f) => f.contentType === "IMAGE")}
         />
@@ -242,12 +289,10 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
       <div className="mx-5 mb-3">
         <div className="flex items-center gap-1.5 mb-1.5">
           <Navigation size={13} className="text-gray-500" />
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Vị trí sự cố
-          </p>
+          <p className="text-xs text-gray-500 uppercase">Vị trí sự cố</p>
         </div>
         <div
-          className="rounded-xl overflow-hidden border border-gray-200 shadow-sm"
+          className="rounded-lg overflow-hidden border border-gray-200"
           style={{ height: 180 }}
         >
           {hasLocation ? (
@@ -257,21 +302,21 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
               addressText={detail.location.addressText}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+            <div className="w-full h-full flex items-center justify-center bg-gray-50">
               <MapPin className="text-gray-400" size={24} />
             </div>
           )}
         </div>
         {/* Address below map */}
         <div className="mt-2 flex items-start gap-2">
-          <MapPin size={14} className="text-red-500 mt-0.5 flex-shrink-0" />
+          <MapPin size={14} className="text-gray-500 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-gray-800">
+            <p className="text-sm text-gray-700">
               {detail.location?.addressText ?? "Chưa có địa chỉ"}
             </p>
             {detail.location?.landmark && (
               <p className="text-xs text-gray-500">
-                🏛 {detail.location.landmark}
+                {detail.location.landmark}
               </p>
             )}
           </div>
@@ -282,19 +327,17 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
       <div className="mx-5 border-t border-gray-100 mb-3" />
 
       {/* ── Reporter ── */}
-      <div className="mx-5 mb-3 bg-gray-50 rounded-xl p-3">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-          Người báo cáo
-        </p>
+      <div className="mx-5 mb-3 border border-gray-100 rounded-lg p-3">
+        <p className="text-xs text-gray-500 uppercase mb-2">Người báo cáo</p>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-            <User size={16} className="text-blue-600" />
+          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+            <User size={14} className="text-gray-500" />
           </div>
           <div>
-            <p className="text-sm font-bold text-gray-900">
+            <p className="text-sm text-gray-700">
               {detail.reporter?.name ?? "Chưa cập nhật"}
             </p>
-            <div className="flex items-center gap-1 text-xs text-gray-600">
+            <div className="flex items-center gap-1 text-xs text-gray-500">
               <Phone size={11} />
               <span>{detail.reporter?.phone ?? "—"}</span>
             </div>
@@ -304,44 +347,90 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
 
       {/* ── Victim Stats ── */}
       <div className="mx-5 mb-3 grid grid-cols-3 gap-2">
-        <div className="bg-red-50 rounded-lg p-2.5 text-center border border-red-100">
-          <Users size={14} className="text-red-500 mx-auto mb-1" />
-          <p className="text-lg font-black text-red-700">
+        <div className="border border-gray-200 rounded-lg p-2.5 text-center">
+          <Users size={14} className="text-gray-500 mx-auto mb-1" />
+          <p className="text-lg font-bold text-gray-700">
             {detail.victimCountEstimate ?? 0}
           </p>
-          <p className="text-xs text-red-600 font-medium leading-tight">
-            Nạn nhân
-          </p>
+          <p className="text-xs text-gray-500 leading-tight">Nạn nhân</p>
         </div>
-        <div className="bg-orange-50 rounded-lg p-2.5 text-center border border-orange-100">
-          <Heart size={14} className="text-orange-500 mx-auto mb-1" />
-          <p className="text-lg font-black text-orange-700">
+        <div className="border border-gray-200 rounded-lg p-2.5 text-center">
+          <Heart size={14} className="text-gray-500 mx-auto mb-1" />
+          <p className="text-lg font-bold text-gray-700">
             {detail.injuredCountEstimate ?? 0}
           </p>
-          <p className="text-xs text-orange-600 font-medium leading-tight">
-            Bị thương
-          </p>
+          <p className="text-xs text-gray-500 leading-tight">Bị thương</p>
         </div>
-        <div className="bg-blue-50 rounded-lg p-2.5 text-center border border-blue-100">
-          <Shield size={14} className="text-blue-500 mx-auto mb-1" />
-          <p className="text-lg font-black text-blue-700">
+        <div className="border border-gray-200 rounded-lg p-2.5 text-center">
+          <Shield size={14} className="text-gray-500 mx-auto mb-1" />
+          <p className="text-lg font-bold text-gray-700">
             {detail.vulnerableCountEstimate ?? 0}
           </p>
-          <p className="text-xs text-blue-600 font-medium leading-tight">
-            Dễ tổn thương
-          </p>
+          <p className="text-xs text-gray-500 leading-tight">Dễ tổn thương</p>
         </div>
       </div>
+
+      {/* ── Handling Teams ── */}
+      {hasHandlingTeams && (
+        <div className="mx-5 mb-3 border border-gray-200 rounded-lg p-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-gray-600 uppercase">
+              Đội đang xử lý ({handlingTeams?.length})
+            </p>
+            {onFollowMission && (
+              <button
+                onClick={onFollowMission}
+                className="text-xs px-2 py-1 bg-gray-700 text-white rounded font-medium hover:bg-gray-800 transition-colors flex items-center gap-1"
+              >
+                <span>📍</span>
+                Theo dõi
+              </button>
+            )}
+          </div>
+          <div className="space-y-2">
+            {handlingTeams?.map((team) => (
+              <div
+                key={team.teamId}
+                className="flex items-center justify-between bg-white rounded p-2 border border-gray-100"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <Users size={12} className="text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-700">
+                      {team.teamName}
+                      {team.isPrimaryTeam && (
+                        <span className="ml-1 text-[10px] px-1 py-0.5 bg-gray-100 text-gray-700 rounded">
+                          Chính
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500">{team.teamCode}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">
+                    {team.missionCode}
+                  </span>
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full ${getMissionStatusColor(team.missionStatusCode)}`}
+                    title={getMissionStatusLabel(team.missionStatusCode)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Time & Description ── */}
       <div className="mx-5 mb-3 space-y-2">
         <div className="flex items-start gap-2">
           <Clock size={13} className="text-gray-400 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-xs text-gray-400 font-medium">
-              Thời gian tiếp nhận
-            </p>
-            <p className="text-sm font-semibold text-gray-800">
+            <p className="text-xs text-gray-500">Thời gian tiếp nhận</p>
+            <p className="text-sm text-gray-700">
               {formatTime(detail.reportedAt)}
             </p>
           </div>
@@ -349,10 +438,13 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
 
         {detail.description && (
           <div className="flex items-start gap-2">
-            <FileText size={13} className="text-gray-400 mt-0.5 flex-shrink-0" />
+            <FileText
+              size={13}
+              className="text-gray-400 mt-0.5 flex-shrink-0"
+            />
             <div>
-              <p className="text-xs text-gray-400 font-medium">Mô tả</p>
-              <p className="text-sm text-gray-700 leading-relaxed">
+              <p className="text-xs text-gray-500">Mô tả</p>
+              <p className="text-sm text-gray-600 leading-relaxed">
                 {detail.description}
               </p>
             </div>
@@ -360,11 +452,9 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
         )}
 
         {detail.needRelief && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
-            <Info size={13} className="text-amber-600 flex-shrink-0" />
-            <p className="text-xs text-amber-700 font-semibold">
-              ⚠️ Cần hỗ trợ cứu trợ khẩn cấp
-            </p>
+          <div className="flex items-center gap-2 px-3 py-2 rounded border border-gray-200">
+            <Info size={13} className="text-gray-600 flex-shrink-0" />
+            <p className="text-xs text-gray-700">Cần hỗ trợ cứu trợ khẩn cấp</p>
           </div>
         )}
       </div>
@@ -374,27 +464,45 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
 
       {/* ── Action Buttons ── */}
       <div className="px-5 py-4 border-t border-gray-100 space-y-2 bg-white">
-        <button
-          onClick={onVerify}
-          className="w-full text-white font-bold py-2.5 rounded-xl text-sm transition-all active:scale-95 hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, #1e3a5f, #1e40af)" }}
-        >
-           Xác minh thông tin
-        </button>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={onAssess}
-            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-sm transition-all active:scale-95"
-          >
-             Đánh giá mức độ
-          </button>
-          <button
-            onClick={onDispatch}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-all active:scale-95"
-          >
-             Điều phối ngay
-          </button>
-        </div>
+        {requestStatus ===
+        "completed" /* No buttons shown when status is completed */ ? null : requestStatus ===
+          "dispatched" ? (
+          /* Only show Follow Mission button when status is dispatched */
+          hasHandlingTeams &&
+          onFollowMission && (
+            <button
+              onClick={onFollowMission}
+              className="w-full bg-gray-800 text-white font-medium py-2.5 rounded text-sm transition-all hover:bg-gray-700 flex items-center justify-center gap-2"
+            >
+              <span>📍</span>
+              Theo dõi nhiệm vụ
+            </button>
+          )
+        ) : (
+          /* Show all action buttons for other statuses */
+          <>
+            <button
+              onClick={onVerify}
+              className="w-full bg-gray-800 text-white font-medium py-2.5 rounded text-sm transition-all hover:bg-gray-700"
+            >
+              Xác minh thông tin
+            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={onAssess}
+                className="w-full bg-gray-600 hover:bg-gray-500 text-white font-medium py-2.5 rounded text-sm transition-all"
+              >
+                Đánh giá mức độ
+              </button>
+              <button
+                onClick={onDispatch}
+                className="w-full bg-gray-600 hover:bg-gray-500 text-white font-medium py-2.5 rounded text-sm transition-all"
+              >
+                Điều phối ngay
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

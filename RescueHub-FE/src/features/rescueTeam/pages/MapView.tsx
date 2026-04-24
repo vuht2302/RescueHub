@@ -13,12 +13,13 @@ import {
   Mission,
   MissionStatus,
   MissionLog,
-  TeamMember,
+  UiTeamMember,
 } from "../types/mission";
 import {
   requestMissionAbort,
   updateMissionStatus,
 } from "../services/teamMissionService";
+import { StatusChangeConfirmModal } from "../components/StatusChangeConfirmModal";
 
 interface MapViewProps {
   selectedMission: Mission;
@@ -26,7 +27,7 @@ interface MapViewProps {
   logs: MissionLog[];
   priorityStyles: Record<string, string>;
   missions: Mission[];
-  teamMembers: TeamMember[];
+  teamMembers: UiTeamMember[];
   onReloadData: () => void;
   isReloadingData: boolean;
   onMissionSelect: (missionId: string) => void;
@@ -84,6 +85,8 @@ export const MapView: React.FC<MapViewProps> = ({
   const [abortSuccessMessage, setAbortSuccessMessage] = React.useState<
     string | null
   >(null);
+  const [isStatusConfirmModalOpen, setIsStatusConfirmModalOpen] =
+    React.useState(false);
 
   const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
   const hasVietmapKey = vietmapApiKey.length > 0;
@@ -100,7 +103,9 @@ export const MapView: React.FC<MapViewProps> = ({
   const canUseVietmap = hasVietmapKey && hasValidCoords;
 
   const persistedMissionStatus = statusMap[selectedMission.id] ?? reportStatus;
-  const nextStatusOpt = statusProgression[statusProgression.indexOf(persistedMissionStatus) + 1] || null;
+  const nextStatusOpt =
+    statusProgression[statusProgression.indexOf(persistedMissionStatus) + 1] ||
+    null;
 
   useEffect(() => {
     if (!canUseVietmap || !mapContainerRef.current || mapRef.current) {
@@ -298,7 +303,12 @@ export const MapView: React.FC<MapViewProps> = ({
     .slice()
     .reverse();
 
-  const handleAdvanceStatus = async () => {
+  const handleAdvanceStatusClick = () => {
+    if (!nextStatusOpt) return;
+    setIsStatusConfirmModalOpen(true);
+  };
+
+  const handleConfirmStatusChange = async () => {
     if (!nextStatusOpt) return;
     setIsSubmitting(true);
     setSubmitError(null);
@@ -315,13 +325,23 @@ export const MapView: React.FC<MapViewProps> = ({
         actionCode,
         note: `Hệ thống: Chuyển sang ${nextStatusOpt}`,
       });
-      onSubmitReport(nextStatusOpt as MissionStatus, `Đã chuyển sang: ${nextStatusOpt}`);
+      onSubmitReport(
+        nextStatusOpt as MissionStatus,
+        `Đã chuyển sang: ${nextStatusOpt}`,
+      );
+      setIsStatusConfirmModalOpen(false);
     } catch (error) {
       console.error("[MapView] Lỗi cập nhật trạng thái:", error);
-      setSubmitError(error instanceof Error ? error.message : "Chuyển trạng thái thất bại.");
+      setSubmitError(
+        error instanceof Error ? error.message : "Chuyển trạng thái thất bại.",
+      );
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCancelStatusChange = () => {
+    setIsStatusConfirmModalOpen(false);
   };
 
   const handleSubmitReport = async (
@@ -345,7 +365,7 @@ export const MapView: React.FC<MapViewProps> = ({
       setSubmitError(
         error instanceof Error
           ? error.message
-          : "Gửi báo cáo thất bại. Vui lòng kiểm tra lại."
+          : "Gửi báo cáo thất bại. Vui lòng kiểm tra lại.",
       );
     } finally {
       setIsSubmitting(false);
@@ -385,7 +405,7 @@ export const MapView: React.FC<MapViewProps> = ({
 
   return (
     <>
-      <article className="relative rounded-2xl overflow-hidden bg-[#cfd4db] min-h-[520px] h-full">
+      <article className="relative rounded-xl overflow-hidden bg-gray-100 min-h-[520px] h-full">
         {canUseVietmap ? (
           <div
             ref={mapContainerRef}
@@ -393,25 +413,25 @@ export const MapView: React.FC<MapViewProps> = ({
             aria-label="Bản đồ nhiệm vụ cứu hộ"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-slate-100">
-            <div className="rounded-xl bg-white/90 px-4 py-3 text-sm font-semibold text-slate-700 border border-slate-200 shadow-sm">
+          <div className="w-full h-full flex items-center justify-center bg-gray-50">
+            <div className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-700 border border-gray-200 shadow-sm">
               Tạm thời không hiển thị bản đồ.
             </div>
           </div>
         )}
 
         {hasVietmapKey && !canUseVietmap && (
-          <div className="absolute top-5 right-5 bg-amber-100 text-amber-900 px-3 py-2 rounded-lg text-xs font-bold border border-amber-300 max-w-[280px]">
+          <div className="absolute top-5 right-5 bg-amber-50 text-amber-800 px-3 py-2 rounded-lg text-xs font-bold border border-amber-200 max-w-[280px]">
             Tọa độ nhiệm vụ đang ngoài vùng phủ dữ liệu Việt Nam của Vietmap,
             đang hiển thị bản đồ dự phòng.
           </div>
         )}
 
-        <div className="absolute top-5 left-5 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 shadow-md border border-white/70">
-          <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">
+        <div className="absolute top-5 left-5 bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-200">
+          <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500">
             Tọa độ trực tiếp
           </p>
-          <p className="text-sm font-black font-primary text-on-surface mt-1">
+          <p className="text-sm font-black font-primary text-gray-800 mt-1">
             {selectedMission.coord.lat.toFixed(4)}° N,{" "}
             {selectedMission.coord.lng.toFixed(4)}° E
           </p>
@@ -422,16 +442,16 @@ export const MapView: React.FC<MapViewProps> = ({
         </div>
       </article>
 
-      <aside className="rounded-2xl bg-[#d7dce2] border border-[#c8ced6] p-4 md:p-5 overflow-auto">
+      <aside className="rounded-xl bg-white border border-gray-200 p-4 md:p-5 overflow-auto shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary">
+          <h3 className="text-xs uppercase tracking-wider font-bold text-gray-500 font-primary">
             Nhiệm vụ hiện tại
           </h3>
         </div>
 
-        <div className="mt-3 rounded-xl bg-[#e7ebef] border border-[#d4dbe3] p-3">
+        <div className="mt-3 rounded-xl bg-gray-50 border border-gray-200 p-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-bold text-[#1f2329] font-primary">
+            <h3 className="text-sm font-bold text-gray-800 font-primary">
               Chi tiết yêu cầu
             </h3>
             <span
@@ -441,11 +461,11 @@ export const MapView: React.FC<MapViewProps> = ({
             </span>
           </div>
 
-          <h4 className="text-base font-black text-[#1f2329] mt-2 font-primary leading-tight">
+          <h4 className="text-base font-black text-gray-800 mt-2 font-primary leading-tight">
             {selectedMission.title}
           </h4>
 
-          <div className="space-y-1.5 mt-2.5 text-xs text-[#3f4650]">
+          <div className="space-y-1.5 mt-2.5 text-xs text-gray-600">
             <p className="flex items-start gap-2">
               <MapPin size={15} className="text-blue-950 mt-0.5" />
               {selectedMission.address}
@@ -464,35 +484,40 @@ export const MapView: React.FC<MapViewProps> = ({
             </p>
           </div>
 
-          <p className="mt-2.5 text-xs text-[#3f4650] leading-relaxed">
+          <p className="mt-2.5 text-xs text-gray-600 leading-relaxed">
             {selectedMission.summary}
           </p>
         </div>
 
         <div className="mt-4 space-y-2.5">
-          <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary mb-2">
+          <h3 className="text-xs uppercase tracking-wider font-bold text-gray-500 font-primary mb-2">
             Cập nhật trạng thái
           </h3>
-          
-          <div className="flex items-center justify-between rounded-lg border border-[#c7ced7] bg-white px-4 py-3">
-            <span className="text-sm font-semibold text-[#1f2329]"> <span className="text-blue-700">{persistedMissionStatus}</span></span>
+
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
+            <span className="text-sm font-semibold text-gray-800">
+              {" "}
+              <span className="text-blue-700">{persistedMissionStatus}</span>
+            </span>
             {nextStatusOpt ? (
               <button
                 type="button"
-                onClick={handleAdvanceStatus}
+                onClick={handleAdvanceStatusClick}
                 disabled={isSubmitting}
                 className="rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-4 py-1.5 text-xs font-bold shadow-sm transition-colors"
               >
                 Chuyển sang: {nextStatusOpt}
               </button>
             ) : (
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded border border-emerald-200">Đã hoàn tất</span>
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded border border-emerald-200">
+                Đã hoàn tất
+              </span>
             )}
           </div>
         </div>
 
         <form className="mt-4 space-y-2.5" onSubmit={handleSubmitReport}>
-          <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary mb-2">
+          <h3 className="text-xs uppercase tracking-wider font-bold text-gray-500 font-primary mb-2">
             Báo cáo hiện trường
           </h3>
 
@@ -511,20 +536,20 @@ export const MapView: React.FC<MapViewProps> = ({
             onChange={(event) => setReportText(event.target.value)}
             rows={3}
             placeholder="Nhập diễn biến, kết quả xử lý, nhu cầu hỗ trợ bổ sung..."
-            className="w-full rounded-lg border border-[#c7ced7] bg-[#eef2f5] px-3 py-2 text-sm resize-none"
+            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-lg bg-[#007399] hover:bg-[#006483] disabled:bg-slate-400 text-white py-2 font-bold font-primary text-sm shadow-sm transition-colors mt-1"
+            className="w-full rounded-lg bg-blue-950 hover:bg-blue-900 disabled:bg-gray-400 text-white py-2 font-bold font-primary text-sm shadow-sm transition-colors mt-1"
           >
             {isSubmitting ? "Đang gửi báo cáo..." : "Gửi báo cáo"}
           </button>
         </form>
 
-        <div className="mt-4 space-y-2.5 border-t border-[#8e9aa5] border-dashed pt-4">
-          <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary mb-2">
+        <div className="mt-4 space-y-2.5 border-t border-gray-200 border-dashed pt-4">
+          <h3 className="text-xs uppercase tracking-wider font-bold text-gray-500 font-primary mb-2">
             Yêu cầu hủy nhiệm vụ
           </h3>
 
@@ -544,12 +569,12 @@ export const MapView: React.FC<MapViewProps> = ({
             </div>
           )}
 
-          <label className="block text-xs font-semibold text-on-surface-variant">
+          <label className="block text-xs font-semibold text-gray-600">
             Lý do hủy
             <select
               value={abortReasonCode}
               onChange={(event) => setAbortReasonCode(event.target.value)}
-              className="w-full mt-1 rounded-lg border border-[#c7ced7] bg-[#eef2f5] px-3 py-2 text-sm"
+              className="w-full mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="RESOURCE_LIMIT">Thiếu nguồn lực</option>
               <option value="SAFETY_RISK">Rủi ro an toàn</option>
@@ -558,14 +583,14 @@ export const MapView: React.FC<MapViewProps> = ({
             </select>
           </label>
 
-          <label className="block text-xs font-semibold text-on-surface-variant">
+          <label className="block text-xs font-semibold text-gray-600">
             Chi tiết lý do hủy
             <textarea
               value={abortDetailNote}
               onChange={(event) => setAbortDetailNote(event.target.value)}
               rows={3}
               placeholder="Mô tả lý do cần hủy nhiệm vụ..."
-              className="w-full mt-1 rounded-lg border border-[#c7ced7] bg-[#eef2f5] px-3 py-2 text-sm resize-none"
+              className="w-full mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </label>
 
@@ -573,14 +598,14 @@ export const MapView: React.FC<MapViewProps> = ({
             type="button"
             onClick={handleSubmitAbortRequest}
             disabled={isAbortSubmitting}
-            className="w-full rounded-lg bg-[#ba1a1a] hover:bg-[#8f1515] disabled:bg-slate-400 text-white py-2 font-bold font-primary text-sm shadow-sm transition-colors mt-1"
+            className="w-full rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white py-2 font-bold font-primary text-sm shadow-sm transition-colors mt-1"
           >
             {isAbortSubmitting ? "Đang gửi yêu cầu..." : "Gửi yêu cầu hủy"}
           </button>
         </div>
 
-        <div className="mt-4 border-t border-[#8e9aa5] border-dashed pt-4">
-          <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary mb-2">
+        <div className="mt-4 border-t border-gray-200 border-dashed pt-4">
+          <h3 className="text-xs uppercase tracking-wider font-bold text-gray-500 font-primary mb-2">
             Nhật ký cập nhật
           </h3>
           <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -588,20 +613,29 @@ export const MapView: React.FC<MapViewProps> = ({
               currentLogs.map((log) => (
                 <div
                   key={log.id}
-                  className="text-xs rounded-lg bg-[#eef2f5] p-2.5 border-l-2 border-blue-950"
+                  className="text-xs rounded-lg bg-gray-50 p-2.5 border-l-2 border-blue-950"
                 >
-                  <p className="font-bold text-[#1f2329]">{log.time}</p>
-                  <p className="text-[#3f4650] mt-1">{log.content}</p>
+                  <p className="font-bold text-gray-800">{log.time}</p>
+                  <p className="text-gray-600 mt-1">{log.content}</p>
                 </div>
               ))
             ) : (
-              <p className="text-xs text-on-surface-variant text-center py-2">
+              <p className="text-xs text-gray-500 text-center py-2">
                 Chưa có cập nhật
               </p>
             )}
           </div>
         </div>
       </aside>
+
+      <StatusChangeConfirmModal
+        isOpen={isStatusConfirmModalOpen}
+        currentStatus={persistedMissionStatus}
+        nextStatus={nextStatusOpt || persistedMissionStatus}
+        onConfirm={handleConfirmStatusChange}
+        onCancel={handleCancelStatusChange}
+        isSubmitting={isSubmitting}
+      />
     </>
   );
 };

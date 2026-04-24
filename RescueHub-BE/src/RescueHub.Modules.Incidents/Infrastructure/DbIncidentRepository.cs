@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Geometries;
 using RescueHub.BuildingBlocks.Application;
 using RescueHub.Modules.Incidents.Application;
 using RescueHub.Persistence;
@@ -23,6 +24,21 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         "COMPLETE",
         "COMPLETED",
         "ABORTED"
+    ];
+
+    private static readonly HashSet<string> TeamStatusCodes =
+    [
+        "AVAILABLE",
+        "BUSY",
+        "OFFLINE",
+        "MAINTENANCE"
+    ];
+
+    private static readonly HashSet<string> DistributionStatusCodes =
+    [
+        "PENDING",
+        "COMPLETED",
+        "CANCELLED"
     ];
 
     public async Task<object> List()
@@ -625,6 +641,12 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         var todayCount = await dbContext.relief_requests.CountAsync(x => x.code.StartsWith(codePrefix));
         var requestCode = $"{codePrefix}-{(todayCount + 1):000}";
 
+        var reliefAdminAreaId = incident.incident_location?.admin_area_id;
+        if (!reliefAdminAreaId.HasValue && incident.incident_location is not null)
+        {
+            reliefAdminAreaId = await ResolveAdminAreaIdFromPoint(incident.incident_location.lat, incident.incident_location.lng);
+        }
+
         var reliefRequest = new relief_request
         {
             id = Guid.NewGuid(),
@@ -635,7 +657,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             linked_incident_id = incident.id,
             campaign_id = null,
             status_code = "NEW",
-            admin_area_id = incident.incident_location?.admin_area_id,
+            admin_area_id = reliefAdminAreaId,
             address_text = incident.incident_location?.address_text ?? "UNKNOWN",
             geom = incident.incident_location?.geom,
             household_count = householdCount,
@@ -763,7 +785,86 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             })
             .ToListAsync();
 
-        var items = requests
+        var unresolvedRequests = requests
+            .Where(x => x.adminAreaId == null && x.lat.HasValue && x.lng.HasValue)
+            .ToList();
+
+        var resolvedAreaByRequestId = new Dictionary<Guid, ResolvedAreaInfo>();
+        if (unresolvedRequests.Count > 0)
+        {
+            var areas = await dbContext.admin_areas
+                .AsNoTracking()
+                .Where(x => x.geom != null)
+                .Select(x => new { x.id, x.code, x.name, x.level_code, x.geom })
+                .ToListAsync();
+
+            foreach (var requestItem in unresolvedRequests)
+            {
+                var point = new Point(requestItem.lng!.Value, requestItem.lat!.Value) { SRID = 4326 };
+                var matched = areas
+                    .Where(x => x.geom != null && x.geom.Contains(point))
+                    .OrderBy(x => AdminAreaPriority(x.level_code))
+                    .FirstOrDefault();
+
+                if (matched is not null)
+                {
+                    resolvedAreaByRequestId[requestItem.id] = new ResolvedAreaInfo(matched.id, matched.code, matched.name);
+                }
+            }
+        }
+
+        var enrichedRequests = requests.Select(x =>
+        {
+            if (x.adminAreaId.HasValue)
+            {
+                return new
+                {
+                    x.id,
+                    x.code,
+                    x.status_code,
+                    x.created_at,
+                    x.address_text,
+                    x.lat,
+                    x.lng,
+                    adminAreaId = x.adminAreaId,
+                    adminAreaCode = x.adminAreaCode,
+                    adminAreaName = x.adminAreaName
+                };
+            }
+
+            if (resolvedAreaByRequestId.TryGetValue(x.id, out var resolvedArea))
+            {
+                return new
+                {
+                    x.id,
+                    x.code,
+                    x.status_code,
+                    x.created_at,
+                    x.address_text,
+                    x.lat,
+                    x.lng,
+                    adminAreaId = (Guid?)resolvedArea.Id,
+                    adminAreaCode = resolvedArea.Code,
+                    adminAreaName = resolvedArea.Name
+                };
+            }
+
+            return new
+            {
+                x.id,
+                x.code,
+                x.status_code,
+                x.created_at,
+                x.address_text,
+                x.lat,
+                x.lng,
+                adminAreaId = x.adminAreaId,
+                adminAreaCode = x.adminAreaCode,
+                adminAreaName = x.adminAreaName
+            };
+        }).ToList();
+
+        var items = enrichedRequests
             .GroupBy(x => new
             {
                 x.adminAreaId,
@@ -827,11 +928,38 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
                 top = normalizedTop,
                 fromTime
             },
-            totalRequests = requests.Count,
+            totalRequests = enrichedRequests.Count,
             hotspotCount = items.Count,
             items
         };
     }
+
+    private async Task<Guid?> ResolveAdminAreaIdFromPoint(decimal lat, decimal lng)
+    {
+        var point = new Point((double)lng, (double)lat) { SRID = 4326 };
+
+        var areas = await dbContext.admin_areas
+            .AsNoTracking()
+            .Where(x => x.geom != null)
+            .Select(x => new { x.id, x.level_code, x.geom })
+            .ToListAsync();
+
+        var matched = areas
+            .Where(x => x.geom != null && x.geom.Contains(point))
+            .OrderBy(x => AdminAreaPriority(x.level_code))
+            .FirstOrDefault();
+
+        return matched?.id;
+    }
+
+    private static int AdminAreaPriority(string? levelCode)
+        => levelCode switch
+        {
+            "WARD" => 0,
+            "DISTRICT" => 1,
+            "PROVINCE" => 2,
+            _ => 9
+        };
 
     public async Task<object> ListReliefRequestsForCoordinator(string? statusCode, string? keyword, int page, int pageSize)
     {
@@ -1057,6 +1185,32 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         if (decisionCode is not ("APPROVE" or "REJECT"))
         {
             throw new InvalidOperationException("DecisionCode chi nhan APPROVE hoac REJECT.");
+        }
+
+        var currentStatus = reliefRequest.status_code?.Trim().ToUpperInvariant() ?? string.Empty;
+        var allowedStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "NEW",
+            "APPROVED",
+            "REJECTED",
+            "FULFILLED",
+            "NOT_RECEIVED",
+            "CANCELLED"
+        };
+
+        if (!allowedStatuses.Contains(currentStatus))
+        {
+            throw new InvalidOperationException($"Relief request dang o trang thai khong hop le: {reliefRequest.status_code}");
+        }
+
+        if (currentStatus is "FULFILLED" or "CANCELLED")
+        {
+            throw new InvalidOperationException("Khong the duyet/tu choi relief request da FULFILLED hoac CANCELLED.");
+        }
+
+        if (currentStatus is not ("NEW" or "NOT_RECEIVED"))
+        {
+            throw new InvalidOperationException($"Chi co the duyet/tu choi relief request khi status la NEW hoac NOT_RECEIVED. Hien tai: {currentStatus}.");
         }
 
         var now = DateTime.UtcNow;
@@ -1336,7 +1490,9 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
     {
         var teams = await dbContext.teams
             .AsNoTracking()
-            .Where(x => x.leader_user_id == leaderUserId)
+            .Where(x =>
+                x.leader_user_id == leaderUserId ||
+                x.team_members.Any(m => m.user_id == leaderUserId && m.is_team_leader))
             .Include(x => x.team_members)
             .ThenInclude(x => x.user)
             .Include(x => x.team_members)
@@ -1406,6 +1562,71 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         }).ToList();
 
         return new { items };
+    }
+
+    public async Task<object> TeamUpdateMyStatus(Guid leaderUserId, TeamSelfStatusRequest request)
+    {
+        if (request is null)
+        {
+            throw new InvalidOperationException("Request khong duoc de trong.");
+        }
+
+        var statusCode = request.StatusCode?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(statusCode))
+        {
+            throw new InvalidOperationException("StatusCode la bat buoc.");
+        }
+
+        if (!TeamStatusCodes.Contains(statusCode))
+        {
+            throw new InvalidOperationException("StatusCode khong hop le. Chi nhan AVAILABLE, BUSY, OFFLINE, MAINTENANCE.");
+        }
+
+        var teams = await dbContext.teams
+            .Where(x =>
+                x.leader_user_id == leaderUserId ||
+                x.team_members.Any(m => m.user_id == leaderUserId && m.is_team_leader))
+            .ToListAsync();
+
+        if (teams.Count == 0)
+        {
+            throw new InvalidOperationException("Tai khoan hien tai khong la leader cua team nao.");
+        }
+
+        team targetTeam;
+        if (request.TeamId.HasValue)
+        {
+            targetTeam = teams.FirstOrDefault(x => x.id == request.TeamId.Value)
+                ?? throw new InvalidOperationException("Khong tim thay team cua leader voi TeamId da cung cap.");
+        }
+        else if (teams.Count == 1)
+        {
+            targetTeam = teams[0];
+        }
+        else
+        {
+            throw new InvalidOperationException("Tai khoan dang la leader cua nhieu team. Vui long cung cap TeamId.");
+        }
+
+        targetTeam.status_code = statusCode;
+
+        var note = NormalizeOptionalText(request.Note);
+        if (note is not null)
+        {
+            targetTeam.notes = note;
+        }
+
+        var now = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            teamId = targetTeam.id,
+            teamCode = targetTeam.code,
+            statusCode = targetTeam.status_code,
+            note = targetTeam.notes,
+            updatedAt = now
+        };
     }
 
     public Task<object> GetMissionActionCodes()
@@ -1611,6 +1832,8 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             note = request.Note
         });
 
+        await SyncIncidentStatusFromMission(mission, now, request.Note);
+
         await dbContext.SaveChangesAsync();
 
         return new
@@ -1649,6 +1872,12 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             _ => actionCode
         };
 
+        if (string.Equals(mission.status_code, "ABORT_PENDING", StringComparison.Ordinal) &&
+            !string.Equals(mappedStateCode, "ABORTED", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Mission dang cho duyet huy, chi cho phep chuyen sang ABORTED.");
+        }
+
         var fromStatus = mission.status_code;
         var now = DateTime.UtcNow;
         mission.status_code = mappedStateCode;
@@ -1674,6 +1903,8 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             changed_at = now,
             note = request.Note
         });
+
+        await SyncIncidentStatusFromMission(mission, now, request.Note);
 
         await dbContext.SaveChangesAsync();
 
@@ -1703,6 +1934,56 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             "UNREACHABLE" => "ABORTED",
             _ => actionCode
         };
+
+    private async Task SyncIncidentStatusFromMission(mission mission, DateTime now, string? note)
+    {
+        var incident = await dbContext.incidents.FirstOrDefaultAsync(x => x.id == mission.incident_id);
+        if (incident is null)
+        {
+            return;
+        }
+
+        string? targetIncidentStatus = mission.status_code switch
+        {
+            "EN_ROUTE" or "ON_SITE" or "RESCUING" or "NEED_SUPPORT" or "ABORT_PENDING" => "IN_PROGRESS",
+            "COMPLETED" => incident.need_relief ? "RELIEF_REQUIRED" : "RESCUED",
+            _ => null
+        };
+
+        if (targetIncidentStatus is null)
+        {
+            return;
+        }
+
+        // Do not move backward once incident already reaches terminal/relief-required states.
+        if (targetIncidentStatus == "IN_PROGRESS" &&
+            (incident.status_code == "RESCUED" || incident.status_code == "RELIEF_REQUIRED" || incident.status_code == "CLOSED"))
+        {
+            return;
+        }
+
+        if (string.Equals(incident.status_code, targetIncidentStatus, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var fromStatus = incident.status_code;
+        incident.status_code = targetIncidentStatus;
+        incident.updated_at = now;
+
+        dbContext.incident_status_histories.Add(new incident_status_history
+        {
+            id = Guid.NewGuid(),
+            incident_id = incident.id,
+            from_status_code = fromStatus,
+            to_status_code = targetIncidentStatus,
+            action_code = "MISSION_STATUS_SYNC",
+            note = string.IsNullOrWhiteSpace(note)
+                ? $"Dong bo theo mission {mission.code} -> {mission.status_code}"
+                : note,
+            changed_at = now
+        });
+    }
 
     public async Task<object> TeamCreateFieldReport(Guid missionId, TeamFieldReportRequest request)
     {
@@ -1781,6 +2062,10 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         }
 
         var now = DateTime.UtcNow;
+        var fromStatus = mission.status_code;
+        mission.status_code = "ABORT_PENDING";
+        mission.updated_at = now;
+
         var abortRequest = new mission_abort_request
         {
             id = Guid.NewGuid(),
@@ -1796,12 +2081,14 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         {
             id = Guid.NewGuid(),
             mission_id = missionId,
-            from_status_code = mission.status_code,
+            from_status_code = fromStatus,
             to_status_code = mission.status_code,
             action_code = "REQUEST_ABORT",
             changed_at = now,
             note = request.DetailNote
         });
+
+        await SyncIncidentStatusFromMission(mission, now, request.DetailNote);
 
         await dbContext.SaveChangesAsync();
 
@@ -1810,6 +2097,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             missionId,
             requestId = abortRequest.id,
             status = abortRequest.status_code,
+            missionStatusCode = mission.status_code,
             requestedAt = now
         };
     }
@@ -1859,6 +2147,310 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         };
     }
 
+    public async Task<object> TeamUpdateReliefDistributionStatus(Guid distributionId, TeamReliefStatusRequest request)
+    {
+        if (request is null)
+        {
+            throw new InvalidOperationException("Request khong duoc de trong.");
+        }
+
+        var statusCode = request.StatusCode?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(statusCode))
+        {
+            throw new InvalidOperationException("StatusCode la bat buoc.");
+        }
+
+        if (statusCode is not ("PENDING" or "COMPLETED" or "CANCELLED"))
+        {
+            throw new InvalidOperationException("StatusCode khong hop le. Chi nhan PENDING, COMPLETED, CANCELLED.");
+        }
+
+        var distribution = await dbContext.distributions
+            .Include(x => x.household)
+            .Include(x => x.distribution_ack)
+            .FirstOrDefaultAsync(x => x.id == distributionId);
+
+        if (distribution is null)
+        {
+            throw new InvalidOperationException("Khong tim thay phieu phan phoi.");
+        }
+
+        var now = DateTime.UtcNow;
+        distribution.status_code = statusCode;
+
+        var note = NormalizeOptionalText(request.Note);
+        if (note is not null)
+        {
+            distribution.note = MergeDistributionNote(distribution.note, note);
+        }
+
+        relief_request? fulfilledReliefRequest = null;
+        if (statusCode == "COMPLETED")
+        {
+            var ack = distribution.distribution_ack;
+            if (ack is null)
+            {
+                ack = new distribution_ack
+                {
+                    id = Guid.NewGuid(),
+                    distribution_id = distribution.id,
+                    ack_method_code = distribution.ack_method_code,
+                    ack_code = null,
+                    ack_note = note,
+                    ack_at = now
+                };
+                dbContext.distribution_acks.Add(ack);
+            }
+            else
+            {
+                ack.ack_note = note;
+                ack.ack_at = now;
+            }
+
+            fulfilledReliefRequest = await ResolveReliefRequestForDistribution(distribution);
+            if (fulfilledReliefRequest is not null)
+            {
+                fulfilledReliefRequest.status_code = "FULFILLED";
+                fulfilledReliefRequest.updated_at = now;
+
+                if (note is not null)
+                {
+                    fulfilledReliefRequest.note = note;
+                }
+            }
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            distributionId = distribution.id,
+            distributionCode = distribution.code,
+            statusCode = distribution.status_code,
+            updatedAt = now,
+            reliefRequest = fulfilledReliefRequest is null
+                ? null
+                : new
+                {
+                    reliefRequestId = fulfilledReliefRequest.id,
+                    reliefRequestCode = fulfilledReliefRequest.code,
+                    statusCode = fulfilledReliefRequest.status_code,
+                    statusName = "Da nhan"
+                }
+        };
+    }
+
+    public async Task<object> GetMyReliefHistory(Guid leaderUserId, Guid? teamId, string? statusCode, int page, int pageSize)
+    {
+        var teams = await dbContext.teams
+            .AsNoTracking()
+            .Where(x =>
+                x.leader_user_id == leaderUserId ||
+                x.team_members.Any(m => m.user_id == leaderUserId && m.is_team_leader))
+            .OrderBy(x => x.code)
+            .Select(x => new { x.id, x.code, x.name })
+            .ToListAsync();
+
+        if (teams.Count == 0)
+        {
+            throw new InvalidOperationException("Tai khoan hien tai khong la leader cua team nao.");
+        }
+
+        var targetTeam = teamId.HasValue
+            ? teams.FirstOrDefault(x => x.id == teamId.Value)
+            : teams.Count == 1
+                ? teams[0]
+                : null;
+
+        if (targetTeam is null)
+        {
+            throw new InvalidOperationException("Tai khoan dang la leader cua nhieu team. Vui long cung cap teamId.");
+        }
+
+        var normalizedStatusCode = string.IsNullOrWhiteSpace(statusCode)
+            ? null
+            : statusCode.Trim().ToUpperInvariant();
+
+        if (normalizedStatusCode is not null && !DistributionStatusCodes.Contains(normalizedStatusCode))
+        {
+            throw new InvalidOperationException("StatusCode khong hop le. Chi nhan PENDING, COMPLETED, CANCELLED.");
+        }
+
+        var normalizedPage = page <= 0 ? 1 : page;
+        var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 200);
+
+        var incidentIds = await dbContext.mission_teams
+            .AsNoTracking()
+            .Where(x => x.team_id == targetTeam.id)
+            .Select(x => x.mission.incident_id)
+            .Distinct()
+            .ToArrayAsync();
+
+        var teamPrefix = $"TEAM:{targetTeam.id}";
+        var query = dbContext.distributions
+            .AsNoTracking()
+            .Include(x => x.campaign)
+            .Include(x => x.relief_point)
+            .Include(x => x.household)
+            .Include(x => x.linked_incident)
+            .Include(x => x.distribution_ack)
+            .Where(x =>
+                (x.linked_incident_id.HasValue && incidentIds.Contains(x.linked_incident_id.Value)) ||
+                (x.note != null && x.note.StartsWith(teamPrefix)))
+            .AsQueryable();
+
+        if (normalizedStatusCode is not null)
+        {
+            query = query.Where(x => x.status_code == normalizedStatusCode);
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(x => x.created_at)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(x => new
+            {
+                distributionId = x.id,
+                distributionCode = x.code,
+                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                team = new { id = targetTeam.id, code = targetTeam.code, name = targetTeam.name },
+                campaign = x.campaign == null ? null : new { id = x.campaign.id, code = x.campaign.code, name = x.campaign.name },
+                reliefPoint = x.relief_point == null ? null : new { id = x.relief_point.id, code = x.relief_point.code, name = x.relief_point.name },
+                incident = x.linked_incident == null ? null : new { id = x.linked_incident.id, code = x.linked_incident.code, statusCode = x.linked_incident.status_code },
+                recipient = new
+                {
+                    id = x.household.id,
+                    code = x.household.code,
+                    name = x.household.head_name,
+                    phone = x.household.phone,
+                    address = x.household.address_text
+                },
+                lineCount = x.distribution_lines.Count,
+                note = x.note,
+                ackAt = x.distribution_ack == null ? null : (DateTime?)x.distribution_ack.ack_at,
+                createdAt = x.created_at
+            })
+            .ToListAsync();
+
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)normalizedPageSize);
+
+        return new
+        {
+            items,
+            page = normalizedPage,
+            pageSize = normalizedPageSize,
+            totalItems,
+            totalPages
+        };
+    }
+
+    private async Task<relief_request?> ResolveReliefRequestForDistribution(distribution distribution)
+    {
+        IQueryable<relief_request> query = dbContext.relief_requests;
+
+        if (distribution.linked_incident_id.HasValue)
+        {
+            var incidentId = distribution.linked_incident_id.Value;
+            query = query.Where(x => x.linked_incident_id == incidentId);
+        }
+        else
+        {
+            var phone = distribution.household.phone;
+            if (string.IsNullOrWhiteSpace(phone))
+            {
+                return null;
+            }
+
+            query = query.Where(x => x.requester_phone == phone);
+        }
+
+        var candidates = await query
+            .OrderByDescending(x => x.updated_at)
+            .ThenByDescending(x => x.created_at)
+            .Take(30)
+            .ToListAsync();
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        var normalizedHouseholdPhone = NormalizePhoneForMatching(distribution.household.phone);
+        if (!string.IsNullOrWhiteSpace(normalizedHouseholdPhone))
+        {
+            candidates = candidates
+                .Where(x => string.Equals(NormalizePhoneForMatching(x.requester_phone), normalizedHouseholdPhone, StringComparison.Ordinal))
+                .ToList();
+        }
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        return candidates
+            .Where(x => x.status_code != "FULFILLED")
+            .OrderByDescending(x => x.updated_at)
+            .ThenByDescending(x => x.created_at)
+            .FirstOrDefault()
+            ?? candidates
+                .OrderByDescending(x => x.updated_at)
+                .ThenByDescending(x => x.created_at)
+                .First();
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static string MergeDistributionNote(string? existingNote, string incomingNote)
+    {
+        var existing = NormalizeOptionalText(existingNote);
+        var incoming = NormalizeOptionalText(incomingNote);
+        if (incoming is null)
+        {
+            return existing ?? string.Empty;
+        }
+
+        if (existing is null)
+        {
+            return incoming;
+        }
+
+        if (existing.StartsWith("TEAM:", StringComparison.OrdinalIgnoreCase))
+        {
+            var separatorIndex = existing.IndexOf(';');
+            var teamTag = separatorIndex >= 0 ? existing[..separatorIndex] : existing;
+            return $"{teamTag}; {incoming}";
+        }
+
+        return incoming;
+    }
+
+    private static string NormalizePhoneForMatching(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var digits = new string(value.Where(char.IsDigit).ToArray());
+        if (digits.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if (digits.StartsWith("84", StringComparison.Ordinal) && digits.Length >= 10)
+        {
+            digits = "0" + digits[2..];
+        }
+
+        return digits;
+    }
+
     private static decimal EstimateDistanceKm(decimal? lat1, decimal? lng1, double? lat2, double? lng2)
     {
         if (!lat1.HasValue || !lng1.HasValue || !lat2.HasValue || !lng2.HasValue)
@@ -1880,4 +2472,6 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         string MissionCode,
         string MissionStatusCode,
         DateTime AssignedAt);
+
+    private sealed record ResolvedAreaInfo(Guid Id, string? Code, string? Name);
 }

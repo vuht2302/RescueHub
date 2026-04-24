@@ -1,5 +1,13 @@
-import React, { useEffect, useState } from "react";
-import { Plus, Edit, Trash2, Package } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Package,
+  AlertCircle,
+  Search,
+  X,
+} from "lucide-react";
 import CatalogModal from "./CatalogModal";
 
 import {
@@ -10,36 +18,109 @@ import {
 } from "@/src/shared/services/catalog.service";
 
 const tabs = [
-  { key: "skills", label: "Kỹ năng" },
-  { key: "vehicleTypes", label: "Phương tiện" },
-  { key: "vehicleCapabilities", label: "Khả năng xe" },
-  { key: "itemCategories", label: "Danh mục vật phẩm" },
+  {
+    key: "skills",
+    label: "Kỹ năng",
+    shortLabel: "Kỹ năng",
+    description: "Danh mục kỹ năng đội cứu hộ",
+  },
+  {
+    key: "vehicleTypes",
+    label: "Phương tiện",
+    shortLabel: "Phương tiện",
+    description: "Các loại phương tiện cứu hộ",
+  },
+  {
+    key: "vehicleCapabilities",
+    label: "Khả năng xe",
+    shortLabel: "Khả năng",
+    description: "Khả năng của phương tiện",
+  },
+  {
+    key: "itemCategories",
+    label: "Danh mục vật phẩm",
+    shortLabel: "Vật phẩm",
+    description: "Phân loại vật phẩm cứu trợ",
+  },
 ];
+
+// Confirm Delete Modal
+function ConfirmDelete({
+  name,
+  onConfirm,
+  onCancel,
+  loading,
+}: {
+  name: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/40 z-200 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+          <Trash2 size={22} className="text-red-600" />
+        </div>
+        <h3 className="text-lg font-bold text-center mb-1">Xóa danh mục?</h3>
+        <p className="text-sm text-gray-600 text-center mb-6">
+          Xóa <strong>{name}</strong>? Thao tác không thể hoàn tác.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 font-semibold text-sm"
+          >
+            Hủy
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm disabled:opacity-60"
+          >
+            {loading ? "Đang xóa..." : "Xóa"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const CatalogManagement = () => {
   const [activeTab, setActiveTab] = useState("skills");
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
 
-  const fetchData = async () => {
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Search
+  const [search, setSearch] = useState("");
+
+  const currentTab = tabs.find((t) => t.key === activeTab)!;
+
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await getCatalogByType(activeTab);
       setItems(res.items);
     } catch (err) {
       console.error(err);
-      alert("Load thất bại");
+      setError("Load dữ liệu thất bại");
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
 
   useEffect(() => {
     fetchData();
-  }, [activeTab]);
+  }, [fetchData, activeTab]);
 
   const handleAdd = async (data: any) => {
     await createCatalogItem(activeTab, data);
@@ -51,23 +132,40 @@ const CatalogManagement = () => {
     await fetchData();
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Xoá item này?")) {
-      await deleteCatalogItem(activeTab, id);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteCatalogItem(activeTab, deleteTarget.id);
+      setDeleteTarget(null);
       await fetchData();
+    } catch (err: any) {
+      alert(err.message || "Lỗi xóa danh mục");
+    } finally {
+      setDeleting(false);
     }
   };
+
+  // Filter items
+  const filteredItems = items.filter(
+    (item) =>
+      item.name.toLowerCase().includes(search.toLowerCase()) ||
+      item.code.toLowerCase().includes(search.toLowerCase()),
+  );
 
   return (
     <div className="space-y-6">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-blue-950">
-            Danh mục hệ thống
-          </h1>
-          <p className="text-gray-500 text-sm">
-            Quản lý dữ liệu danh mục dùng trong hệ thống
+          <h2
+            className="text-2xl font-black text-gray-900"
+            style={{ fontFamily: "var(--font-primary)" }}
+          >
+            Danh mục sản phẩm
+          </h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {currentTab.description}
           </p>
         </div>
 
@@ -76,31 +174,61 @@ const CatalogManagement = () => {
             setEditingItem(null);
             setShowModal(true);
           }}
-          className="flex items-center gap-2 bg-blue-950 hover:bg-blue-900 text-white px-4 py-2 rounded-xl shadow transition"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold"
+          style={{ background: "linear-gradient(135deg,#1e3a5f,#1e40af)" }}
         >
-          <Plus size={18} /> Thêm mới
+          <Plus size={15} /> Thêm mới
         </button>
       </div>
 
       {/* TABS */}
-      <div className="bg-white p-2 rounded-xl shadow flex flex-wrap gap-2">
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
-                isActive
-                  ? "bg-blue-950 text-white shadow"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="flex overflow-x-auto scrollbar-none">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`
+                  relative flex items-center gap-2 px-5 py-3 text-sm font-semibold whitespace-nowrap
+                  transition-all flex-shrink-0 border-b-2
+                  ${
+                    isActive
+                      ? "border-blue-700 text-blue-800 bg-blue-50/60"
+                      : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                  }
+                `}
+                style={isActive ? { color: "var(--color-blue-950)" } : {}}
+              >
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.shortLabel}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      {/* FILTER */}
+      <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4">
+        <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 w-full md:w-1/3 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all">
+          <Search size={16} className="text-gray-400" />
+          <input
+            placeholder="Tìm danh mục..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="outline-none w-full text-sm bg-transparent"
+          />
+        </div>
+      </div>
+
+      {/* ERROR MESSAGE */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-center gap-2">
+          <AlertCircle size={16} />
+          {error}
+        </div>
+      )}
 
       {/* CONTENT */}
       {loading ? (
@@ -112,16 +240,19 @@ const CatalogManagement = () => {
             />
           ))}
         </div>
-      ) : items.length === 0 ? (
-        <div className="bg-white p-10 rounded-xl shadow text-center text-gray-500">
-          Không có dữ liệu
+      ) : filteredItems.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm py-12 text-center">
+          <div className="flex flex-col items-center gap-2">
+            <Package size={32} className="text-gray-300" />
+            <p className="text-gray-400 text-sm">Chưa có dữ liệu</p>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {items.map((item) => (
+          {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="group bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all"
+              className="group bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all"
             >
               {/* TOP */}
               <div className="flex justify-between items-start">
@@ -131,32 +262,32 @@ const CatalogManagement = () => {
                   </div>
 
                   <div>
-                    <h3 className="font-bold text-gray-800">
-                      {item.name}
-                    </h3>
-                    <p className="text-xs text-gray-500">
+                    <h3 className="font-bold text-gray-900">{item.name}</h3>
+                    <p className="text-xs text-gray-500 font-mono">
                       {item.code}
                     </p>
                   </div>
                 </div>
 
                 {/* ACTION */}
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                <div className="flex gap-1">
                   <button
                     onClick={() => {
                       setEditingItem(item);
                       setShowModal(true);
                     }}
-                    className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
+                    className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600"
+                    title="Sửa"
                   >
-                    <Edit size={16} />
+                    <Edit2 size={14} />
                   </button>
 
                   <button
-                    onClick={() => handleDelete(item.id)}
-                    className="p-2 rounded-lg hover:bg-red-50 text-red-500"
+                    onClick={() => setDeleteTarget(item)}
+                    className="p-1.5 rounded-lg hover:bg-red-100 text-red-500"
+                    title="Xóa"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
@@ -168,11 +299,11 @@ const CatalogManagement = () => {
 
               {/* FOOTER */}
               <div className="mt-4 flex justify-between items-center">
-                <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
                   {activeTab}
                 </span>
 
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-400 font-mono">
                   ID: {item.id.slice(0, 6)}...
                 </span>
               </div>
@@ -181,12 +312,26 @@ const CatalogManagement = () => {
         </div>
       )}
 
+      <p className="text-xs text-gray-400 text-right">
+        {filteredItems.length} danh mục
+      </p>
+
       {/* MODAL */}
       {showModal && (
         <CatalogModal
           onClose={() => setShowModal(false)}
           onSubmit={editingItem ? handleEdit : handleAdd}
           defaultData={editingItem}
+        />
+      )}
+
+      {/* DELETE CONFIRMATION */}
+      {deleteTarget && (
+        <ConfirmDelete
+          name={deleteTarget.name}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+          loading={deleting}
         />
       )}
     </div>

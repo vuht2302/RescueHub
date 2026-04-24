@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { X, Package } from "lucide-react";
 
 const CatalogModal = ({ onClose, onSubmit, defaultData }) => {
   const [form, setForm] = useState(
@@ -13,7 +14,7 @@ const CatalogModal = ({ onClose, onSubmit, defaultData }) => {
           code: "",
           name: "",
           description: "",
-        }
+        },
   );
 
   const handleSubmit = () => {
@@ -27,53 +28,84 @@ const CatalogModal = ({ onClose, onSubmit, defaultData }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex justify-center items-center">
-      <div className="bg-white p-6 rounded-xl w-[400px] space-y-4">
-        <h2 className="text-xl font-bold">
-          {defaultData ? "Sửa danh mục" : "Thêm danh mục"}
-        </h2>
+    <div className="fixed inset-0 bg-black/40 z-200 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+        {/* HEADER */}
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="flex items-center gap-2">
+            <Package size={18} className="text-blue-700" />
+            <h2 className="text-lg font-bold">
+              {defaultData ? "Chỉnh sửa danh mục" : "Thêm danh mục"}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-        {/* CODE */}
-        <input
-          placeholder="Code"
-          value={form.code}
-          disabled={!!defaultData}
-          onChange={(e) =>
-            setForm({ ...form, code: e.target.value })
-          }
-          className="w-full border p-2 rounded"
-        />
+        {/* FORM */}
+        <div className="p-6 space-y-4">
+          {/* CODE & NAME */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1">
+                Mã *
+              </label>
+              <input
+                placeholder="Nhập mã"
+                value={form.code}
+                disabled={!!defaultData}
+                onChange={(e) => setForm({ ...form, code: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400 font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1">
+                Tên *
+              </label>
+              <input
+                placeholder="Nhập tên"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
 
-        {/* NAME */}
-        <input
-          placeholder="Tên"
-          value={form.name}
-          onChange={(e) =>
-            setForm({ ...form, name: e.target.value })
-          }
-          className="w-full border p-2 rounded"
-        />
+          {/* DESCRIPTION */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1">
+              Mô tả
+            </label>
+            <textarea
+              placeholder="Nhập mô tả danh mục..."
+              value={form.description}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
+              rows={3}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+          </div>
+        </div>
 
-        {/* DESCRIPTION */}
-        <textarea
-          placeholder="Mô tả"
-          value={form.description}
-          onChange={(e) =>
-            setForm({ ...form, description: e.target.value })
-          }
-          className="w-full border p-2 rounded"
-        />
-
-        {/* ACTION */}
-        <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="border px-3 py-1 rounded">
-            Huỷ
+        {/* FOOTER */}
+        <div className="flex gap-3 px-6 py-4 border-t bg-gray-50">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 font-semibold text-sm hover:bg-gray-100 transition-colors"
+          >
+            Hủy
           </button>
           <button
             onClick={handleSubmit}
-            className="bg-blue-950 text-white px-3 py-1 rounded"
+            className="flex-1 py-2.5 rounded-xl text-white font-semibold text-sm"
+            style={{ background: "linear-gradient(135deg,#1e3a5f,#1e40af)" }}
           >
-            Lưu
+            {defaultData ? "Cập nhật" : "Thêm mới"}
           </button>
         </div>
       </div>

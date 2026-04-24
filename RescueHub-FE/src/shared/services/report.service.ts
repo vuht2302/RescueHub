@@ -77,6 +77,8 @@ export interface HotspotItem {
     adminAreaLevelCode: string | null;
     fallbackAddress: string;
     incidentCount: number;
+    lat?: number;
+    lng?: number;
 }
 
 export interface HotspotResponse {

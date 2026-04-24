@@ -2,16 +2,21 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import {
   CalendarClock,
-  Eye,
+  CheckCircle,
+  FileText,
+  HelpCircle,
   History,
   LoaderCircle,
+  PartyPopper,
   RefreshCw,
   X,
 } from "lucide-react";
 import {
+  ackPublicMeReliefRequest,
   getPublicMeHistory,
   getPublicTrackingMyReliefRequests,
   getPublicTrackingMyRescues,
+  markReliefRequestNotReceived,
   type PublicMeHistoryReliefItem,
   type PublicMeHistoryRescueItem,
   type PublicTrackingMyHistoryItem,
@@ -56,10 +61,11 @@ type ReliefHistoryItem = {
   statusCode: string;
   statusName: string;
   items: ReliefSupportItem[];
+  citizenAcked: boolean;
 };
 
 type CitizenStatus = {
-  status: "pending" | "verified" | "completed";
+  status: "pending" | "verified" | "fulfilled" | "notReceived";
 };
 
 type DetailModalState =
@@ -82,22 +88,31 @@ type UnifiedHistoryRow = {
 
 const getStatusFromRaw = (raw: string): CitizenStatus["status"] => {
   const normalized = raw.trim().toLowerCase();
-  if (normalized.includes("complete") || normalized.includes("done")) {
-    return "completed";
+  if (
+    normalized.includes("complete") ||
+    normalized.includes("done") ||
+    normalized.includes("fulfilled") ||
+    normalized.includes("notReceived")
+  ) {
+    return "fulfilled";
+  }
+  if (normalized.includes("notReceived")) {
+    return "notReceived";
   }
   if (normalized.includes("verify") || normalized.includes("approved")) {
     return "verified";
+  } else {
+    return "pending";
   }
-
-  return "pending";
 };
 
 const STATUS_LABEL_MAP: Record<string, string> = {
-  NEW: "Chờ xử lý",
-  IN_PROGRESS: "Đang xử lý",
+  NEW: "Mới",
+  FULFILLED: "Đã hoàn thành",
+  NOT_RECEIVED: "Chưa nhận",
   APPROVED: "Đã xác minh",
   VERIFIED: "Đã xác minh",
-  COMPLETED: "Hoàn tất",
+  IN_PROGRESS: "Đang xử lý",
   DONE: "Hoàn tất",
   RESOLVED: "Đã xử lý",
   REJECTED: "Từ chối",
@@ -129,6 +144,17 @@ export const CitizenHistoryPage: React.FC = () => {
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [detailModal, setDetailModal] = useState<DetailModalState>(null);
+  const [ackModal, setAckModal] = useState<ReliefHistoryItem | null>(null);
+  const [confirmNotReceivedModal, setConfirmNotReceivedModal] =
+    useState<ReliefHistoryItem | null>(null);
+  const [ackNote, setAckNote] = useState("");
+  const [ackError, setAckError] = useState("");
+  const [ackLoading, setAckLoading] = useState(false);
+  const [ackSuccess, setAckSuccess] = useState(false);
+  const [notReceivedNote, setNotReceivedNote] = useState("");
+  const [notReceivedError, setNotReceivedError] = useState("");
+  const [notReceivedLoading, setNotReceivedLoading] = useState(false);
+  const [notReceivedSuccess, setNotReceivedSuccess] = useState(false);
 
   const normalizeLegacyRescueHistoryItem = (
     item: PublicTrackingMyHistoryItem,
@@ -172,6 +198,15 @@ export const CitizenHistoryPage: React.FC = () => {
     const statusCode = String(item.statusCode ?? "NEW");
     const statusName = String(item.statusName ?? statusCode ?? "NEW");
 
+    const distributions = Array.isArray((item as any).distributions)
+      ? ((item as any).distributions as Array<any>)
+      : [];
+    const citizenAcked = distributions.some(
+      (d: any) =>
+        d.ack_method_code === "CITIZEN_APP" ||
+        d.ackMethodCode === "CITIZEN_APP",
+    );
+
     return {
       id: String(item.id ?? requestCode ?? `relief-${Math.random()}`),
       requestCode,
@@ -183,6 +218,7 @@ export const CitizenHistoryPage: React.FC = () => {
       statusCode,
       statusName,
       items: [],
+      citizenAcked,
     };
   };
 
@@ -238,6 +274,15 @@ export const CitizenHistoryPage: React.FC = () => {
       unitCode: String(entry?.unitCode ?? ""),
     }));
 
+    const distributions = Array.isArray((item as any).distributions)
+      ? ((item as any).distributions as Array<any>)
+      : [];
+    const citizenAcked = distributions.some(
+      (d: any) =>
+        d.ack_method_code === "CITIZEN_APP" ||
+        d.ackMethodCode === "CITIZEN_APP",
+    );
+
     return {
       id: String(
         item.reliefRequestId ?? requestCode ?? `relief-${Math.random()}`,
@@ -257,6 +302,7 @@ export const CitizenHistoryPage: React.FC = () => {
       statusCode,
       statusName,
       items: supportItems,
+      citizenAcked,
     };
   };
 
@@ -370,6 +416,106 @@ export const CitizenHistoryPage: React.FC = () => {
     void loadHistory();
   }, [refreshTick]);
 
+  const handleAckFromList = async () => {
+    if (!ackModal?.requestCode) return;
+
+    const authSession = getAuthSession();
+    const accessToken = authSession?.accessToken?.trim() || "";
+
+    if (!accessToken) {
+      setAckError("Vui lòng đăng nhập để xác nhận.");
+      return;
+    }
+
+    setAckLoading(true);
+    setAckError("");
+
+    try {
+      await ackPublicMeReliefRequest(
+        ackModal.requestCode,
+        {
+          note: ackNote || "Người dân xác nhận đã nhận cứu trợ",
+        },
+        accessToken,
+      );
+
+      setAckSuccess(true);
+      setAckNote("");
+      setRefreshTick((prev) => prev + 1);
+    } catch (error) {
+      setAckError(
+        error instanceof Error ? error.message : "Không thể xác nhận cứu trợ",
+      );
+    } finally {
+      setAckLoading(false);
+    }
+  };
+
+  const openAckModal = (item: ReliefHistoryItem) => {
+    setAckModal(item);
+    setAckNote("");
+    setAckError("");
+    setAckSuccess(false);
+  };
+
+  const closeAckModal = () => {
+    setAckModal(null);
+    setAckNote("");
+    setAckError("");
+    setAckSuccess(false);
+  };
+
+  const openNotReceivedModal = (item: ReliefHistoryItem) => {
+    setConfirmNotReceivedModal(item);
+    setNotReceivedNote("");
+    setNotReceivedError("");
+    setNotReceivedSuccess(false);
+  };
+
+  const closeNotReceivedModal = () => {
+    setConfirmNotReceivedModal(null);
+    setNotReceivedNote("");
+    setNotReceivedError("");
+    setNotReceivedSuccess(false);
+  };
+
+  const handleNotReceivedFromList = async () => {
+    if (!confirmNotReceivedModal?.requestCode) return;
+
+    const authSession = getAuthSession();
+    const accessToken = authSession?.accessToken?.trim() || "";
+
+    if (!accessToken) {
+      setNotReceivedError("Vui lòng đăng nhập để xác nhận.");
+      return;
+    }
+
+    setNotReceivedLoading(true);
+    setNotReceivedError("");
+
+    try {
+      await markReliefRequestNotReceived(
+        confirmNotReceivedModal.requestCode,
+        {
+          note: notReceivedNote || "Người dân xác nhận chưa nhận cứu trợ",
+        },
+        accessToken,
+      );
+
+      setNotReceivedSuccess(true);
+      setNotReceivedNote("");
+      setRefreshTick((prev) => prev + 1);
+    } catch (error) {
+      setNotReceivedError(
+        error instanceof Error
+          ? error.message
+          : "Không thể xác nhận chưa nhận cứu trợ",
+      );
+    } finally {
+      setNotReceivedLoading(false);
+    }
+  };
+
   const formatDateTime = useMemo(
     () =>
       new Intl.DateTimeFormat("vi-VN", {
@@ -382,13 +528,15 @@ export const CitizenHistoryPage: React.FC = () => {
   const statusClassMap: Record<CitizenStatus["status"], string> = {
     pending: "bg-amber-50 text-amber-700 border-amber-200",
     verified: "bg-cyan-50 text-cyan-700 border-cyan-200",
-    completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    fulfilled: "bg-green-50 text-green-700 border-green-200",
+    notReceived: "bg-purple-50 text-purple-700 border-purple-200",
   };
 
   const statusLabelMap: Record<CitizenStatus["status"], string> = {
     pending: "Chờ xử lý",
     verified: "Đã xác minh",
-    completed: "Hoàn tất",
+    fulfilled: "Đã hoàn thành",
+    notReceived: "Chưa nhận",
   };
 
   const allHistoryRows = useMemo<UnifiedHistoryRow[]>(() => {
@@ -635,7 +783,7 @@ export const CitizenHistoryPage: React.FC = () => {
                   <th className="px-3 py-2 text-left">Nội dung</th>
                   <th className="w-36 px-3 py-2 text-left">Trạng thái</th>
                   <th className="w-40 px-3 py-2 text-left">Thời gian</th>
-                  <th className="w-28 px-3 py-2 text-right">Thao tác</th>
+                  <th className="w-36 px-3 py-2 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -667,14 +815,46 @@ export const CitizenHistoryPage: React.FC = () => {
                       {formatDateTime.format(new Date(row.time))}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setDetailModal(row.detail)}
-                        className="inline-flex items-center gap-1 rounded-md bg-blue-950 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-900"
-                      >
-                        <Eye size={12} />
-                        Chi tiết
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setDetailModal(row.detail)}
+                          title="Xem chi tiết"
+                          className="inline-flex items-center justify-center rounded-md p-1.5 text-blue-600 hover:bg-blue-50"
+                        >
+                          <FileText size={16} />
+                        </button>
+                        {row.kind === "relief" &&
+                          (() => {
+                            const item = row.detail.item as ReliefHistoryItem;
+                            const isFulfilled =
+                              getStatusFromRaw(
+                                row.statusCode || row.statusName,
+                              ) === "fulfilled";
+                            if (isFulfilled) return null;
+                            if (item.citizenAcked) return null;
+                            return (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => openAckModal(item)}
+                                  title="Xác nhận đã nhận"
+                                  className="inline-flex items-center justify-center rounded-md p-1.5 text-green-600 hover:bg-green-50"
+                                >
+                                  <CheckCircle size={16} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openNotReceivedModal(item)}
+                                  title="Xác nhận chưa nhận"
+                                  className="inline-flex items-center justify-center rounded-md p-1.5 text-purple-600 hover:bg-purple-50"
+                                >
+                                  <HelpCircle size={16} />
+                                </button>
+                              </>
+                            );
+                          })()}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -842,6 +1022,207 @@ export const CitizenHistoryPage: React.FC = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Modal xac nhan nhan cuu tro */}
+      {ackModal ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                <PartyPopper size={20} className="text-green-600" />
+                Xác nhận đã nhận cứu trợ
+              </h3>
+              <button
+                type="button"
+                onClick={closeAckModal}
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
+                aria-label="Đóng"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                <p>
+                  <strong>Mã yêu cầu:</strong> {ackModal.requestCode}
+                </p>
+                <p>
+                  <strong>Số hộ:</strong> {ackModal.householdCount}
+                </p>
+              </div>
+
+              {ackSuccess ? (
+                <div className="rounded-xl bg-green-100 p-6 text-center">
+                  <CheckCircle
+                    size={48}
+                    className="mx-auto mb-3 text-green-600"
+                  />
+                  <p className="font-bold text-green-800">
+                    Xác nhận thành công!
+                  </p>
+                  <p className="mt-1 text-sm text-green-700">
+                    Cảm ơn bạn đã xác nhận nhận cứu trợ.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={closeAckModal}
+                    className="mt-4 w-full rounded-lg bg-green-600 py-2 font-semibold text-white hover:bg-green-700"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <textarea
+                    value={ackNote}
+                    onChange={(e) => setAckNote(e.target.value)}
+                    placeholder="Ghi chú (tùy chọn): ví dụ: Đã nhận đầy đủ, Thiếu 1 thùng mì..."
+                    className="w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-green-500"
+                    rows={3}
+                  />
+                  {ackError && (
+                    <p className="text-sm text-red-600">{ackError}</p>
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={closeAckModal}
+                      className="flex-1 rounded-lg border border-slate-300 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAckFromList}
+                      disabled={ackLoading}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 py-2 font-bold text-white hover:bg-green-700 disabled:opacity-60"
+                    >
+                      {ackLoading ? (
+                        <>
+                          <LoaderCircle size={16} className="animate-spin" />
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle size={16} />
+                          Xác nhận
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Modal xac nhan chua nhan cuu tro */}
+      {confirmNotReceivedModal ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                <HelpCircle size={20} className="text-purple-600" />
+                Xác nhận chưa nhận cứu trợ
+              </h3>
+              <button
+                type="button"
+                onClick={closeNotReceivedModal}
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
+                aria-label="Đóng"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                <p>
+                  <strong>Mã yêu cầu:</strong>{" "}
+                  {confirmNotReceivedModal.requestCode}
+                </p>
+                <p>
+                  <strong>Số hộ:</strong>{" "}
+                  {confirmNotReceivedModal.householdCount}
+                </p>
+              </div>
+
+              {notReceivedSuccess ? (
+                <div className="rounded-xl bg-purple-100 p-6 text-center">
+                  <HelpCircle
+                    size={48}
+                    className="mx-auto mb-3 text-purple-600"
+                  />
+                  <p className="font-bold text-purple-800">
+                    Xác nhận thành công!
+                  </p>
+                  <p className="mt-1 text-sm text-purple-700">
+                    Nhân viên sẽ được thông báo để kiểm tra và hỗ trợ bạn.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={closeNotReceivedModal}
+                    className="mt-4 w-full rounded-lg bg-purple-600 py-2 font-semibold text-white hover:bg-purple-700"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-lg bg-purple-50 p-3 text-sm text-purple-800">
+                    <p className="font-semibold">Thông báo:</p>
+                    <p className="mt-1">
+                      Bạn xác nhận rằng mình <strong>chưa nhận được</strong> cứu
+                      trợ từ yêu cầu này. Nhân viên sẽ được thông báo để kiểm
+                      tra và hỗ trợ.
+                    </p>
+                  </div>
+
+                  <textarea
+                    value={notReceivedNote}
+                    onChange={(e) => setNotReceivedNote(e.target.value)}
+                    placeholder="Ghi chú (tùy chọn): ví dụ: Chưa ai liên hệ, Cần hỗ trợ gấp..."
+                    className="w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-purple-500"
+                    rows={3}
+                  />
+                  {notReceivedError && (
+                    <p className="text-sm text-red-600">{notReceivedError}</p>
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={closeNotReceivedModal}
+                      className="flex-1 rounded-lg border border-slate-300 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNotReceivedFromList}
+                      disabled={notReceivedLoading}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-purple-600 py-2 font-bold text-white hover:bg-purple-700 disabled:opacity-60"
+                    >
+                      {notReceivedLoading ? (
+                        <>
+                          <LoaderCircle size={16} className="animate-spin" />
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        <>
+                          <X size={16} />
+                          Xác nhận chưa nhận
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       ) : null}

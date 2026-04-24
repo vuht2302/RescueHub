@@ -19,9 +19,14 @@ import {
   UserRound,
   LayoutGrid,
   SquareMenu,
-  ListOrdered,
+  TrendingUp,
+  PackageCheck,
+  History,
 } from "lucide-react";
-import { useManager } from "../context/ManagerContext";
+import {
+  useManager,
+  type ManagerMenuItemType,
+} from "../context/ManagerContext";
 import { useCoordinator } from "../context/CoordinatorContext";
 import { useRescueTeam } from "../context/RescueTeamContext";
 import {
@@ -31,7 +36,7 @@ import {
 
 // Manager Menu Items
 interface ManagerMenuItem {
-  id: string;
+  id: ManagerMenuItemType;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   color: string;
@@ -56,22 +61,17 @@ const managerMenuItems: ManagerMenuItem[] = [
     icon: Car,
     color: "text-black-600",
   },
+
   {
-    id: "event",
-    label: "Quản lý sự kiện",
-    icon: SquareMenu,
+    id: "relief-distribution",
+    label: "Phân phối cứu trợ",
+    icon: PackageCheck,
     color: "text-black-600",
   },
   {
-    id: "import-export",
-    label: "Xuất nhập kho",
-    icon: Truck,
-    color: "text-black-600",
-  },
-  {
-    id: "settings",
-    label: "Cài đặt",
-    icon: Settings,
+    id: "relief-hotspot",
+    label: "Vùng cứu trợ",
+    icon: TrendingUp,
     color: "text-black-600",
   },
 ];
@@ -80,8 +80,6 @@ const managerMenuItems: ManagerMenuItem[] = [
 type CoordinatorMenuItemType =
   | "overview"
   | "map"
-  | "hotspot"
-  | "relief-requests"
   | "current"
   | "teams"
   | "reports"
@@ -103,16 +101,6 @@ const coordinatorMenuItems: CoordinatorMenuItem[] = [
     id: "map",
     label: "Bản đồ nhiệm vụ",
     icon: MapPin,
-  },
-  {
-    id: "hotspot",
-    label: "Vùng cứu trợ",
-    icon: AlertCircle,
-  },
-  {
-    id: "relief-requests",
-    label: "Danh sách cứu trợ",
-    icon: ListOrdered,
   },
   {
     id: "current",
@@ -145,6 +133,7 @@ const rescueTeamMenuItems: RescueTeamMenuItem[] = [
   { icon: Map, label: "Bản đồ nhiệm vụ", id: "map" },
   { icon: FolderKanban, label: "Nhiệm vụ", id: "missions" },
   { icon: UserRound, label: "Trạng thái đội ngũ", id: "team" },
+  { icon: History, label: "Lịch sử cứu trợ", id: "relief-history" },
 ];
 
 interface CitizenMenuItem {
@@ -255,20 +244,6 @@ export const Sidebar: React.FC = () => {
           })}
         </nav>
 
-        {/* Bottom Action */}
-        <div className="p-4 border-t border-gray-200">
-          <button
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"
-            style={{
-              backgroundColor: "var(--color-blue-950)",
-              fontFamily: "var(--font-primary)",
-            }}
-          >
-            <Truck size={18} />
-            Yêu cầu nhập kho
-          </button>
-        </div>
-
         {/* Logout */}
         <div className="p-4 border-t border-gray-200">
           <button
@@ -344,20 +319,6 @@ export const Sidebar: React.FC = () => {
           })}
         </nav>
 
-        {/* Bottom Action */}
-        <div className="p-4 border-t border-gray-200">
-          <button
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"
-            style={{
-              backgroundColor: "var(--color-blue-950)",
-              fontFamily: "var(--font-primary)",
-            }}
-          >
-            <Rocket size={18} />
-            Triển khai đơn vị
-          </button>
-        </div>
-
         {/* Logout */}
         <div className="p-4 border-t border-gray-200">
           <button
@@ -430,20 +391,6 @@ export const Sidebar: React.FC = () => {
             );
           })}
         </nav>
-
-        {/* Bottom Action */}
-        <div className="p-4 border-t border-gray-200">
-          <button
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"
-            style={{
-              backgroundColor: "var(--color-blue-950)",
-              fontFamily: "var(--font-primary)",
-            }}
-          >
-            <Rocket size={18} />
-            Triển khai đơn vị
-          </button>
-        </div>
 
         {/* Logout */}
         <div className="p-4 border-t border-gray-200">

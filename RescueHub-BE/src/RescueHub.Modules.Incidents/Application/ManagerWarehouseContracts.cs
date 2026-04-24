@@ -3,7 +3,6 @@ namespace RescueHub.Modules.Incidents.Application;
 public sealed record CreateWarehouseRequest(
     string WarehouseCode,
     string WarehouseName,
-    Guid? AdminAreaId,
     string Address,
     GeoPointRequest? Location,
     Guid? ManagerUserId,
@@ -12,7 +11,6 @@ public sealed record CreateWarehouseRequest(
 public sealed record UpdateWarehouseRequest(
     string WarehouseCode,
     string WarehouseName,
-    Guid? AdminAreaId,
     string Address,
     GeoPointRequest? Location,
     Guid? ManagerUserId,
@@ -26,6 +24,8 @@ public sealed record CreateItemRequest(
     bool RequiresLotTracking,
     bool RequiresExpiryTracking,
     string IssuePolicyCode,
+    DateTime? ReceivedAt,
+    DateOnly? ExpDate,
     bool IsActive);
 
 public sealed record UpdateItemRequest(
@@ -36,6 +36,8 @@ public sealed record UpdateItemRequest(
     bool RequiresLotTracking,
     bool RequiresExpiryTracking,
     string IssuePolicyCode,
+    DateTime? ReceivedAt,
+    DateOnly? ExpDate,
     bool IsActive);
 
 public sealed record CreateLotRequest(
@@ -56,7 +58,6 @@ public sealed record UpdateLotRequest(
 
 public sealed record CreateStockTransactionLineRequest(
     Guid ItemId,
-    Guid LotId,
     decimal Qty,
     string UnitCode);
 
@@ -102,28 +103,66 @@ public sealed record UpdateHouseholdRequest(
 
 public sealed record CreateDistributionLineRequest(
     Guid ItemId,
-    Guid LotId,
     decimal Qty,
     string UnitCode);
+
+public sealed record RecipientLocationRequest(
+    decimal Lat,
+    decimal Lng,
+    string? AddressText);
 
 public sealed record CreateDistributionRequest(
     Guid? CampaignId,
     Guid? ReliefPointId,
-    string RecipientName,
-    string? RecipientPhone,
-    Guid? RecipientAdminAreaId,
-    string RecipientAddress,
-    GeoPointRequest? RecipientLocation,
-    int RecipientMemberCount,
-    int RecipientVulnerableCount,
-    Guid? IncidentId,
+    Guid TeamId,
     CreateDistributionLineRequest[] Lines,
     string AckMethodCode,
     string? Note);
 
 public sealed record DistributionAckRequest(
-    string AckMethodCode,
-    string? AckCode,
-    string? AckByName,
-    string? AckPhone,
-    string? AckNote);
+    string? Note);
+
+public sealed record CreateReliefCampaignRequest(
+    string Code,
+    string Name,
+    Guid? AdminAreaId,
+    DateTime StartAt,
+    DateTime? EndAt,
+    string StatusCode,
+    string? Description,
+    Guid[]? ReliefPointIds);
+
+public sealed record UpdateReliefCampaignRequest(
+    string Code,
+    string Name,
+    Guid? AdminAreaId,
+    DateTime StartAt,
+    DateTime? EndAt,
+    string StatusCode,
+    string? Description,
+    Guid[]? ReliefPointIds);
+
+public sealed record UpdateReliefRequestStatusRequest(
+    string StatusCode,
+    string? Note);
+
+public sealed record ReliefPointLocationRequest(
+    decimal Lat,
+    decimal Lng,
+    string AddressText);
+
+public sealed record CreateReliefPointRequest(
+    string Code,
+    string Name,
+    ReliefPointLocationRequest Location,
+    Guid? ManagerUserId,
+    string StatusCode);
+
+public sealed record UpdateReliefPointRequest(
+    string Code,
+    string Name,
+    Guid CampaignId,
+    Guid? AdminAreaId,
+    ReliefPointLocationRequest Location,
+    Guid? ManagerUserId,
+    string StatusCode);

@@ -284,7 +284,7 @@ export const DetailsMission: React.FC<DetailsMissionProps> = ({
               <div className="space-y-4">
                 <div className="rounded-xl border border-[#d6dde6] bg-white p-4">
                   <p className="text-xs font-bold uppercase tracking-[0.15em] text-on-surface-variant">
-                    Reports
+                    Báo cáo
                   </p>
                   <div className="mt-3 max-h-[180px] space-y-2 overflow-auto pr-1">
                     {detail.reports.length === 0 ? (
@@ -319,7 +319,7 @@ export const DetailsMission: React.FC<DetailsMissionProps> = ({
 
                 <div className="rounded-xl border border-[#d6dde6] bg-white p-4">
                   <p className="text-xs font-bold uppercase tracking-[0.15em] text-on-surface-variant">
-                    Abort requests
+                    Yêu cầu huỷ
                   </p>
                   <div className="mt-3 max-h-[140px] space-y-2 overflow-auto pr-1">
                     {detail.abortRequests.length === 0 ? (
@@ -354,7 +354,7 @@ export const DetailsMission: React.FC<DetailsMissionProps> = ({
 
                 <div className="rounded-xl border border-[#d6dde6] bg-white p-4">
                   <p className="text-xs font-bold uppercase tracking-[0.15em] text-on-surface-variant">
-                    Support requests
+                    Yêu cầu hỗ trợ
                   </p>
                   <div className="mt-3 max-h-[120px] space-y-2 overflow-auto pr-1">
                     {detail.supportRequests.length === 0 ? (

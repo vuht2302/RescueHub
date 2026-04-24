@@ -11,7 +11,9 @@ export const MissionMapSection: React.FC = () => {
   const markersRef = useRef<vietmapgl.Marker[]>([]);
 
   const [incidents, setIncidents] = useState<IncidentItem[]>([]);
-  const [selectedIncident, setSelectedIncident] = useState<IncidentItem | null>(null);
+  const [selectedIncident, setSelectedIncident] = useState<IncidentItem | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,7 +86,7 @@ export const MissionMapSection: React.FC = () => {
 
       // Standard popup behavior
       const popup = new vietmapgl.Popup({ offset: 12 }).setHTML(
-        `<strong>${incident.incidentCode}</strong><br/>${incident.location.addressText || "Vị trí sự cố"}`
+        `<strong>${incident.incidentCode}</strong><br/>${incident.location.addressText || "Vị trí sự cố"}`,
       );
       marker.setPopup(popup);
 
@@ -179,10 +181,12 @@ export const MissionMapSection: React.FC = () => {
               {selectedIncident.incidentCode}
             </p>
             <p className="text-xs text-[#3f4650] mt-0.5 leading-tight line-clamp-2">
-              {selectedIncident.location.addressText || "Chưa có địa chỉ cụ thể"}
+              {selectedIncident.location.addressText ||
+                "Chưa có địa chỉ cụ thể"}
             </p>
             <p className="text-xs font-mono text-[#3f4650] mt-1">
-              Lat: {selectedIncident.location.lat.toFixed(4)}, Lng: {selectedIncident.location.lng.toFixed(4)}
+              Lat: {selectedIncident.location.lat.toFixed(4)}, Lng:{" "}
+              {selectedIncident.location.lng.toFixed(4)}
             </p>
           </div>
         )}
@@ -201,7 +205,10 @@ export const MissionMapSection: React.FC = () => {
 
         {error && (
           <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2 mb-4">
-            <AlertCircle size={16} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <AlertCircle
+              size={16}
+              className="text-red-600 mt-0.5 flex-shrink-0"
+            />
             <p className="text-xs text-red-700">{error}</p>
           </div>
         )}
@@ -225,36 +232,42 @@ export const MissionMapSection: React.FC = () => {
                   }`}
                 >
                   <div className="flex justify-between items-start mb-2 gap-2">
-                    <h4 className={`text-sm font-bold font-primary truncate ${isSelected ? "text-blue-950" : "text-[#1f2329]"}`}>
+                    <h4
+                      className={`text-sm font-bold font-primary truncate ${isSelected ? "text-blue-950" : "text-[#1f2329]"}`}
+                    >
                       {incident.incidentCode}
                     </h4>
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase whitespace-nowrap ${getStatusColor(
-                        incident.status?.code || "PENDING"
+                        incident.status?.code || "PENDING",
                       )}`}
                     >
                       {getStatusLabel(incident.status?.code || "PENDING")}
                     </span>
                   </div>
-                  
+
                   <div className="flex items-start gap-1.5 text-xs text-[#3f4650] mt-1.5">
-                    <MapPin size={14} className="mt-0.5 flex-shrink-0 text-blue-900/60" />
+                    <MapPin
+                      size={14}
+                      className="mt-0.5 flex-shrink-0 text-blue-900/60"
+                    />
                     <span className="line-clamp-2">
                       {incident.location?.addressText || "Đang tải vị trí..."}
                     </span>
                   </div>
 
-                  {incident.handlingTeams && incident.handlingTeams.length > 0 && (
-                    <div className="mt-2 text-xs">
-                      <span className="inline-block px-2 py-1 bg-blue-50 border border-blue-100 text-blue-700 rounded-md font-medium truncate w-full">
-                        Đội: {incident.handlingTeams[0].teamName}
-                      </span>
-                    </div>
-                  )}
+                  {incident.handlingTeams &&
+                    incident.handlingTeams.length > 0 && (
+                      <div className="mt-2 text-xs">
+                        <span className="inline-block px-2 py-1 bg-blue-50 border border-blue-100 text-blue-700 rounded-md font-medium truncate w-full">
+                          Đội: {incident.handlingTeams[0].teamName}
+                        </span>
+                      </div>
+                    )}
                 </div>
               );
             })}
-            
+
             {incidents.length === 0 && !error && (
               <p className="text-sm text-center text-on-surface-variant mt-10">
                 Không có sự cố nào để hiển thị.

@@ -8,6 +8,8 @@ public interface ITeamManagementService
 
     Task<object> GetTeam(Guid teamId);
 
+    Task<object> GetTeamRescueHistory(Guid teamId, string? responseStatus, int page, int pageSize);
+
     Task<object> CreateTeam(CreateTeamRequest request);
 
     Task<object> UpdateTeam(Guid teamId, UpdateTeamRequest request);
@@ -43,6 +45,8 @@ public interface ITeamManagementService
     Task<object> DeleteTeamMemberSkill(Guid teamId, Guid memberId, Guid teamMemberSkillId);
 
     Task<object> ListVehicles(string? keyword, string? statusCode, Guid? teamId);
+
+    Task<object> GetVehicleOptions();
 
     Task<object> GetVehicle(Guid vehicleId);
 

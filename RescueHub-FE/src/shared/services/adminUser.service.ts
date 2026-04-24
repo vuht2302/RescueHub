@@ -80,3 +80,9 @@ export const updateUser = async (
         body: JSON.stringify(payload),
     });
 };
+
+export const deleteUser = async (userId: string): Promise<void> => {
+    return requestApi(`/api/v1/admin/users/${userId}`, {
+        method: "DELETE",
+    });
+};

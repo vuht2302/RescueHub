@@ -151,6 +151,8 @@ export interface TeamViewProps {
   onRetry?: () => void;
   onReloadData?: () => void;
   isReloadingData?: boolean;
+  currentTeamStatus?: string;
+  onStatusUpdated?: () => void;
 }
 
 export interface TeamMissionStatus {
@@ -241,9 +243,79 @@ export interface TeamMissionActionCodeCatalogItem {
   actionCode: string;
   targetStatusCode: string;
 }
+export interface DistributionHistoryItem {
+  distributionId: string;
+  distributionCode: string;
+  status: {
+    code: string;
+    name: string;
+    color: string | null;
+  };
+  team: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  campaign: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  reliefPoint: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  incident: {
+    id: string;
+    code: string;
+    statusCode: string;
+  };
+  recipient: {
+    id: string;
+    code: string;
+    name: string;
+    phone: string;
+    address: string;
+  };
+  lineCount: number;
+  note: string;
+  ackAt: string;
+  createdAt: string;
+}
+
+export interface DistributionHistoryResponse {
+  items: DistributionHistoryItem[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface TeamStatusUpdateRequest {
+  statusCode: string;
+  note?: string;
+}
+
+export interface TeamStatusUpdateResponse {
+  statusCode: string;
+  updatedAt: string;
+}
+
 export interface UpdateMissionStatusResponse {
   missionId: string;
   actionCode: string;
+  updatedAt: string;
+}
+
+export interface DistributionStatusUpdateRequest {
+  statusCode: string;
+  note?: string;
+}
+
+export interface DistributionStatusUpdateResponse {
+  distributionId: string;
+  statusCode: string;
   updatedAt: string;
 }
 

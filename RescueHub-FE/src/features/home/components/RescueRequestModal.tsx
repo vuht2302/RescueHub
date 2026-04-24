@@ -63,6 +63,7 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
   >([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [isAddressDropdownOpen, setIsAddressDropdownOpen] = useState(false);
+  const [isLoadingCurrentAddress, setIsLoadingCurrentAddress] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -88,8 +89,45 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    setAddressText(defaultAddress ?? "");
-  }, [defaultAddress, isOpen]);
+
+    const fetchAddressFromCoords = async () => {
+      if (
+        defaultAddress &&
+        defaultAddress.trim().length > 0 &&
+        !defaultAddress.match(/^-?\d+\.\d+,\s*-?\d+\.\d+$/)
+      ) {
+        setAddressText(defaultAddress.trim());
+        return;
+      }
+
+      setIsLoadingCurrentAddress(true);
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${defaultLocation.lat}&lon=${defaultLocation.lng}&accept-language=vi`,
+          {
+            headers: {
+              "Accept-Language": "vi",
+            },
+          },
+        );
+
+        if (response.ok) {
+          const data = (await response.json()) as { display_name?: string };
+          if (data.display_name) {
+            setAddressText(data.display_name);
+            return;
+          }
+        }
+        setAddressText("");
+      } catch {
+        setAddressText("");
+      } finally {
+        setIsLoadingCurrentAddress(false);
+      }
+    };
+
+    void fetchAddressFromCoords();
+  }, [isOpen, defaultAddress, defaultLocation.lat, defaultLocation.lng]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -130,23 +168,6 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
     reporterName.trim().length > 0 &&
     reporterPhone.trim().length > 0 &&
     description.trim().length > 0;
-
-  const currentLocationAddress = useMemo(() => {
-    if (defaultAddress && defaultAddress.trim().length > 0) {
-      return defaultAddress.trim();
-    }
-
-    return `${defaultLocation.lat.toFixed(5)}, ${defaultLocation.lng.toFixed(5)}`;
-  }, [defaultAddress, defaultLocation.lat, defaultLocation.lng]);
-
-  const currentLocationOption = useMemo<AddressSuggestion>(
-    () => ({
-      id: "current-location",
-      label: `Vị trí hiện tại của bạn`,
-      value: currentLocationAddress,
-    }),
-    [currentLocationAddress, defaultLocation.lat, defaultLocation.lng],
-  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -218,13 +239,8 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
   }, [addressText, isOpen]);
 
   const mergedAddressSuggestions = useMemo(
-    () => [
-      currentLocationOption,
-      ...addressSuggestions.filter(
-        (item) => item.value !== currentLocationOption.value,
-      ),
-    ],
-    [addressSuggestions, currentLocationOption],
+    () => addressSuggestions,
+    [addressSuggestions],
   );
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -292,8 +308,14 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
               Tạo yêu cầu cứu hộ
             </h2>
             <p className="text-sm text-on-surface-variant mt-1">
-              Vị trí hiện tại: {defaultLocation.lat.toFixed(5)},{" "}
-              {defaultLocation.lng.toFixed(5)}
+              Vị trí hiện tại:{" "}
+              {isLoadingCurrentAddress ? (
+                <span className="italic">Đang xác định địa chỉ...</span>
+              ) : addressText ? (
+                addressText
+              ) : (
+                "Chưa xác định địa chỉ"
+              )}
             </p>
           </div>
           <button

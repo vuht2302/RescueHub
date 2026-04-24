@@ -10,6 +10,10 @@ import {
   TeamAbortMissionRequest,
   TeamAbortMissionResponse,
   UpdateMissionStatusResponse,
+  DistributionHistoryItem,
+  DistributionHistoryResponse,
+  DistributionStatusUpdateRequest,
+  DistributionStatusUpdateResponse,
 } from "../types/mission";
 
 export type {
@@ -17,6 +21,7 @@ export type {
   TeamMissionListItem,
   TeamMemberItem,
   TeamMemberSkill,
+  DistributionHistoryItem,
 } from "../types/mission";
 
 const DEFAULT_API_BASE_URL = "https://rescuehub.onrender.com";
@@ -139,6 +144,26 @@ export const requestMissionAbort = async (
     {
       reasonCode: request.reasonCode,
       detailNote: request.detailNote,
+    },
+  );
+};
+
+// Lấy lịch sử phân phối cứu trợ của đội
+export const getDistributionHistory = async (): Promise<DistributionHistoryResponse> => {
+  return requestTeamApi<DistributionHistoryResponse>("/api/v1/team/distributions/history");
+};
+
+// Cập nhật trạng thái phân phối cứu trợ
+export const updateDistributionStatus = async (
+  distributionId: string,
+  request: DistributionStatusUpdateRequest,
+): Promise<DistributionStatusUpdateResponse> => {
+  return requestTeamApiWithBody<DistributionStatusUpdateResponse>(
+    `/api/v1/team/distributions/${distributionId}/status`,
+    "PATCH",
+    {
+      statusCode: request.statusCode,
+      note: request.note,
     },
   );
 };

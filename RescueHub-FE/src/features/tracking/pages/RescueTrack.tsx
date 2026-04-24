@@ -8,16 +8,21 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import {
+  ackPublicTrackingRelief,
   ackPublicTrackingRescue,
+  getPublicMeHistory,
   getPublicTrackingMyReliefRequests,
   getPublicTrackingMyRescues,
+  getPublicTrackingRelief,
   getPublicTrackingRescue,
   requestPublicTrackingOtp,
   verifyPublicTrackingOtp,
   type PublicTrackingMyHistoryItem,
   type PublicTrackingHistoryItem,
   type PublicTrackingRescueResponse,
+  type PublicTrackingReliefResponse,
 } from "../../../shared/services/publicApi";
+import { getAuthSession } from "../../auth/services/authStorage";
 
 const TRACKING_TOKEN_STORAGE_KEY = "rescuehub.public.trackingToken";
 const TRACKING_PHONE_STORAGE_KEY = "rescuehub.public.trackingPhone";
@@ -53,19 +58,27 @@ export const RescueTrack: React.FC = () => {
   );
   const [trackingData, setTrackingData] =
     useState<PublicTrackingRescueResponse | null>(null);
+  const [reliefTrackingData, setReliefTrackingData] =
+    useState<PublicTrackingReliefResponse | null>(null);
   const [trackingPhone, setTrackingPhone] = useState(getStoredTrackingPhone());
   const [trackingOtp, setTrackingOtp] = useState("");
   const [trackingToken, setTrackingToken] = useState(getStoredTrackingToken());
   const [otpExpiresAt, setOtpExpiresAt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isReliefLoading, setIsReliefLoading] = useState(false);
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isAcking, setIsAcking] = useState(false);
+  const [isReliefAcking, setIsReliefAcking] = useState(false);
+  const [reliefAckNote, setReliefAckNote] = useState("");
   const [isHistoryListLoading, setIsHistoryListLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [otpMessage, setOtpMessage] = useState("");
   const [myRescues, setMyRescues] = useState<TrackingListItem[]>([]);
   const [myReliefs, setMyReliefs] = useState<TrackingListItem[]>([]);
+  const [reliefErrorMessage, setReliefErrorMessage] = useState("");
+  const [isLoggedInUser, setIsLoggedInUser] = useState(false);
+  const [isMeHistoryLoading, setIsMeHistoryLoading] = useState(false);
 
   const normalizeTrackingListItem = (
     item: PublicTrackingMyHistoryItem,
@@ -199,6 +212,41 @@ export const RescueTrack: React.FC = () => {
     }
   };
 
+  const fetchReliefTrackingData = async (requestCode: string) => {
+    const normalizedCode = requestCode.trim();
+    if (!normalizedCode) {
+      setReliefErrorMessage("Vui long nhap ma theo doi cuu tro");
+      setReliefTrackingData(null);
+      return;
+    }
+
+    if (!trackingToken) {
+      setReliefErrorMessage("Vui long xac thuc OTP truoc khi tra cuu cuu tro.");
+      setReliefTrackingData(null);
+      return;
+    }
+
+    setIsReliefLoading(true);
+    setReliefErrorMessage("");
+
+    try {
+      const response = await getPublicTrackingRelief(
+        normalizedCode,
+        trackingToken,
+      );
+      setReliefTrackingData(response);
+    } catch (error) {
+      setReliefTrackingData(null);
+      setReliefErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Khong the tai du lieu cuu tro",
+      );
+    } finally {
+      setIsReliefLoading(false);
+    }
+  };
+
   const handleRequestOtp = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedPhone = trackingPhone.trim();
@@ -319,6 +367,40 @@ export const RescueTrack: React.FC = () => {
     }
   };
 
+  const handleAckRelief = async () => {
+    if (!reliefTrackingData?.requestCode || !reliefTrackingData?.canAckRelief) {
+      return;
+    }
+
+    if (!trackingToken) {
+      setReliefErrorMessage("Vui long xac thuc OTP truoc khi xac nhan da nhan cuu tro.");
+      return;
+    }
+
+    setIsReliefAcking(true);
+    setReliefErrorMessage("");
+
+    try {
+      await ackPublicTrackingRelief(
+        reliefTrackingData.requestCode,
+        {
+          ackMethodCode: "OTP",
+          ackCode: trackingOtp.trim() || "MANUAL",
+          note: reliefAckNote || "Nguoi dan xac nhan da nhan cuu tro",
+        },
+        trackingToken,
+      );
+
+      await fetchReliefTrackingData(reliefTrackingData.requestCode);
+    } catch (error) {
+      setReliefErrorMessage(
+        error instanceof Error ? error.message : "Khong the xac nhan cuu tro",
+      );
+    } finally {
+      setIsReliefAcking(false);
+    }
+  };
+
   useEffect(() => {
     const codeFromQuery = searchParams.get("code")?.trim();
     if (codeFromQuery) {
@@ -343,6 +425,50 @@ export const RescueTrack: React.FC = () => {
     }
     setOtpMessage("Da xoa xac thuc OTP tracking.");
   };
+
+  // Check if citizen is logged in and load history
+  useEffect(() => {
+    const authSession = getAuthSession();
+    if (authSession?.accessToken) {
+      setIsLoggedInUser(true);
+      setIsMeHistoryLoading(true);
+
+      getPublicMeHistory(authSession.accessToken)
+        .then((data) => {
+          // Convert rescues to TrackingListItem
+          const rescueItems: TrackingListItem[] = (data.rescues?.items ?? []).map((item) => ({
+            id: String(item.id ?? item.code ?? `rescue-${Math.random()}`),
+            code: String(item.code ?? ""),
+            title: String(item.title ?? "Yêu cầu cứu hộ"),
+            statusName: String(item.statusName ?? "Đang xử lý"),
+            createdAt: String(item.createdAt ?? item.updatedAt ?? ""),
+          }));
+
+          // Convert relief requests to TrackingListItem
+          const reliefItems: TrackingListItem[] = (data.reliefRequests?.items ?? []).map((item) => ({
+            id: String(item.id ?? item.code ?? `relief-${Math.random()}`),
+            code: String(item.code ?? ""),
+            title: String(item.title ?? "Yêu cầu cứu trợ"),
+            statusName: String(item.statusName ?? "Đang xử lý"),
+            createdAt: String(item.createdAt ?? item.updatedAt ?? ""),
+          }));
+
+          setMyRescues(rescueItems);
+          setMyReliefs(reliefItems);
+        })
+        .catch(() => {
+          // Fallback to tracking token method if me/history fails
+          if (!trackingToken) {
+            setMyRescues([]);
+            setMyReliefs([]);
+          }
+        })
+        .finally(() => {
+          setIsMeHistoryLoading(false);
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -663,6 +789,149 @@ export const RescueTrack: React.FC = () => {
           </div>
         </aside>
       </div>
+
+      {/* CUU TRO SECTION */}
+      <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-5 md:p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold text-on-surface">
+            Theo dõi cứu trợ
+          </h3>
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-3">
+          <input
+            value={trackingCode}
+            onChange={(event) => setTrackingCode(event.target.value)}
+            placeholder="Nhập mã cứu trợ (RT-YYYYMMDD-XXX)"
+            className="flex-1 bg-surface-container-low rounded-xl px-4 py-3 outline-none text-on-surface"
+          />
+          <button
+            onClick={() => void fetchReliefTrackingData(trackingCode)}
+            disabled={isReliefLoading || !trackingToken}
+            className="h-12 px-6 rounded-xl bg-secondary text-on-secondary font-bold disabled:opacity-60"
+          >
+            {isReliefLoading ? "Đang tải..." : "Tra cứu cứu trợ"}
+          </button>
+        </div>
+
+        {reliefErrorMessage ? (
+          <p className="text-sm text-error">{reliefErrorMessage}</p>
+        ) : null}
+
+        {reliefTrackingData ? (
+          <div className="space-y-4">
+            {/* Relief Info */}
+            <div className="rounded-xl bg-surface-container-low p-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-on-surface-variant">Mã yêu cầu</p>
+                  <p className="font-bold text-on-surface">
+                    {reliefTrackingData.requestCode}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-on-surface-variant">Trạng thái</p>
+                  <p className="font-bold text-on-surface">
+                    {reliefTrackingData.status?.name ?? "Đang xử lý"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Relief Items */}
+            {reliefTrackingData.items && reliefTrackingData.items.length > 0 && (
+              <div className="rounded-xl bg-surface-container-low p-4">
+                <p className="text-xs text-on-surface-variant mb-2">
+                  Vật phẩm cứu trợ
+                </p>
+                <div className="space-y-2">
+                  {reliefTrackingData.items.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex justify-between items-center"
+                    >
+                      <span className="text-sm text-on-surface">
+                        {item.itemCode ?? "Vật phẩm"}
+                      </span>
+                      <span className="text-sm font-medium text-on-surface">
+                        {item.fulfilledQty ?? 0}/{item.requestedQty}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Distributions */}
+            {reliefTrackingData.distributions &&
+              reliefTrackingData.distributions.length > 0 && (
+                <div className="rounded-xl bg-surface-container-low p-4">
+                  <p className="text-xs text-on-surface-variant mb-2">
+                    Lịch sử phân phối
+                  </p>
+                  <div className="space-y-2">
+                    {reliefTrackingData.distributions.map((dist, idx) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between items-center text-sm"
+                      >
+                        <span className="text-on-surface">
+                          {dist.distribution_code}
+                        </span>
+                        <span className="text-on-surface-variant">
+                          {dist.distributed_at
+                            ? new Date(dist.distributed_at).toLocaleString("vi-VN")
+                            : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Ack Relief Button */}
+            {reliefTrackingData.canAckRelief ? (
+              <div className="space-y-3">
+                <textarea
+                  value={reliefAckNote}
+                  onChange={(e) => setReliefAckNote(e.target.value)}
+                  placeholder="Ghi chú (tùy chọn): ví dụ: Đã nhận đầy đủ, Thiếu 1 thùng mì..."
+                  className="w-full bg-surface-container-low rounded-xl px-4 py-3 outline-none text-on-surface resize-none"
+                  rows={2}
+                />
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleAckRelief}
+                  disabled={isReliefAcking}
+                  className="w-full bg-green-600 text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {isReliefAcking ? (
+                    <LoaderCircle className="animate-spin" size={20} />
+                  ) : (
+                    <CheckCircle size={20} />
+                  )}
+                  <span>Xác nhận đã nhận cứu trợ</span>
+                </motion.button>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-green-50 border border-green-200 p-4 text-center">
+                <CheckCircle
+                  size={24}
+                  className="mx-auto text-green-600 mb-2"
+                />
+                <p className="text-sm font-medium text-green-800">
+                  Bạn đã xác nhận nhận cứu trợ
+                </p>
+              </div>
+            )}
+          </div>
+        ) : !reliefErrorMessage && !isReliefLoading ? (
+          <p className="text-sm text-on-surface-variant text-center py-4">
+            Nhập mã cứu trợ để xem thông tin và xác nhận đã nhận hàng
+          </p>
+        ) : null}
+      </section>
     </div>
   );
 };

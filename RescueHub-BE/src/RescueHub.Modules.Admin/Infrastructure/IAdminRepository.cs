@@ -58,5 +58,7 @@ public interface IAdminRepository
 
     Task<object> GetReliefByStatusReport(DateTime? fromDateUtc, DateTime? toDateUtc);
 
+    Task<object> GetRescueReliefVolumeReport();
+
     Task<object> GetHotspotsReport(DateTime? fromDateUtc, DateTime? toDateUtc, int topN);
 }

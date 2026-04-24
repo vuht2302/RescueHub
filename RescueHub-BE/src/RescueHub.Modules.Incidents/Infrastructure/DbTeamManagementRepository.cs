@@ -40,6 +40,13 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
         "MAINTENANCE"
     ];
 
+    private static readonly HashSet<string> MissionResponseStatuses =
+    [
+        "ASSIGNED",
+        "ACCEPTED",
+        "REJECTED"
+    ];
+
     public Task<object> GetStatusOptions()
     {
         var data = new
@@ -174,6 +181,93 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
                     status = new { code = x.status_code, name = x.status_code, color = (string?)null }
                 })
                 .ToList()
+        };
+    }
+
+    public async Task<object> GetTeamRescueHistory(Guid teamId, string? responseStatus, int page, int pageSize)
+    {
+        await EnsureTeamExists(teamId);
+
+        var normalizedPage = page <= 0 ? 1 : page;
+        var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 200);
+        var normalizedResponseStatus = string.IsNullOrWhiteSpace(responseStatus)
+            ? null
+            : NormalizeCode(responseStatus);
+
+        if (normalizedResponseStatus is not null && !MissionResponseStatuses.Contains(normalizedResponseStatus))
+        {
+            throw new InvalidOperationException("responseStatus khong hop le. Chi nhan ASSIGNED, ACCEPTED, REJECTED.");
+        }
+
+        var query = dbContext.mission_teams
+            .AsNoTracking()
+            .Where(x => x.team_id == teamId)
+            .Include(x => x.mission)
+            .ThenInclude(x => x.incident)
+            .AsQueryable();
+
+        if (normalizedResponseStatus == "ASSIGNED")
+        {
+            query = query.Where(x => x.accepted_at == null && x.rejected_at == null);
+        }
+        else if (normalizedResponseStatus == "ACCEPTED")
+        {
+            query = query.Where(x => x.accepted_at != null);
+        }
+        else if (normalizedResponseStatus == "REJECTED")
+        {
+            query = query.Where(x => x.rejected_at != null);
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(x => x.assigned_at)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(x => new
+            {
+                assignmentId = x.id,
+                responseStatus = x.accepted_at != null
+                    ? "ACCEPTED"
+                    : x.rejected_at != null
+                        ? "REJECTED"
+                        : "ASSIGNED",
+                assignedAt = x.assigned_at,
+                respondedAt = x.accepted_at ?? x.rejected_at,
+                responseNote = x.response_note,
+                isPrimaryTeam = x.is_primary_team,
+                mission = new
+                {
+                    id = x.mission.id,
+                    code = x.mission.code,
+                    objective = x.mission.objective,
+                    statusCode = x.mission.status_code,
+                    priorityCode = x.mission.priority_code,
+                    etaMinutes = x.mission.eta_minutes,
+                    startedAt = x.mission.started_at,
+                    completedAt = x.mission.completed_at,
+                    createdAt = x.mission.created_at,
+                    updatedAt = x.mission.updated_at
+                },
+                incident = new
+                {
+                    id = x.mission.incident.id,
+                    code = x.mission.incident.code,
+                    incidentTypeCode = x.mission.incident.incident_type_code,
+                    statusCode = x.mission.incident.status_code,
+                    createdAt = x.mission.incident.created_at
+                }
+            })
+            .ToListAsync();
+
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)normalizedPageSize);
+        return new
+        {
+            items,
+            page = normalizedPage,
+            pageSize = normalizedPageSize,
+            totalItems,
+            totalPages
         };
     }
 
@@ -885,6 +979,53 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
             .ToListAsync();
 
         return new { items };
+    }
+
+    public async Task<object> GetVehicleOptions()
+    {
+        var vehicleTypes = await dbContext.vehicle_types
+            .AsNoTracking()
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                description = x.description
+            })
+            .ToListAsync();
+
+        var capabilities = await dbContext.vehicle_capabilities
+            .AsNoTracking()
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                description = x.description
+            })
+            .ToListAsync();
+
+        var teams = await dbContext.teams
+            .AsNoTracking()
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                statusCode = x.status_code
+            })
+            .ToListAsync();
+
+        return new
+        {
+            vehicleTypes,
+            capabilities,
+            teams,
+            vehicleStatusCodes = VehicleStatusCodes.Select(ToCodeItem).ToArray()
+        };
     }
 
     public async Task<object> GetVehicle(Guid vehicleId)

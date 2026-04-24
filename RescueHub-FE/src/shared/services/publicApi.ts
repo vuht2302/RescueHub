@@ -1,6 +1,7 @@
 import type {
   ApiResponse,
   BootstrapData,
+  CitizenReliefAckRequest,
   PublicAckRequest,
   PublicAckResponse,
   PublicAlertsData,
@@ -163,6 +164,50 @@ export const createPublicReliefRequest = async (
       body: JSON.stringify(payload),
     },
   );
+};
+
+export interface ReliefCatalogItem {
+  id: string;
+  itemCode: string;
+  itemName: string;
+  unitCode: string;
+  categoryName: string;
+}
+
+export const getReliefItems = async (
+  token: string,
+): Promise<ReliefCatalogItem[]> => {
+  const API_BASE =
+    (import.meta.env.VITE_API_BASE_URL ?? "https://rescuehub.onrender.com").trim();
+
+  const res = await fetch(`${API_BASE}/api/v1/manager/items`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+  });
+
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message ?? "Không thể tải danh sách vật phẩm");
+  }
+
+  const items = json.data?.items ?? json.data ?? [];
+  return items
+    .filter((item: { isActive: boolean }) => item.isActive !== false)
+    .map((item: {
+      id: string;
+      itemCode: string;
+      itemName: string;
+      unitCode: string;
+      itemCategory: { name: string };
+    }) => ({
+      id: item.id,
+      itemCode: item.itemCode,
+      itemName: item.itemName,
+      unitCode: item.unitCode,
+      categoryName: item.itemCategory?.name ?? "",
+    }));
 };
 
 export const requestPublicTrackingOtp = async (
@@ -332,4 +377,48 @@ export const getPublicMeHistory = async (
         : {}),
     },
   });
+};
+
+export const ackPublicMeReliefRequest = async (
+  requestCode: string,
+  payload: CitizenReliefAckRequest,
+  accessToken?: string,
+): Promise<PublicAckResponse> => {
+  return requestPublicApi<PublicAckResponse>(
+    `/api/v1/public/me/relief-requests/${encodeURIComponent(requestCode)}/ack`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken?.trim()
+          ? {
+              Authorization: `Bearer ${accessToken.trim()}`,
+            }
+          : {}),
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+};
+
+export const markReliefRequestNotReceived = async (
+  requestCode: string,
+  payload: CitizenReliefAckRequest,
+  accessToken?: string,
+): Promise<PublicAckResponse> => {
+  return requestPublicApi<PublicAckResponse>(
+    `/api/v1/public/me/relief-requests/${encodeURIComponent(requestCode)}/not-received`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken?.trim()
+          ? {
+              Authorization: `Bearer ${accessToken.trim()}`,
+            }
+          : {}),
+      },
+      body: JSON.stringify(payload),
+    },
+  );
 };

@@ -515,6 +515,7 @@ public partial class RescueHubDbContext : DbContext
 
             entity.Property(e => e.id).ValueGeneratedNever();
             entity.Property(e => e.is_active).HasDefaultValue(true);
+            entity.Property(e => e.received_at).HasDefaultValueSql("now()");
             entity.Property(e => e.requires_expiry_tracking).HasDefaultValue(true);
             entity.Property(e => e.requires_lot_tracking).HasDefaultValue(true);
 

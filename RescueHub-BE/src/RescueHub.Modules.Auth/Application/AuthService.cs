@@ -120,15 +120,13 @@ public sealed class AuthService(
 
         if (normalizedPurpose == "LOGIN")
         {
-            if (user is null)
+            if (user is not null)
             {
-                throw new InvalidOperationException("Khong tim thay tai khoan theo so dien thoai.");
-            }
-
-            var isCitizen = user.app_user_roles.Any(x => string.Equals(x.role.code, "CITIZEN", StringComparison.OrdinalIgnoreCase));
-            if (!isCitizen)
-            {
-                throw new InvalidOperationException("OTP login hien chi ap dung cho citizen.");
+                var isCitizen = user.app_user_roles.Any(x => string.Equals(x.role.code, "CITIZEN", StringComparison.OrdinalIgnoreCase));
+                if (!isCitizen)
+                {
+                    throw new InvalidOperationException("OTP login hien chi ap dung cho citizen.");
+                }
             }
         }
 
@@ -183,13 +181,33 @@ public sealed class AuthService(
 
         if (user is null)
         {
-            throw new InvalidOperationException("Khong tim thay tai khoan citizen.");
+            var temporaryAccessToken = GenerateTemporaryAccessToken(normalizedPhone, normalizedPurpose);
+
+            return new
+            {
+                verified = true,
+                accessToken = temporaryAccessToken,
+                expiresAt = DateTime.UtcNow.AddMinutes(configuration.GetValue<int?>("Jwt:TemporaryAccessTokenExpiryMinutes") ?? 120),
+                user = new
+                {
+                    id = (Guid?)null,
+                    displayName = "Citizen Guest",
+                    phone = normalizedPhone,
+                    roles = new[] { "CITIZEN_TEMP" },
+                    isTemporary = true
+                }
+            };
         }
 
         var roles = user.app_user_roles
             .Select(x => x.role.code)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+
+        if (!roles.Contains("CITIZEN", StringComparer.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("OTP login hien chi ap dung cho citizen.");
+        }
 
         user.last_login_at = DateTime.UtcNow;
         await dbContext.SaveChangesAsync();
@@ -357,8 +375,55 @@ public sealed class AuthService(
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
+    private string GenerateTemporaryAccessToken(string phone, string purpose)
+    {
+        var issuer = configuration["Jwt:Issuer"]
+            ?? throw new InvalidOperationException("Missing Jwt:Issuer configuration.");
+        var audience = configuration["Jwt:Audience"]
+            ?? throw new InvalidOperationException("Missing Jwt:Audience configuration.");
+        var key = configuration["Jwt:Key"]
+            ?? throw new InvalidOperationException("Missing Jwt:Key configuration.");
+        var expiryMinutes = configuration.GetValue<int?>("Jwt:TemporaryAccessTokenExpiryMinutes") ?? 120;
+
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, $"temp:{phone}"),
+            new(JwtRegisteredClaimNames.UniqueName, "Citizen Guest"),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            new("phone", phone),
+            new("token_type", "temporary"),
+            new("otp_purpose", purpose),
+            new(ClaimTypes.Role, "CITIZEN_TEMP")
+        };
+
+        var credentials = new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
+            SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: claims,
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
     private Guid ValidateRefreshToken(string refreshToken)
     {
+        var normalizedRefreshToken = (refreshToken ?? string.Empty).Trim();
+        if (normalizedRefreshToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            normalizedRefreshToken = normalizedRefreshToken[7..].Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(normalizedRefreshToken))
+        {
+            throw new InvalidOperationException("Refresh token khong hop le.");
+        }
+
         var issuer = configuration["Jwt:Issuer"]
             ?? throw new InvalidOperationException("Missing Jwt:Issuer configuration.");
         var audience = configuration["Jwt:Audience"]
@@ -381,7 +446,7 @@ public sealed class AuthService(
         ClaimsPrincipal principal;
         try
         {
-            principal = new JwtSecurityTokenHandler().ValidateToken(refreshToken, validation, out _);
+            principal = new JwtSecurityTokenHandler().ValidateToken(normalizedRefreshToken, validation, out _);
         }
         catch
         {
@@ -394,7 +459,8 @@ public sealed class AuthService(
             throw new InvalidOperationException("Refresh token khong hop le.");
         }
 
-        var sub = principal.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        var sub = principal.FindFirstValue(JwtRegisteredClaimNames.Sub)
+            ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(sub, out var userId))
         {
             throw new InvalidOperationException("Refresh token khong hop le.");

@@ -14,6 +14,7 @@ import {
   ChevronRight,
   X,
   Plus,
+  Calendar,
 } from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import {
@@ -41,13 +42,14 @@ import { ReliefIssueDetailModal } from "../components/ReliefIssueDetailModal";
 import { DistributionDetailModal } from "../components/DistributionDetailModal";
 import { CreateReliefIssueModal } from "../components/CreateReliefIssueModal";
 import { CreateReliefDistributionModal } from "../components/CreateReliefDistributionModal";
+import { ReliefCampaignTab } from "../components/ReliefCampaignTab";
 
 export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   className = "",
 }) => {
   const [activeTab, setActiveTab] = useState<
-    "requests" | "issues" | "distributions"
-  >("requests");
+    "campaigns" | "requests" | "issues" | "distributions"
+  >("campaigns");
 
   // Relief Requests state
   const [reliefRequests, setReliefRequests] = useState<ReliefRequestItem[]>([]);
@@ -81,6 +83,11 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   const [showReliefDistModal, setShowReliefDistModal] = useState(false);
   const [distPage, setDistPage] = useState(1);
   const [distTotalPages, setDistTotalPages] = useState(1);
+
+  // Load Campaigns
+  const loadCampaigns = useCallback(async () => {
+    // Campaigns are loaded inside ReliefCampaignTab component
+  }, []);
 
   // Load Relief Requests
   const loadReliefRequests = useCallback(async () => {
@@ -139,7 +146,8 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   }, []);
 
   useEffect(() => {
-    if (activeTab === "requests") void loadReliefRequests();
+    if (activeTab === "campaigns") void loadCampaigns();
+    else if (activeTab === "requests") void loadReliefRequests();
     else if (activeTab === "issues") void loadReliefIssues(issuePage);
     else if (activeTab === "distributions") void loadDistributions(distPage);
   }, [
@@ -149,6 +157,7 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
     loadReliefRequests,
     loadReliefIssues,
     loadDistributions,
+    loadCampaigns,
   ]);
 
   // Filter relief requests
@@ -210,6 +219,13 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
       {/* Tabs */}
       <div className="flex border-b border-gray-200 bg-white rounded-t-xl">
         <button
+          onClick={() => setActiveTab("campaigns")}
+          className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "campaigns" ? "text-blue-950 border-b-2 border-blue-950" : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"}`}
+        >
+          <Calendar size={16} className="inline mr-2" />
+          Chiến dịch
+        </button>
+        <button
           onClick={() => setActiveTab("requests")}
           className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "requests" ? "text-blue-950 border-b-2 border-blue-950" : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"}`}
         >
@@ -234,6 +250,11 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
 
       {/* Content - Full width */}
       <div className="flex-1 overflow-hidden bg-gray-50 rounded-b-xl">
+        {/* RELIEF CAMPAIGNS */}
+        {activeTab === "campaigns" && (
+          <ReliefCampaignTab />
+        )}
+
         {/* RELIEF REQUESTS */}
         {activeTab === "requests" && (
           <div className="h-full flex flex-col">

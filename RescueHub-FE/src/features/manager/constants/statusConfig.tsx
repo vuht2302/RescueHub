@@ -25,6 +25,13 @@ export const DIST_STATUS: Record<string, { label: string; cls: string }> = {
   CANCELLED: { label: "Đã hủy", cls: "bg-red-100 text-red-600" },
 };
 
+export const CAMPAIGN_STATUS: Record<string, { label: string; cls: string }> = {
+  PLANNED: { label: "Đang lên kế hoạch", cls: "bg-blue-100 text-blue-700" },
+  ACTIVE: { label: "Đang hoạt động", cls: "bg-green-100 text-green-700" },
+  COMPLETED: { label: "Hoàn thành", cls: "bg-emerald-100 text-emerald-700" },
+  CANCELLED: { label: "Đã hủy", cls: "bg-red-100 text-red-600" },
+};
+
 export function StatusBadge({
   code,
   statusMap,

@@ -817,3 +817,42 @@ export async function getManagerTeams(
 
   return Array.isArray(data) ? data : data.items;
 }
+
+// ─── MAN-10  Relief Campaign ──────────────────────────────────────────────────
+export interface ReliefCampaign {
+  id: string;
+  code: string;
+  name: string;
+  status: CodeName;
+  adminArea: { id: string; code: string; name: string } | null;
+  startAt: string;
+  endAt: string | null;
+  description: string | null;
+  reliefPointCount: number;
+}
+
+export interface ReliefCampaignListParams {
+  keyword?: string;
+  statusCode?: string;
+  adminAreaId?: string;
+}
+
+export async function getReliefCampaigns(
+  token: string,
+  params: ReliefCampaignListParams = {},
+): Promise<ReliefCampaign[]> {
+  const q = new URLSearchParams();
+  if (params.keyword) q.set("keyword", params.keyword);
+  if (params.statusCode) q.set("statusCode", params.statusCode);
+  if (params.adminAreaId) q.set("adminAreaId", params.adminAreaId);
+
+  const data = await apiFetch<
+    ReliefCampaign[] | PagedResponse<ReliefCampaign>
+  >(`${BASE}/relief-campaigns?${q.toString()}`, {
+    headers: authHeaders(token),
+  });
+
+  return Array.isArray(data)
+    ? data
+    : (data as PagedResponse<ReliefCampaign>).items;
+}

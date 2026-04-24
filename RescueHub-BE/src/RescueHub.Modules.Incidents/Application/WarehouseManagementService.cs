@@ -46,13 +46,6 @@ public sealed class WarehouseManagementService(IWarehouseManagementRepository re
 
     public Task<object> CreateStockTransaction(CreateStockTransactionRequest request) => repository.CreateStockTransaction(request);
 
-    public Task<object> ListReliefIssues(Guid? campaignId, Guid? reliefPointId, string? statusCode, int page, int pageSize)
-        => repository.ListReliefIssues(campaignId, reliefPointId, statusCode, page, pageSize);
-
-    public Task<object> GetReliefIssue(Guid reliefIssueId) => repository.GetReliefIssue(reliefIssueId);
-
-    public Task<object> CreateReliefIssue(CreateReliefIssueRequest request) => repository.CreateReliefIssue(request);
-
     public Task<object> ListHouseholds(string? keyword, Guid? adminAreaId, int page, int pageSize)
         => repository.ListHouseholds(keyword, adminAreaId, page, pageSize);
 

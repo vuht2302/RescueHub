@@ -44,12 +44,6 @@ public interface IWarehouseManagementRepository
 
     Task<object> CreateStockTransaction(CreateStockTransactionRequest request);
 
-    Task<object> ListReliefIssues(Guid? campaignId, Guid? reliefPointId, string? statusCode, int page, int pageSize);
-
-    Task<object> GetReliefIssue(Guid reliefIssueId);
-
-    Task<object> CreateReliefIssue(CreateReliefIssueRequest request);
-
     Task<object> ListHouseholds(string? keyword, Guid? adminAreaId, int page, int pageSize);
 
     Task<object> GetHousehold(Guid householdId);

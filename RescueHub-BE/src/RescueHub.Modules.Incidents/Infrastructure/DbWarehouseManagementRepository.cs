@@ -1249,6 +1249,125 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         };
     }
 
+    public async Task<object> GetDistributionContextByCampaign(Guid campaignId)
+    {
+        var campaign = await dbContext.relief_campaigns
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.id == campaignId)
+            ?? throw new InvalidOperationException("Khong tim thay chien dich.");
+
+        var reliefPoints = await dbContext.relief_points
+            .AsNoTracking()
+            .Where(x => x.campaign_id == campaignId && x.status_code == "OPEN")
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                x.id,
+                x.code,
+                x.name
+            })
+            .ToListAsync();
+
+        var reliefRequests = await dbContext.relief_requests
+            .AsNoTracking()
+            .Where(x =>
+                x.campaign_id == campaignId &&
+                x.linked_incident_id.HasValue &&
+                x.status_code != "REJECTED" &&
+                x.status_code != "FULFILLED")
+            .OrderByDescending(x => x.status_code == "APPROVED")
+            .ThenByDescending(x => x.updated_at)
+            .ThenByDescending(x => x.created_at)
+            .Select(x => new
+            {
+                x.id,
+                x.code,
+                x.linked_incident_id,
+                x.status_code
+            })
+            .ToListAsync();
+
+        var incidentIds = reliefRequests
+            .Where(x => x.linked_incident_id.HasValue)
+            .Select(x => x.linked_incident_id!.Value)
+            .Distinct()
+            .ToArray();
+
+        var incidentTeamAssignments = await dbContext.mission_teams
+            .AsNoTracking()
+            .Where(x => incidentIds.Contains(x.mission.incident_id))
+            .Select(x => new
+            {
+                incidentId = x.mission.incident_id,
+                teamId = x.team_id,
+                teamCode = x.team.code,
+                teamName = x.team.name
+            })
+            .Distinct()
+            .ToListAsync();
+
+        var teams = incidentTeamAssignments
+            .GroupBy(x => x.teamId)
+            .Select(x => new
+            {
+                id = x.Key,
+                code = x.First().teamCode,
+                name = x.First().teamName
+            })
+            .OrderBy(x => x.code)
+            .ToList();
+
+        var teamIdsByIncident = incidentTeamAssignments
+            .GroupBy(x => x.incidentId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(v => v.teamId).Distinct().ToArray());
+
+        var combinations = new List<object>();
+        foreach (var reliefRequest in reliefRequests)
+        {
+            if (!reliefRequest.linked_incident_id.HasValue ||
+                !teamIdsByIncident.TryGetValue(reliefRequest.linked_incident_id.Value, out var validTeamIds))
+            {
+                continue;
+            }
+
+            foreach (var teamId in validTeamIds)
+            {
+                foreach (var reliefPoint in reliefPoints)
+                {
+                    combinations.Add(new
+                    {
+                        reliefPointId = reliefPoint.id,
+                        teamId,
+                        reliefRequestId = (Guid?)reliefRequest.id
+                    });
+                }
+            }
+        }
+
+        return new
+        {
+            campaign = new
+            {
+                id = campaign.id,
+                code = campaign.code,
+                name = campaign.name,
+                statusCode = campaign.status_code
+            },
+            reliefPoints = reliefPoints.Select(x => new { id = x.id, code = x.code, name = x.name }).ToList(),
+            teams,
+            reliefRequests = reliefRequests.Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                linkedIncidentId = x.linked_incident_id,
+                statusCode = x.status_code
+            }).ToList(),
+            combinations
+        };
+    }
+
     public async Task<object> CreateReliefCampaign(CreateReliefCampaignRequest request)
     {
         var code = NormalizeCode(request.Code);
@@ -2095,22 +2214,33 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             .Distinct()
             .ToArrayAsync();
 
-        if (incidentIds.Length == 0)
-        {
-            throw new InvalidOperationException("Team chua duoc manager gan mission nao.");
-        }
-
-        var query = dbContext.relief_requests
+        var baseQuery = dbContext.relief_requests
             .AsNoTracking()
-            .Where(x => x.linked_incident_id.HasValue && incidentIds.Contains(x.linked_incident_id.Value))
-            .Where(x => x.status_code != "REJECTED" && x.status_code != "FULFILLED");
+            .Where(x => x.status_code != "REJECTED" && x.status_code != "FULFILLED")
+            .AsQueryable();
 
         if (campaignId.HasValue)
         {
-            query = query.Where(x => x.campaign_id == campaignId.Value);
+            baseQuery = baseQuery.Where(x => x.campaign_id == campaignId.Value);
         }
 
-        var reliefRequest = await query
+        if (incidentIds.Length > 0)
+        {
+            var byTeamIncidents = await baseQuery
+                .Where(x => x.linked_incident_id.HasValue && incidentIds.Contains(x.linked_incident_id.Value))
+                .OrderByDescending(x => x.status_code == "APPROVED")
+                .ThenByDescending(x => x.updated_at)
+                .ThenByDescending(x => x.created_at)
+                .FirstOrDefaultAsync();
+
+            if (byTeamIncidents is not null)
+            {
+                return byTeamIncidents;
+            }
+        }
+
+        // Fallback: team chua co mission lien quan campaign, nhung campaign van co relief request hop le.
+        var reliefRequest = await baseQuery
             .OrderByDescending(x => x.status_code == "APPROVED")
             .ThenByDescending(x => x.updated_at)
             .ThenByDescending(x => x.created_at)
@@ -2118,7 +2248,12 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
 
         if (reliefRequest is null)
         {
-            throw new InvalidOperationException("Khong tim thay relief request phu hop voi team duoc gan.");
+            if (campaignId.HasValue)
+            {
+                throw new InvalidOperationException("Khong tim thay relief request hop le trong campaign.");
+            }
+
+            throw new InvalidOperationException("Khong tim thay relief request phu hop. Vui long cung cap CampaignId hoac gan mission cho team.");
         }
 
         return reliefRequest;

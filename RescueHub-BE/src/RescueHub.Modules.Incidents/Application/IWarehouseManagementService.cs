@@ -64,6 +64,8 @@ public interface IWarehouseManagementService
 
     Task<object> GetReliefCampaign(Guid campaignId);
 
+    Task<object> GetDistributionContextByCampaign(Guid campaignId);
+
     Task<object> CreateReliefCampaign(CreateReliefCampaignRequest request);
 
     Task<object> UpdateReliefCampaign(Guid campaignId, UpdateReliefCampaignRequest request);

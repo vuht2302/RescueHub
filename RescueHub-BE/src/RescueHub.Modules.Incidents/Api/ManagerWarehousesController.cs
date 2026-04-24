@@ -319,6 +319,26 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
     }
 
     /// <summary>
+    /// Lay context tao distribution theo campaign.
+    /// </summary>
+    /// <param name="campaignId">Dinh danh chien dich.</param>
+    /// <returns>Danh sach to hop hop le reliefPoint-team-reliefRequest de tao distribution.</returns>
+    [HttpGet("campaigns/{campaignId:guid}/distribution-context")]
+    public async Task<ActionResult<ApiResponse<object>>> GetDistributionContextByCampaign([FromRoute] Guid campaignId)
+    {
+        try
+        {
+            return OkResponse<object>(
+                await service.GetDistributionContextByCampaign(campaignId),
+                "Lay distribution context theo campaign thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Tao chien dich cuu tro.
     /// </summary>
     [HttpPost("relief-campaigns")]

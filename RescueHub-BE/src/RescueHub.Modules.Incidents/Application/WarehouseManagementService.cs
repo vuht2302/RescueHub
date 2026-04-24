@@ -73,6 +73,9 @@ public sealed class WarehouseManagementService(IWarehouseManagementRepository re
     public Task<object> GetReliefCampaign(Guid campaignId)
         => repository.GetReliefCampaign(campaignId);
 
+    public Task<object> GetDistributionContextByCampaign(Guid campaignId)
+        => repository.GetDistributionContextByCampaign(campaignId);
+
     public Task<object> CreateReliefCampaign(CreateReliefCampaignRequest request)
         => repository.CreateReliefCampaign(request);
 

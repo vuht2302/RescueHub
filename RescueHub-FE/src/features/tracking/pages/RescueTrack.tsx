@@ -289,7 +289,7 @@ export const RescueTrack: React.FC = () => {
     const normalizedOtp = trackingOtp.trim();
 
     if (!normalizedPhone || !normalizedOtp) {
-      setOtpMessage("Vui long nhap day du so dien thoai va OTP.");
+      setOtpMessage("Vui lòng nhập đầy đủ số điện thoại và OTP.");
       return;
     }
 
@@ -373,7 +373,9 @@ export const RescueTrack: React.FC = () => {
     }
 
     if (!trackingToken) {
-      setReliefErrorMessage("Vui long xac thuc OTP truoc khi xac nhan da nhan cuu tro.");
+      setReliefErrorMessage(
+        "Vui long xac thuc OTP truoc khi xac nhan da nhan cuu tro.",
+      );
       return;
     }
 
@@ -436,7 +438,9 @@ export const RescueTrack: React.FC = () => {
       getPublicMeHistory(authSession.accessToken)
         .then((data) => {
           // Convert rescues to TrackingListItem
-          const rescueItems: TrackingListItem[] = (data.rescues?.items ?? []).map((item) => ({
+          const rescueItems: TrackingListItem[] = (
+            data.rescues?.items ?? []
+          ).map((item) => ({
             id: String(item.id ?? item.code ?? `rescue-${Math.random()}`),
             code: String(item.code ?? ""),
             title: String(item.title ?? "Yêu cầu cứu hộ"),
@@ -445,7 +449,9 @@ export const RescueTrack: React.FC = () => {
           }));
 
           // Convert relief requests to TrackingListItem
-          const reliefItems: TrackingListItem[] = (data.reliefRequests?.items ?? []).map((item) => ({
+          const reliefItems: TrackingListItem[] = (
+            data.reliefRequests?.items ?? []
+          ).map((item) => ({
             id: String(item.id ?? item.code ?? `relief-${Math.random()}`),
             code: String(item.code ?? ""),
             title: String(item.title ?? "Yêu cầu cứu trợ"),
@@ -503,7 +509,7 @@ export const RescueTrack: React.FC = () => {
           <input
             value={trackingOtp}
             onChange={(event) => setTrackingOtp(event.target.value)}
-            placeholder="Nhap ma OTP"
+            placeholder="Nhập Mã OTP"
             className="w-full bg-surface-container-low rounded-xl px-4 py-3 outline-none text-on-surface"
           />
           <button
@@ -511,7 +517,7 @@ export const RescueTrack: React.FC = () => {
             disabled={isVerifyingOtp}
             className="h-12 px-5 rounded-xl bg-surface-container-high text-on-surface font-bold disabled:opacity-60"
           >
-            {isVerifyingOtp ? "Dang xac thuc..." : "Xac thuc OTP"}
+            {isVerifyingOtp ? "Đang xác thực ...." : "Xác thực OTP"}
           </button>
         </form>
 
@@ -839,28 +845,29 @@ export const RescueTrack: React.FC = () => {
             </div>
 
             {/* Relief Items */}
-            {reliefTrackingData.items && reliefTrackingData.items.length > 0 && (
-              <div className="rounded-xl bg-surface-container-low p-4">
-                <p className="text-xs text-on-surface-variant mb-2">
-                  Vật phẩm cứu trợ
-                </p>
-                <div className="space-y-2">
-                  {reliefTrackingData.items.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex justify-between items-center"
-                    >
-                      <span className="text-sm text-on-surface">
-                        {item.itemCode ?? "Vật phẩm"}
-                      </span>
-                      <span className="text-sm font-medium text-on-surface">
-                        {item.fulfilledQty ?? 0}/{item.requestedQty}
-                      </span>
-                    </div>
-                  ))}
+            {reliefTrackingData.items &&
+              reliefTrackingData.items.length > 0 && (
+                <div className="rounded-xl bg-surface-container-low p-4">
+                  <p className="text-xs text-on-surface-variant mb-2">
+                    Vật phẩm cứu trợ
+                  </p>
+                  <div className="space-y-2">
+                    {reliefTrackingData.items.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between items-center"
+                      >
+                        <span className="text-sm text-on-surface">
+                          {item.itemCode ?? "Vật phẩm"}
+                        </span>
+                        <span className="text-sm font-medium text-on-surface">
+                          {item.fulfilledQty ?? 0}/{item.requestedQty}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* Distributions */}
             {reliefTrackingData.distributions &&
@@ -880,7 +887,9 @@ export const RescueTrack: React.FC = () => {
                         </span>
                         <span className="text-on-surface-variant">
                           {dist.distributed_at
-                            ? new Date(dist.distributed_at).toLocaleString("vi-VN")
+                            ? new Date(dist.distributed_at).toLocaleString(
+                                "vi-VN",
+                              )
                             : ""}
                         </span>
                       </div>

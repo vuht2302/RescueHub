@@ -788,6 +788,11 @@ export async function getDistributionOptions(
   });
 }
 
+export interface Coordinates {
+  lat: number;
+  lng: number;
+}
+
 // ─── Manager Teams ───────────────────────────────────────────────────────────
 export interface ManagerTeam {
   id: string;
@@ -795,6 +800,28 @@ export interface ManagerTeam {
   teamName?: string;
   name?: string;
   status?: CodeName | { code?: string; name?: string; color?: string | null };
+}
+
+export interface CreateTeamPayload {
+  code: string;
+  name: string;
+  leaderUserId: string;
+  homeAdminAreaId: string;
+  statusCode: string;
+  maxParallelMissions: number;
+  currentLocation: Coordinates;
+  notes: string;
+}
+
+export interface Team extends ManagerTeam {
+  leaderUserId: string;
+  leaderUser?: { id: string; displayName: string };
+  homeAdminAreaId: string;
+  homeAdminArea?: { id: string; name: string };
+  maxParallelMissions: number;
+  currentLocation?: Coordinates;
+  notes: string;
+  createdAt: string;
 }
 
 export interface TeamListParams {
@@ -817,6 +844,49 @@ export async function getManagerTeams(
 
   return Array.isArray(data) ? data : data.items;
 }
+
+export async function createManagerTeam(
+  payload: CreateTeamPayload,
+  token: string,
+): Promise<Team> {
+  return apiFetch<Team>(`${BASE}/teams`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getTeam(
+  id: string,
+  token: string,
+): Promise<Team> {
+  return apiFetch<Team>(`${BASE}/teams/${id}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function updateManagerTeam(
+  id: string,
+  payload: CreateTeamPayload,
+  token: string,
+): Promise<Team> {
+  return apiFetch<Team>(`${BASE}/teams/${id}`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteManagerTeam(
+  id: string,
+  token: string,
+): Promise<void> {
+  await apiFetch<unknown>(`${BASE}/teams/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
+
 
 // ─── MAN-10  Relief Campaign ──────────────────────────────────────────────────
 export interface ReliefCampaign {

@@ -119,7 +119,12 @@ const RescueCoordinatorPage: React.FC = () => {
       CANCELLED: "completed", // Treat cancelled as completed
     };
 
-    if (hasHandlingTeam) {
+    normalizedStatus = statusMap[statusCode] || "pending";
+
+    if (
+      hasHandlingTeam &&
+      ["pending", "verified", "assessed"].includes(normalizedStatus)
+    ) {
       const primaryTeam =
         incident.handlingTeams.find((t) => t.isPrimaryTeam) ||
         incident.handlingTeams[0];
@@ -141,10 +146,13 @@ const RescueCoordinatorPage: React.FC = () => {
         normalizedStatus = "in-progress";
       else if (mStatus === "COMPLETED" || mStatus === "RETURNING")
         normalizedStatus = "completed";
-      else normalizedStatus = "dispatched";
     } else {
-      // Use status map or default to pending
-      normalizedStatus = statusMap[statusCode] || "pending";
+      if (hasHandlingTeam) {
+        const primaryTeam =
+          incident.handlingTeams.find((t) => t.isPrimaryTeam) ||
+          incident.handlingTeams[0];
+        handlingTeamName = primaryTeam.teamName;
+      }
     }
 
     const reportedDate = new Date(incident.reportedAt);

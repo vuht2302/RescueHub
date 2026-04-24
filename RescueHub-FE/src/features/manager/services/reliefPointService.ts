@@ -28,6 +28,7 @@ async function apiFetch<T>(url: string, options: RequestInit): Promise<T> {
 }
 
 export interface ReliefPointLocation {
+  addressText: string;
   lat: number;
   lng: number;
 }
@@ -57,14 +58,9 @@ export interface ReliefPointItem {
 export interface CreateReliefPointPayload {
   code: string;
   name: string;
-  campaignId: string;
-  adminAreaId: string;
-  addressText: string;
   location: ReliefPointLocation;
   managerUserId: string;
   statusCode: string;
-  opensAt: string;
-  closesAt: string | null;
 }
 
 export interface ReliefPointCampaignOption {

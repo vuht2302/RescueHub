@@ -26,8 +26,6 @@ import {
   getReliefPointFormOptions,
   getManagerReliefPoints,
   type CreateReliefPointPayload,
-  type ReliefPointAdminAreaOption,
-  type ReliefPointCampaignOption,
   type ReliefPointItem,
   type ReliefPointStatusOption,
 } from "../services/reliefPointService";
@@ -60,8 +58,6 @@ type ViewMode = "hotspots" | "relief-points" | "both";
 interface CreateReliefPointFormState {
   code: string;
   name: string;
-  campaignId: string;
-  adminAreaId: string;
   addressText: string;
   statusCode: string;
 }
@@ -70,8 +66,6 @@ const buildInitialCreateForm = (): CreateReliefPointFormState => {
   return {
     code: "",
     name: "",
-    campaignId: "",
-    adminAreaId: "",
     addressText: "",
     statusCode: "OPEN",
   };
@@ -103,20 +97,14 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [campaignOptions, setCampaignOptions] = useState<
-    ReliefPointCampaignOption[]
-  >([]);
-  const [adminAreaOptions, setAdminAreaOptions] = useState<
-    ReliefPointAdminAreaOption[]
-  >([]);
-  const [statusOptions, setStatusOptions] = useState<ReliefPointStatusOption[]>(
-    [],
-  );
-  const [selectedAddressSuggestion, setSelectedAddressSuggestion] =
-    useState<AddressSuggestion | null>(null);
   const [isLoadingCreateOptions, setIsLoadingCreateOptions] = useState(false);
   const [createForm, setCreateForm] = useState<CreateReliefPointFormState>(() =>
     buildInitialCreateForm(),
+  );
+  const [selectedAddressSuggestion, setSelectedAddressSuggestion] =
+    useState<AddressSuggestion | null>(null);
+  const [statusOptions, setStatusOptions] = useState<ReliefPointStatusOption[]>(
+    [],
   );
 
   const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
@@ -143,15 +131,11 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     setIsLoadingCreateOptions(true);
     try {
       const options = await getReliefPointFormOptions(authSession.accessToken);
-      setCampaignOptions(options.campaigns);
-      setAdminAreaOptions(options.adminAreas);
       setStatusOptions(options.statusCodes);
 
       setCreateForm((prev) => ({
         ...prev,
-        campaignId: prev.campaignId || options.campaigns[0]?.id || "",
-        adminAreaId: prev.adminAreaId || options.adminAreas[0]?.id || "",
-        statusCode: prev.statusCode || options.statusCodes[0]?.code || "",
+        statusCode: prev.statusCode || options.statusCodes[0]?.code || "OPEN",
       }));
     } catch (err) {
       setCreateError(
@@ -202,8 +186,6 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     const requiredFields = [
       createForm.code,
       createForm.name,
-      createForm.campaignId,
-      createForm.adminAreaId,
       createForm.addressText,
       createForm.statusCode,
     ];
@@ -221,17 +203,13 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     const payload: CreateReliefPointPayload = {
       code: createForm.code.trim(),
       name: createForm.name.trim(),
-      campaignId: createForm.campaignId.trim(),
-      adminAreaId: createForm.adminAreaId.trim(),
-      addressText: createForm.addressText.trim(),
       location: {
+        addressText: createForm.addressText.trim(),
         lat: selectedAddressSuggestion.lat,
         lng: selectedAddressSuggestion.lng,
       },
       managerUserId: authSession.user.id,
       statusCode: createForm.statusCode.trim(),
-      opensAt: new Date().toISOString(),
-      closesAt: null,
     };
 
     setIsCreating(true);
@@ -1249,7 +1227,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
             <form onSubmit={handleCreateReliefPoint} className="px-5 py-4">
               {isLoadingCreateOptions && (
                 <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
-                  Đang tải dữ liệu danh mục...
+                  Đang tải dữ liệu...
                 </div>
               )}
 
@@ -1258,7 +1236,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                   name="code"
                   value={createForm.code}
                   onChange={handleCreateFormChange}
-                  placeholder="Mã điểm cứu trợ"
+                  placeholder="Mã điểm cứu trợ *"
                   className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   disabled={isCreating}
                 />
@@ -1266,51 +1244,20 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                   name="name"
                   value={createForm.name}
                   onChange={handleCreateFormChange}
-                  placeholder="Tên điểm cứu trợ"
+                  placeholder="Tên điểm cứu trợ *"
                   className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   disabled={isCreating}
                 />
                 <select
-                  name="campaignId"
-                  value={createForm.campaignId}
-                  onChange={handleCreateFormChange}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  disabled={isCreating}
-                >
-                  <option value="">Chọn campaign</option>
-                  {campaignOptions.map((campaign) => (
-                    <option key={campaign.id} value={campaign.id}>
-                      {campaign.code} - {campaign.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  name="adminAreaId"
-                  value={createForm.adminAreaId}
-                  onChange={handleCreateFormChange}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  disabled={isCreating}
-                >
-                  <option value="">Chọn khu vực hành chính</option>
-                  {adminAreaOptions.map((area) => (
-                    <option key={area.id} value={area.id}>
-                      {area.code ? `${area.code} - ` : ""}
-                      {area.name}
-                    </option>
-                  ))}
-                </select>
-                <select
                   name="statusCode"
                   value={createForm.statusCode}
                   onChange={handleCreateFormChange}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm md:col-span-2"
                   disabled={isCreating}
                 >
-                  <option value="">Chọn trạng thái</option>
                   {statusOptions.map((status) => (
                     <option key={status.code} value={status.code}>
                       {status.name}
-                      {/* ({status.code}) */}
                     </option>
                   ))}
                 </select>
@@ -1327,12 +1274,12 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                     setSelectedAddressSuggestion(null);
                   }}
                   onSelect={handleAddressSelect}
-                  placeholder="Nhập địa chỉ để tìm kiếm và chọn..."
+                  placeholder="Nhập địa chỉ để tìm kiếm và chọn... *"
                   disabled={isCreating}
                 />
                 {selectedAddressSuggestion && (
                   <p className="mt-1 text-[10px] font-semibold text-green-600">
-                    Tọa độ tự động: {selectedAddressSuggestion.lat.toFixed(5)},{" "}
+                    Tọa độ: {selectedAddressSuggestion.lat.toFixed(5)},{" "}
                     {selectedAddressSuggestion.lng.toFixed(5)}
                   </p>
                 )}

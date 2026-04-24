@@ -236,7 +236,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
   const isTeamOn = currentTeamStatus === "AVAILABLE";
 
   const handleToggleTeamStatus = async () => {
-    const nextStatus = isTeamOn ? "UNAVAILABLE" : "AVAILABLE";
+    const nextStatus = isTeamOn ? "BUSY" : "AVAILABLE";
 
     setIsToggling(true);
     setToggleError(null);

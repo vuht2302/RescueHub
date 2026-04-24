@@ -236,6 +236,8 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
   const priority = getPriorityConfig(detail.severity?.code);
   const hasLocation = detail.location?.lat && detail.location?.lng;
   const hasHandlingTeams = handlingTeams && handlingTeams.length > 0;
+  const isInProgress = requestStatus === "in-progress";
+  const isFinalized = requestStatus === "completed" || requestStatus === "rescued";
 
   return (
     <div className="flex flex-col h-full overflow-y-auto" style={{ gap: 0 }}>
@@ -377,7 +379,7 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
             <p className="text-xs text-gray-600 uppercase">
               Đội đang xử lý ({handlingTeams?.length})
             </p>
-            {onFollowMission && (
+            {isInProgress && onFollowMission && (
               <button
                 onClick={onFollowMission}
                 className="text-xs px-2 py-1 bg-gray-700 text-white rounded font-medium hover:bg-gray-800 transition-colors flex items-center gap-1"
@@ -464,10 +466,8 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
 
       {/* ── Action Buttons ── */}
       <div className="px-5 py-4 border-t border-gray-100 space-y-2 bg-white">
-        {requestStatus ===
-        "completed" /* No buttons shown when status is completed */ ? null : requestStatus ===
-          "dispatched" ? (
-          /* Only show Follow Mission button when status is dispatched */
+        {isFinalized ? null : isInProgress ? (
+          /* Only show Follow Mission button when status is in progress */
           hasHandlingTeams &&
           onFollowMission && (
             <button

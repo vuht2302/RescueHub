@@ -27,11 +27,9 @@ import {
 interface DistributionLine {
   id: string;
   itemId: string;
-  lotId: string;
   qty: number;
   unitCode: string;
   itemName: string;
-  lotNo: string;
   availableQty: number;
 }
 
@@ -317,30 +315,13 @@ export function CreateReliefDistributionModal({
           .filter((s) => s.qtyAvailable > 0)
           .map((s) => itemsWithLots.find((i) => i.id === s.item.id))
           .filter((item): item is ItemWithLots => item != null)
-          .filter((item, index, self) => self.findIndex(i => i.id === item.id) === index)
-      : itemsWithLots.filter((item) => item.isActive && item.lots && item.lots.length > 0);
-
-  // Get lots for item
-  const getLotsForItem = (itemId: string) => {
-    if (stockLines.length > 0) {
-      return stockLines
-        .filter((s) => s.item.id === itemId && s.qtyAvailable > 0)
-        .map((s) => ({
-          id: s.lot?.id ?? "",
-          lotNo: s.lot?.lotNo ?? "",
-          expDate: s.lot?.expDate ?? null,
-          statusCode: s.lot?.statusCode ?? "",
-          qtyAvailable: s.qtyAvailable,
-        }));
-    }
-    const item = itemsWithLots.find((i) => i.id === itemId);
-    return (
-      item?.lots.map((l) => ({
-        ...l,
-        qtyAvailable: 0,
-      })) ?? []
-    );
-  };
+          .filter(
+            (item, index, self) =>
+              self.findIndex((i) => i.id === item.id) === index,
+          )
+      : itemsWithLots.filter(
+          (item) => item.isActive && item.lots && item.lots.length > 0,
+        );
 
   const handleAddLine = () => {
     setLines([
@@ -348,11 +329,9 @@ export function CreateReliefDistributionModal({
       {
         id: crypto.randomUUID(),
         itemId: "",
-        lotId: "",
         qty: 0,
         unitCode: "",
         itemName: "",
-        lotNo: "",
         availableQty: 0,
       },
     ]);
@@ -378,18 +357,15 @@ export function CreateReliefDistributionModal({
           if (item) {
             updated.unitCode = item.unitCode;
             updated.itemName = item.itemName;
-            updated.availableQty = 0;
-            updated.lotId = "";
+            // Calculate total available qty from all lots
+            const totalAvailable =
+              stockLines.length > 0
+                ? stockLines
+                    .filter((s) => s.item.id === value)
+                    .reduce((sum, s) => sum + s.qtyAvailable, 0)
+                : 0;
+            updated.availableQty = totalAvailable;
           }
-        }
-
-        // Auto-fill when lot is selected - get actual stock qty
-        if (field === "lotId" && typeof value === "string") {
-          const itemId = updated.itemId;
-          const stockLine = stockLines.find(
-            (s) => s.item.id === itemId && s.lot?.id === value,
-          );
-          updated.availableQty = stockLine?.qtyAvailable ?? 0;
         }
 
         return updated;
@@ -412,7 +388,7 @@ export function CreateReliefDistributionModal({
     }
 
     const invalidLines = lines.filter(
-      (l) => !l.itemId || !l.lotId || l.qty <= 0,
+      (l) => !l.itemId || l.qty <= 0,
     );
     if (invalidLines.length > 0) {
       toast.error("Vui lòng điền đầy đủ thông tin cho các dòng vật phẩm");
@@ -431,17 +407,16 @@ export function CreateReliefDistributionModal({
     try {
       const token = getAuthSession()?.accessToken ?? "";
       const payload = {
-        campaignId: campaignId || "",
+        campaignId: campaignId || undefined,
         reliefPointId,
         teamId,
         lines: lines.map((l) => ({
           itemId: l.itemId,
-          lotId: l.lotId,
           qty: l.qty,
           unitCode: l.unitCode,
         })),
         ackMethodCode,
-        note: note.trim(),
+        note: note.trim() || undefined,
       };
 
       const result = await createDistribution(payload as any, token);
@@ -609,7 +584,7 @@ export function CreateReliefDistributionModal({
                             <Trash2 size={14} />
                           </button>
                         </div>
-                        <div className="grid grid-cols-12 gap-3">
+                        <div className="grid grid-cols-11 gap-3">
                           <div className="col-span-5">
                             <label className="block text-[10px] text-gray-400 mb-1">
                               Vật phẩm
@@ -647,34 +622,7 @@ export function CreateReliefDistributionModal({
                               })}
                             </select>
                           </div>
-                          <div className="col-span-4">
-                            <label className="block text-[10px] text-gray-400 mb-1">
-                              LOT / Hạn sử dụng
-                            </label>
-                            <select
-                              value={line.lotId}
-                              onChange={(e) =>
-                                handleLineChange(
-                                  line.id,
-                                  "lotId",
-                                  e.target.value,
-                                )
-                              }
-                              disabled={!line.itemId}
-                              className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-green-400 bg-white disabled:bg-gray-100"
-                            >
-                              <option value="">-- Chọn LOT --</option>
-                              {getLotsForItem(line.itemId).map((lot: any) => (
-                                <option key={lot.id} value={lot.id}>
-                                  {lot.lotNo}
-                                  {lot.expDate && ` (HSD: ${lot.expDate})`}
-                                  {" - Còn: "}
-                                  {lot.qtyAvailable ?? 0}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="col-span-2">
+                          <div className="col-span-3">
                             <label className="block text-[10px] text-gray-400 mb-1">
                               Số lượng
                             </label>
@@ -689,7 +637,7 @@ export function CreateReliefDistributionModal({
                                   parseInt(e.target.value) || 0,
                                 )
                               }
-                              disabled={!line.lotId}
+                              disabled={!line.itemId}
                               placeholder="0"
                               className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-green-400 bg-white disabled:bg-gray-100"
                             />
@@ -699,7 +647,7 @@ export function CreateReliefDistributionModal({
                               </p>
                             )}
                           </div>
-                          <div className="col-span-1">
+                          <div className="col-span-2">
                             <label className="block text-[10px] text-gray-400 mb-1">
                               ĐV
                             </label>

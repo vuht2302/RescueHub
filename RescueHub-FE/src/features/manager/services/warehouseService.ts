@@ -635,35 +635,19 @@ export async function deleteHousehold(
 }
 
 // ─── MAN-08  Distribution ─────────────────────────────────────────────────────
-export interface DistributionLine {
+export interface DistributionLinePayload {
   itemId: string;
-  lotId: string;
   qty: number;
   unitCode: string;
-}
-
-export interface RecipientLocation {
-  lat: number;
-  lng: number;
-  addressText: string;
 }
 
 export interface DistributionPayload {
   campaignId: string;
   reliefPointId: string;
-  teamId?: string;
-  reliefRequestId?: string;
-  recipientName: string;
-  recipientPhone: string;
-  recipientLocation?: RecipientLocation;
-  recipientAdminAreaId?: string;
-  recipientMemberCount?: number;
-  recipientVulnerableCount?: number;
-  householdId?: string;
-  incidentId?: string | null;
+  teamId: string;
+  lines: DistributionLinePayload[];
   ackMethodCode: string;
-  note: string;
-  lines: DistributionLine[];
+  note?: string;
 }
 
 export interface DistributionListItem {

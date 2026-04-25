@@ -7,19 +7,18 @@ import {
   Plus,
   Trash2,
   Loader2,
-  MapPinned,
   Search,
+  MapPin,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import {
   getDistributionOptions,
   getManagerTeams,
-  getStocks,
   getItemsWithLots,
   createDistribution,
+  getReliefCampaign,
   type ManagerTeam,
-  type StockLine,
   type ItemWithLots,
 } from "../services/warehouseService";
 
@@ -33,46 +32,10 @@ interface DistributionLine {
   availableQty: number;
 }
 
-interface DistributionOptions {
-  campaigns: Array<{
-    id: string;
-    code: string;
-    name: string;
-    statusCode: string;
-    startAt: string;
-    endAt: string | null;
-  }>;
-  reliefPoints: Array<{
-    id: string;
-    code: string;
-    name: string;
-    statusCode: string;
-    addressText: string;
-    campaign: { id: string; code: string; name: string };
-    location: { lat: number; lng: number };
-  }>;
-  ackMethodCodes: Array<{ code: string; name: string; color: string | null }>;
-  distributionStatusCodes: Array<{
-    code: string;
-    name: string;
-    color: string | null;
-  }>;
-}
-
 interface CreateDistributionModalProps {
-  reliefPointId?: string;
+  initialCampaignId?: string;
   onClose: () => void;
   onSuccess: (distribution: { id: string; code: string }) => void;
-}
-
-interface OptionsReliefPoint {
-  id: string;
-  code: string;
-  name: string;
-  statusCode: string;
-  addressText: string;
-  campaign: { id: string; code: string; name: string };
-  location: { lat: number; lng: number };
 }
 
 interface TeamOption {
@@ -204,31 +167,31 @@ function SearchableSelect<T extends { id: string }>({
 export function CreateReliefDistributionModal({
   onClose,
   onSuccess,
-  reliefPointId: initialReliefPointId,
+  initialCampaignId,
 }: CreateDistributionModalProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   // Dropdown data
-  const [reliefPoints, setReliefPoints] = useState<OptionsReliefPoint[]>([]);
   const [campaigns, setCampaigns] = useState<
-    Array<{ id: string; code: string; name: string }>
+    Array<{ id: string; code: string; name: string; adminAreaId?: string }>
   >([]);
   const [ackMethodCodes, setAckMethodCodes] = useState<
     Array<{ code: string; name: string }>
   >([]);
   const [teams, setTeams] = useState<TeamOption[]>([]);
-
-  // Stock data for selected relief point
-  const [stockLines, setStockLines] = useState<StockLine[]>([]);
   const [itemsWithLots, setItemsWithLots] = useState<ItemWithLots[]>([]);
-  const [loadingStocks, setLoadingStocks] = useState(false);
+
+  // Campaign detail data
+  const [campaignDetail, setCampaignDetail] = useState<{
+    name: string;
+    code: string;
+    adminAreaName?: string;
+  } | null>(null);
 
   // Form state
-  const [campaignId, setCampaignId] = useState("");
-  const [reliefPointId, setReliefPointId] = useState(
-    initialReliefPointId ?? "",
-  );
+  const [campaignId, setCampaignId] = useState(initialCampaignId ?? "");
+  const [adminAreaId, setAdminAreaId] = useState("");
   const [teamId, setTeamId] = useState("");
   const [ackMethodCode, setAckMethodCode] = useState("OTP");
   const [note, setNote] = useState("");
@@ -239,9 +202,20 @@ export function CreateReliefDistributionModal({
     try {
       const token = getAuthSession()?.accessToken ?? "";
       const options = await getDistributionOptions(token);
-      setReliefPoints(options.reliefPoints);
       setCampaigns(options.campaigns);
       setAckMethodCodes(options.ackMethodCodes);
+
+      // Load campaign detail if initialCampaignId is provided
+      if (initialCampaignId) {
+        const detail = await getReliefCampaign(initialCampaignId, token);
+        setCampaignId(initialCampaignId);
+        setAdminAreaId(detail.adminArea?.id ?? "");
+        setCampaignDetail({
+          name: detail.name,
+          code: detail.code,
+          adminAreaName: detail.adminArea?.name,
+        });
+      }
 
       const teamItems = await getManagerTeams(token, {
         statusCode: "AVAILABLE",
@@ -262,66 +236,38 @@ export function CreateReliefDistributionModal({
       // Load items with lots
       const items = await getItemsWithLots(token);
       setItemsWithLots(items);
-
-      // Auto-select relief point if provided
-      if (initialReliefPointId) {
-        setReliefPointId(initialReliefPointId);
-      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lỗi tải dữ liệu");
     } finally {
       setLoading(false);
     }
-  }, [initialReliefPointId]);
+  }, [initialCampaignId]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
-  // Load stocks when relief point changes
-  const loadStocksForReliefPoint = async (rpId: string) => {
-    setLoadingStocks(true);
-    try {
-      const token = getAuthSession()?.accessToken ?? "";
-      // Get all stocks and filter by relief point's warehouse
-      const result = await getStocks(token, { pageSize: 1000 });
-      // Filter stocks by warehouse associated with relief point
-      // For now, show all available stocks
-      setStockLines(result.items);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lỗi tải tồn kho");
-      setStockLines([]);
-    } finally {
-      setLoadingStocks(false);
+  // Handle campaign selection
+  const handleCampaignChange = async (newCampaignId: string) => {
+    setCampaignId(newCampaignId);
+    if (newCampaignId) {
+      try {
+        const token = getAuthSession()?.accessToken ?? "";
+        const detail = await getReliefCampaign(newCampaignId, token);
+        setAdminAreaId(detail.adminArea?.id ?? "");
+        setCampaignDetail({
+          name: detail.name,
+          code: detail.code,
+          adminAreaName: detail.adminArea?.name,
+        });
+      } catch (e) {
+        toast.error("Không thể tải thông tin chiến dịch");
+      }
+    } else {
+      setAdminAreaId("");
+      setCampaignDetail(null);
     }
   };
-
-  useEffect(() => {
-    if (reliefPointId) {
-      void loadStocksForReliefPoint(reliefPointId);
-    } else {
-      setStockLines([]);
-    }
-  }, [reliefPointId]);
-
-  const selectedReliefPoint = reliefPoints.find(
-    (rp) => rp.id === reliefPointId,
-  );
-
-  // Get available items for dropdown
-  const availableItems =
-    stockLines.length > 0
-      ? stockLines
-          .filter((s) => s.qtyAvailable > 0)
-          .map((s) => itemsWithLots.find((i) => i.id === s.item.id))
-          .filter((item): item is ItemWithLots => item != null)
-          .filter(
-            (item, index, self) =>
-              self.findIndex((i) => i.id === item.id) === index,
-          )
-      : itemsWithLots.filter(
-          (item) => item.isActive && item.lots && item.lots.length > 0,
-        );
 
   const handleAddLine = () => {
     setLines([
@@ -357,13 +303,9 @@ export function CreateReliefDistributionModal({
           if (item) {
             updated.unitCode = item.unitCode;
             updated.itemName = item.itemName;
-            // Calculate total available qty from all lots
+            // Set available qty from lots
             const totalAvailable =
-              stockLines.length > 0
-                ? stockLines
-                    .filter((s) => s.item.id === value)
-                    .reduce((sum, s) => sum + s.qtyAvailable, 0)
-                : 0;
+              item.lots?.reduce((sum, lot) => sum + (lot.qty ?? 0), 0) ?? 0;
             updated.availableQty = totalAvailable;
           }
         }
@@ -374,8 +316,12 @@ export function CreateReliefDistributionModal({
   };
 
   const handleSubmit = async () => {
-    if (!reliefPointId) {
-      toast.error("Vui lòng chọn điểm cứu trợ");
+    if (!campaignId) {
+      toast.error("Vui lòng chọn chiến dịch");
+      return;
+    }
+    if (!adminAreaId) {
+      toast.error("Không có thông tin khu vực chiến dịch");
       return;
     }
     if (!teamId) {
@@ -387,19 +333,9 @@ export function CreateReliefDistributionModal({
       return;
     }
 
-    const invalidLines = lines.filter(
-      (l) => !l.itemId || l.qty <= 0,
-    );
+    const invalidLines = lines.filter((l) => !l.itemId || l.qty <= 0);
     if (invalidLines.length > 0) {
       toast.error("Vui lòng điền đầy đủ thông tin cho các dòng vật phẩm");
-      return;
-    }
-
-    // Validate quantity
-    const overQtyLines = lines.filter((l) => l.qty > l.availableQty);
-    if (overQtyLines.length > 0) {
-      const itemNames = overQtyLines.map((l) => l.itemName).join(", ");
-      toast.error(`Số lượng vượt quá tồn kho: ${itemNames}`);
       return;
     }
 
@@ -407,8 +343,8 @@ export function CreateReliefDistributionModal({
     try {
       const token = getAuthSession()?.accessToken ?? "";
       const payload = {
-        campaignId: campaignId || undefined,
-        reliefPointId,
+        campaignId,
+        adminAreaId,
         teamId,
         lines: lines.map((l) => ({
           itemId: l.itemId,
@@ -419,7 +355,7 @@ export function CreateReliefDistributionModal({
         note: note.trim() || undefined,
       };
 
-      const result = await createDistribution(payload as any, token);
+      const result = await createDistribution(payload, token);
       toast.success(`Tạo phiếu phân phối ${result.code} thành công`);
       onSuccess({ id: result.id, code: result.code });
     } catch (e) {
@@ -428,6 +364,11 @@ export function CreateReliefDistributionModal({
       setSubmitting(false);
     }
   };
+
+  // Get available items
+  const availableItems = itemsWithLots.filter(
+    (item) => item.isActive && item.lots && item.lots.length > 0,
+  );
 
   return (
     <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
@@ -463,72 +404,56 @@ export function CreateReliefDistributionModal({
             </div>
           ) : (
             <>
-              {/* Campaign & Relief Point */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                    Chiến dịch
-                  </label>
-                  <select
-                    value={campaignId}
-                    onChange={(e) => setCampaignId(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-green-400 bg-white"
-                  >
-                    <option value="">-- Chọn chiến dịch --</option>
-                    {campaigns.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                    Điểm cứu trợ <span className="text-red-500">*</span>
-                  </label>
-                  <SearchableSelect
-                    value={reliefPointId}
-                    onChange={(id) => setReliefPointId(id)}
-                    options={reliefPoints}
-                    getLabel={(rp) => rp.name}
-                    getSubLabel={(rp) => rp.addressText}
-                    placeholder="-- Chọn điểm cứu trợ --"
-                    searchPlaceholder="Tìm điểm cứu trợ..."
-                    loading={loading}
-                  />
-                  {selectedReliefPoint && (
-                    <p className="text-[10px] text-green-600 mt-1 flex items-center gap-1">
-                      <MapPinned size={10} />
-                      {selectedReliefPoint.addressText}
+              {/* Campaign Info (readonly display) */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+                <h3 className="text-sm font-bold text-green-800 mb-3 flex items-center gap-2">
+                  <MapPin size={16} />
+                  Thông tin chiến dịch
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] text-gray-500 font-semibold uppercase mb-1">
+                      Chiến dịch
                     </p>
-                  )}
+                    <div className="h-[42px] flex items-center px-3 border border-gray-200 rounded-lg bg-gray-50 text-sm">
+                      {campaignDetail
+                        ? `${campaignDetail.name} (${campaignDetail.code})`
+                        : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-500 font-semibold uppercase mb-1">
+                      Khu vực
+                    </p>
+                    <div className="h-[42px] flex items-center px-3 border border-gray-200 rounded-lg bg-gray-50 text-sm">
+                      {campaignDetail?.adminAreaName ?? "—"}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Recipient Info */}
+              {/* Team Selection */}
               <div className="bg-green-50 rounded-xl p-4 border border-green-200">
                 <h3 className="text-sm font-bold text-green-800 mb-3 flex items-center gap-2">
                   <AlertCircle size={16} />
-                  Thông tin điều phối phân phối
+                  Thông tin điều phối
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                      Đội cứu trợ <span className="text-red-500">*</span>
-                    </label>
-                    <SearchableSelect
-                      value={teamId}
-                      onChange={setTeamId}
-                      options={teams}
-                      getLabel={(team) =>
-                        team.code ? `${team.name} (${team.code})` : team.name
-                      }
-                      getSubLabel={() => "AVAILABLE"}
-                      placeholder="-- Chọn đội AVAILABLE --"
-                      searchPlaceholder="Tìm đội cứu trợ..."
-                      loading={loading}
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                    Đội cứu trợ <span className="text-red-500">*</span>
+                  </label>
+                  <SearchableSelect
+                    value={teamId}
+                    onChange={setTeamId}
+                    options={teams}
+                    getLabel={(team) =>
+                      team.code ? `${team.name} (${team.code})` : team.name
+                    }
+                    getSubLabel={() => "AVAILABLE"}
+                    placeholder="-- Chọn đội có sẵn"
+                    searchPlaceholder="Tìm đội cứu trợ..."
+                    loading={loading}
+                  />
                 </div>
               </div>
 
@@ -538,12 +463,6 @@ export function CreateReliefDistributionModal({
                   <label className="text-xs font-semibold text-gray-500 flex items-center gap-2">
                     <Package size={14} />
                     Danh sách vật phẩm <span className="text-red-500">*</span>
-                    {loadingStocks && (
-                      <Loader2
-                        size={12}
-                        className="animate-spin text-green-500"
-                      />
-                    )}
                   </label>
                   <button
                     type="button"
@@ -603,14 +522,10 @@ export function CreateReliefDistributionModal({
                               <option value="">-- Chọn vật phẩm --</option>
                               {availableItems.map((item) => {
                                 const totalAvailable =
-                                  stockLines.length > 0
-                                    ? stockLines
-                                        .filter((s) => s.item.id === item.id)
-                                        .reduce(
-                                          (sum, s) => sum + s.qtyAvailable,
-                                          0,
-                                        )
-                                    : 0;
+                                  item.lots?.reduce(
+                                    (sum, lot) => sum + (lot.qty ?? 0),
+                                    0,
+                                  ) ?? 0;
                                 return (
                                   <option key={item.id} value={item.id}>
                                     {item.itemName} ({item.itemCode})
@@ -716,7 +631,9 @@ export function CreateReliefDistributionModal({
             onClick={handleSubmit}
             disabled={submitting || loading}
             className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-60"
-            style={{ background: "linear-gradient(135deg, #059669, #10b981)" }}
+            style={{
+              background: "linear-gradient(135deg, #059669, #10b981)",
+            }}
           >
             {submitting ? (
               <>

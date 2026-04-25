@@ -207,6 +207,7 @@ const MemberDetailModal: React.FC<{
 
 export const TeamView: React.FC<TeamViewProps> = ({
   teamMembers,
+  teamId,
   isLeader = false,
   isLoading = false,
   error = null,
@@ -235,15 +236,13 @@ export const TeamView: React.FC<TeamViewProps> = ({
 
   const isTeamOn = currentTeamStatus === "AVAILABLE";
 
-  const handleToggleTeamStatus = async () => {
-    const nextStatus = isTeamOn ? "BUSY" : "AVAILABLE";
-
+  const handleToggleTeamStatus = async (nextStatus: string) => {
     setIsToggling(true);
     setToggleError(null);
 
     try {
-      await updateTeamStatus({ statusCode: nextStatus });
-      onStatusUpdated?.();
+      await updateTeamStatus({ statusCode: nextStatus, teamId });
+      onStatusUpdated?.(nextStatus);
     } catch (err) {
       setToggleError(err instanceof Error ? err.message : "Cập nhật thất bại");
     } finally {
@@ -289,32 +288,47 @@ export const TeamView: React.FC<TeamViewProps> = ({
             )}
 
             {isLeader && (
-              <button
-                type="button"
-                onClick={() => {
-                  void handleToggleTeamStatus();
-                }}
-                disabled={isToggling}
-                aria-pressed={isTeamOn}
-                className={`group inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-bold font-primary text-white whitespace-nowrap transition-colors disabled:opacity-60 ${
-                  isTeamOn
-                    ? "bg-emerald-600 hover:bg-emerald-700"
-                    : "bg-slate-600 hover:bg-slate-700"
-                }`}
-              >
-                <span>{isTeamOn ? "ON" : "OFF"}</span>
-                <span
-                  className={`h-5 w-9 rounded-full p-0.5 transition-colors ${
-                    isTeamOn ? "bg-emerald-400/70" : "bg-white/30"
-                  }`}
-                >
-                  <span
-                    className={`block h-4 w-4 rounded-full bg-white transition-transform ${
-                      isTeamOn ? "translate-x-4" : "translate-x-0"
-                    }`}
-                  />
-                </span>
-              </button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void handleToggleTeamStatus(
+                        isTeamOn ? "BUSY" : "AVAILABLE",
+                      )
+                    }
+                    disabled={isToggling}
+                    className={`relative inline-flex h-7 w-16 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                      isTeamOn
+                        ? "bg-emerald-500 focus:ring-emerald-500"
+                        : "bg-amber-500 focus:ring-amber-500"
+                    } ${isToggling ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  >
+                    <span
+                      className={`absolute left-0.5 flex items-center justify-center w-6 h-6 transform rounded-full bg-white shadow-md transition-all duration-200 ${
+                        isTeamOn ? "translate-x-9" : "translate-x-0"
+                      }`}
+                    >
+                      <span
+                        className={`text-[8px] font-bold transition-colors duration-200 ${
+                          isTeamOn ? "text-emerald-500" : "text-amber-500"
+                        }`}
+                      >
+                        {isTeamOn ? "ON" : "OFF"}
+                      </span>
+                    </span>
+                    <span
+                      className={`absolute text-[9px] font-bold transition-colors duration-200 ${
+                        isTeamOn
+                          ? "left-1.5 text-white/60"
+                          : "right-1.5 text-white/60"
+                      }`}
+                    >
+                      {isTeamOn ? "OFF" : "ON"}
+                    </span>
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>

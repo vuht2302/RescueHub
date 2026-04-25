@@ -145,6 +145,7 @@ export interface UiTeamMember {
 /** Props for the TeamView component */
 export interface TeamViewProps {
   teamMembers: UiTeamMember[];
+  teamId?: string;
   isLeader?: boolean;
   isLoading?: boolean;
   error?: string | null;
@@ -152,7 +153,7 @@ export interface TeamViewProps {
   onReloadData?: () => void;
   isReloadingData?: boolean;
   currentTeamStatus?: string;
-  onStatusUpdated?: () => void;
+  onStatusUpdated?: (newStatus?: string) => void;
 }
 
 export interface TeamMissionStatus {
@@ -295,6 +296,7 @@ export interface DistributionHistoryResponse {
 export interface TeamStatusUpdateRequest {
   statusCode: string;
   note?: string;
+  teamId?: string;
 }
 
 export interface TeamStatusUpdateResponse {

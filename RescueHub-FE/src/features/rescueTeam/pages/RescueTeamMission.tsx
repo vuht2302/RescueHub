@@ -162,6 +162,8 @@ export const RescueTeamMission: React.FC = () => {
     null,
   );
   const [teamMembers, setTeamMembers] = useState<UiTeamMember[]>([]);
+  const [teamId, setTeamId] = useState<string>("");
+  const [teamStatus, setTeamStatus] = useState<string>("AVAILABLE");
   const [isTeamMembersLoading, setIsTeamMembersLoading] = useState(false);
   const [teamMembersError, setTeamMembersError] = useState<string | null>(null);
   const [selectedMissionId, setSelectedMissionId] = useState("");
@@ -267,6 +269,11 @@ export const RescueTeamMission: React.FC = () => {
       const mappedMembers = flattenedMembers.map(mapApiMemberToUiMember);
 
       setTeamMembers(mappedMembers);
+      // Extract teamId and teamStatus from the first team item if available
+      if (response.items.length > 0) {
+        setTeamId(response.items[0].teamId);
+        setTeamStatus(response.items[0].status?.code ?? "AVAILABLE");
+      }
     } catch (error) {
       setTeamMembersError(
         error instanceof Error
@@ -610,6 +617,7 @@ export const RescueTeamMission: React.FC = () => {
           {activeMenu === "team" && (
             <TeamView
               teamMembers={teamMembers}
+              teamId={teamId}
               isLeader
               isLoading={isTeamMembersLoading}
               error={teamMembersError}
@@ -620,7 +628,11 @@ export const RescueTeamMission: React.FC = () => {
               onRetry={() => {
                 void loadTeamMembers();
               }}
-              onStatusUpdated={() => {
+              currentTeamStatus={teamStatus}
+              onStatusUpdated={(newStatus) => {
+                if (newStatus) {
+                  setTeamStatus(newStatus);
+                }
                 void loadDashboard();
               }}
             />

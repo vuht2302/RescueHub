@@ -157,9 +157,9 @@ export function DistributionDetailModal({
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-xs text-gray-500 block">
-                  Điểm cứu trợ
+                  Khu vực
                 </span>
-                <p className="font-semibold">{dist.reliefPoint?.name || "—"}</p>
+                <p className="font-semibold">{dist.adminArea?.name || "—"}</p>
               </div>
               <div>
                 <span className="text-xs text-gray-500 block">Chiến dịch</span>

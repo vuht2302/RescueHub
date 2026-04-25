@@ -4,6 +4,8 @@ namespace RescueHub.Modules.Incidents.Application;
 
 public sealed class WarehouseManagementService(IWarehouseManagementRepository repository) : IWarehouseManagementService
 {
+    public Task<object> GetManagerDashboard() => repository.GetManagerDashboard();
+
     public Task<object> ListWarehouses(string? keyword, string? statusCode) => repository.ListWarehouses(keyword, statusCode);
 
     public Task<object> GetWarehouse(Guid warehouseId) => repository.GetWarehouse(warehouseId);
@@ -46,13 +48,6 @@ public sealed class WarehouseManagementService(IWarehouseManagementRepository re
 
     public Task<object> CreateStockTransaction(CreateStockTransactionRequest request) => repository.CreateStockTransaction(request);
 
-    public Task<object> ListReliefIssues(Guid? campaignId, Guid? reliefPointId, string? statusCode, int page, int pageSize)
-        => repository.ListReliefIssues(campaignId, reliefPointId, statusCode, page, pageSize);
-
-    public Task<object> GetReliefIssue(Guid reliefIssueId) => repository.GetReliefIssue(reliefIssueId);
-
-    public Task<object> CreateReliefIssue(CreateReliefIssueRequest request) => repository.CreateReliefIssue(request);
-
     public Task<object> ListHouseholds(string? keyword, Guid? adminAreaId, int page, int pageSize)
         => repository.ListHouseholds(keyword, adminAreaId, page, pageSize);
 
@@ -64,8 +59,8 @@ public sealed class WarehouseManagementService(IWarehouseManagementRepository re
 
     public Task<object> DeleteHousehold(Guid householdId) => repository.DeleteHousehold(householdId);
 
-    public Task<object> ListDistributions(Guid? campaignId, Guid? reliefPointId, string? statusCode, int page, int pageSize)
-        => repository.ListDistributions(campaignId, reliefPointId, statusCode, page, pageSize);
+    public Task<object> ListDistributions(Guid? campaignId, Guid? adminAreaId, string? statusCode, int page, int pageSize)
+        => repository.ListDistributions(campaignId, adminAreaId, statusCode, page, pageSize);
 
     public Task<object> ListReliefCampaigns(string? keyword, string? statusCode)
         => repository.ListReliefCampaigns(keyword, statusCode);

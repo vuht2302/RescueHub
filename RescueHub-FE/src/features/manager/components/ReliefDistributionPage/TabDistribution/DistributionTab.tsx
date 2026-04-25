@@ -7,19 +7,26 @@ import {
   PackagePlus,
   Trash2,
   CheckCircle,
+  Search,
+  Calendar,
 } from "lucide-react";
 import {
   getDistributions,
   getDistribution,
   createDistribution,
   ackDistribution,
+  getDistributionOptions,
+  getReliefCampaign,
+  getManagerTeams,
+  getItemsWithLots,
   type Distribution,
   type DistributionListItem,
   type DistributionPayload,
-  type DistributionLine,
   type AckPayload,
-} from "../services/warehouseService";
-import { getAuthSession } from "../../../features/auth/services/authStorage";
+  type ManagerTeam,
+  type ItemWithLots,
+} from "../../../services/warehouseService";
+import { getAuthSession } from "../../../../auth/services/authStorage";
 
 // ─── Detail Modal ──────────────────────────────────────────────────────────────
 function DetailModal({
@@ -70,12 +77,19 @@ function DetailModal({
               <div>
                 <span className="text-xs text-gray-500 block">Hộ dân</span>
                 <p className="font-semibold">{dist.recipient?.name || "—"}</p>
+                <p className="text-xs text-gray-400">
+                  {dist.recipient?.address || ""}
+                </p>
+                <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                  <span>👥 {dist.recipient?.memberCount ?? 0}</span>
+                  <span>
+                    ⚠️ {dist.recipient?.vulnerableCount ?? 0} dễ tổn thương
+                  </span>
+                </div>
               </div>
               <div>
-                <span className="text-xs text-gray-500 block">
-                  Điểm cứu trợ
-                </span>
-                <p className="font-semibold">{dist.reliefPoint?.name || "—"}</p>
+                <span className="text-xs text-gray-500 block">Khu vực</span>
+                <p className="font-semibold">{dist.adminArea?.name || "—"}</p>
               </div>
               <div>
                 <span className="text-xs text-gray-500 block">
@@ -107,7 +121,7 @@ function DetailModal({
             )}
             <div>
               <h3 className="text-sm font-bold mb-2">
-                Dòng hàng ({dist.lines?.length ?? 0})
+                Dòng hàng ({dist.lineCount ?? 0})
               </h3>
               <div className="rounded-lg border border-gray-100 overflow-hidden">
                 <table className="w-full text-sm">
@@ -304,48 +318,134 @@ function CreateModal({
   onClose: () => void;
   onSaved: (d: Distribution) => void;
 }) {
-  const [form, setForm] = useState<DistributionPayload>({
-    campaignId: "",
-    reliefPointId: "",
-    householdId: "",
-    incidentId: null,
-    recipientName: "",
-    recipientPhone: "",
-    ackMethodCode: "OTP",
-    note: "",
-    lines: [],
-  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [newLine, setNewLine] = useState<DistributionLine>({
-    itemId: "",
-    lotId: "",
-    qty: 1,
-    unitCode: "THUNG",
-  });
+
+  // Dropdown data
+  const [campaigns, setCampaigns] = useState<
+    Array<{ id: string; code: string; name: string }>
+  >([]);
+  const [teams, setTeams] = useState<
+    Array<{ id: string; code: string; name: string; statusCode: string }>
+  >([]);
+  const [items, setItems] = useState<ItemWithLots[]>([]);
+  const [campaignDetail, setCampaignDetail] = useState<{
+    adminAreaId: string;
+  } | null>(null);
+
+  // Form state
+  const [campaignId, setCampaignId] = useState("");
+  const [teamId, setTeamId] = useState("");
+  const [ackMethodCode, setAckMethodCode] = useState("OTP");
+  const [note, setNote] = useState("");
+  const [lines, setLines] = useState<
+    Array<{ itemId: string; qty: number; unitCode: string; itemName: string }>
+  >([]);
+  const [selectedItemId, setSelectedItemId] = useState("");
+  const [selectedQty, setSelectedQty] = useState(1);
+
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      const token = getAuthSession()?.accessToken ?? "";
+      try {
+        const options = await getDistributionOptions(token);
+        setCampaigns(options.campaigns);
+
+        const teamItems = await getManagerTeams(token, {
+          statusCode: "AVAILABLE",
+        });
+        const mappedTeams = teamItems
+          .map((t: ManagerTeam) => ({
+            id: t.id,
+            code: t.teamCode ?? "",
+            name: t.teamName ?? t.name ?? "Đội cứu trợ",
+            statusCode: String(t.status?.code ?? "").toUpperCase(),
+          }))
+          .filter((t) => t.statusCode === "AVAILABLE");
+        setTeams(mappedTeams);
+
+        const itemList = await getItemsWithLots(token);
+        setItems(
+          itemList.filter((i) => i.isActive && i.lots && i.lots.length > 0),
+        );
+      } catch (e) {
+        setError("Lỗi tải dữ liệu");
+      }
+    };
+    void loadData();
+  }, []);
+
+  // Load campaign detail when campaign changes
+  const handleCampaignChange = async (newCampaignId: string) => {
+    setCampaignId(newCampaignId);
+    if (newCampaignId) {
+      try {
+        const token = getAuthSession()?.accessToken ?? "";
+        const detail = await getReliefCampaign(newCampaignId, token);
+        setCampaignDetail({ adminAreaId: detail.adminArea?.id ?? "" });
+      } catch {
+        setError("Không thể tải thông tin chiến dịch");
+      }
+    } else {
+      setCampaignDetail(null);
+    }
+  };
 
   const addLine = () => {
-    if (!newLine.itemId.trim()) return;
-    setForm((p) => ({ ...p, lines: [...p.lines, { ...newLine }] }));
-    setNewLine({ itemId: "", lotId: "", qty: 1, unitCode: "THUNG" });
+    if (!selectedItemId) return;
+    const item = items.find((i) => i.id === selectedItemId);
+    if (!item) return;
+    setLines((prev) => [
+      ...prev,
+      {
+        itemId: selectedItemId,
+        qty: selectedQty,
+        unitCode: item.unitCode,
+        itemName: item.itemName,
+      },
+    ]);
+    setSelectedItemId("");
+    setSelectedQty(1);
   };
+
   const removeLine = (i: number) =>
-    setForm((p) => ({ ...p, lines: p.lines.filter((_, idx) => idx !== i) }));
+    setLines((prev) => prev.filter((_, idx) => idx !== i));
 
   const handleSave = async () => {
-    if (!form.householdId.trim()) {
-      setError("Vui lòng nhập ID hộ dân.");
+    if (!campaignId) {
+      setError("Vui lòng chọn chiến dịch.");
       return;
     }
-    if (form.lines.length === 0) {
+    if (!campaignDetail?.adminAreaId) {
+      setError("Không có thông tin khu vực chiến dịch.");
+      return;
+    }
+    if (!teamId) {
+      setError("Vui lòng chọn đội cứu trợ.");
+      return;
+    }
+    if (lines.length === 0) {
       setError("Cần ít nhất 1 dòng hàng.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
+      const payload: DistributionPayload = {
+        campaignId,
+        adminAreaId: campaignDetail.adminAreaId,
+        teamId,
+        lines: lines.map((l) => ({
+          itemId: l.itemId,
+          qty: l.qty,
+          unitCode: l.unitCode,
+        })),
+        ackMethodCode,
+        note: note.trim() || undefined,
+      };
       const dist = await createDistribution(
-        form,
+        payload,
         getAuthSession()?.accessToken ?? "",
       );
       onSaved(dist);
@@ -356,21 +456,16 @@ function CreateModal({
     }
   };
 
-  const F =
-    (k: keyof DistributionPayload) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm((p) => ({ ...p, [k]: e.target.value || null }));
-
   return (
     <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-bold">Tạo phiếu phân phối</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-green-600 to-emerald-600">
+          <h2 className="text-lg font-bold text-white">Tạo phiếu phân phối</h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100"
+            className="p-2 rounded-lg hover:bg-white/20"
           >
-            <X size={18} />
+            <X size={18} className="text-white" />
           </button>
         </div>
         <div className="p-6 space-y-4">
@@ -379,157 +474,123 @@ function CreateModal({
               {error}
             </div>
           )}
+
+          {/* Campaign */}
           <div>
             <label className="text-xs font-semibold text-gray-500 block mb-1">
-              ID Hộ dân *
+              Chiến dịch
             </label>
-            <input
-              value={form.householdId}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, householdId: e.target.value }))
-              }
-              placeholder="UUID hộ dân..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <select
+              value={campaignId}
+              onChange={(e) => void handleCampaignChange(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+            >
+              <option value="">-- Chọn chiến dịch --</option>
+              {campaigns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.code})
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1">
-                ID Chiến dịch
-              </label>
-              <input
-                value={form.campaignId}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, campaignId: e.target.value }))
-                }
-                placeholder="UUID..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1">
-                ID Điểm cứu trợ
-              </label>
-              <input
-                value={form.reliefPointId}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, reliefPointId: e.target.value }))
-                }
-                placeholder="UUID..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+
+          {/* Team */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1">
+              Đội cứu trợ <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={teamId}
+              onChange={(e) => setTeamId(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+            >
+              <option value="">-- Chọn đội cứu trợ --</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.code})
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1">
-                Phương thức ACK
-              </label>
-              <select
-                value={form.ackMethodCode}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, ackMethodCode: e.target.value }))
-                }
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="OTP">OTP</option>
-                <option value="SIGNATURE">Chữ ký</option>
-                <option value="MANUAL">Thủ công</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1">
-                ID Sự cố (nếu có)
-              </label>
-              <input
-                value={form.incidentId ?? ""}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, incidentId: e.target.value || null }))
-                }
-                placeholder="UUID (tùy chọn)..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+
+          {/* ACK Method */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1">
+              Phương thức xác nhận
+            </label>
+            <select
+              value={ackMethodCode}
+              onChange={(e) => setAckMethodCode(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+            >
+              <option value="OTP">OTP</option>
+              <option value="SIGNATURE">Chữ ký</option>
+              <option value="MANUAL">Thủ công</option>
+            </select>
           </div>
+
+          {/* Note */}
           <div>
             <label className="text-xs font-semibold text-gray-500 block mb-1">
               Ghi chú
             </label>
             <input
-              value={form.note}
-              onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
               placeholder="Phân phối theo danh sách ưu tiên..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
+
           {/* Lines */}
           <div>
             <h3 className="text-sm font-bold mb-2">Dòng hàng</h3>
             <div className="flex gap-2 mb-3">
-              <input
-                value={newLine.itemId}
-                onChange={(e) =>
-                  setNewLine((p) => ({ ...p, itemId: e.target.value }))
-                }
-                placeholder="ID Hàng hóa"
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                value={newLine.lotId}
-                onChange={(e) =>
-                  setNewLine((p) => ({ ...p, lotId: e.target.value }))
-                }
-                placeholder="ID Lô"
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <select
+                value={selectedItemId}
+                onChange={(e) => {
+                  setSelectedItemId(e.target.value);
+                  const item = items.find((i) => i.id === e.target.value);
+                  if (item) setSelectedQty(1);
+                }}
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+              >
+                <option value="">-- Chọn vật phẩm --</option>
+                {items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.itemName} ({item.itemCode})
+                  </option>
+                ))}
+              </select>
               <input
                 type="number"
-                value={newLine.qty}
-                onChange={(e) =>
-                  setNewLine((p) => ({
-                    ...p,
-                    qty: parseInt(e.target.value) || 1,
-                  }))
-                }
+                value={selectedQty}
+                onChange={(e) => setSelectedQty(parseInt(e.target.value) || 1)}
                 min={1}
-                className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                value={newLine.unitCode}
-                onChange={(e) =>
-                  setNewLine((p) => ({ ...p, unitCode: e.target.value }))
-                }
-                placeholder="ĐV"
-                className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
               <button
                 onClick={addLine}
-                className="px-3 py-2 rounded-lg bg-blue-600 text-white"
+                className="px-3 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
               >
                 <Plus size={16} />
               </button>
             </div>
-            {form.lines.length > 0 && (
+            {lines.length > 0 && (
               <div className="rounded-lg border border-gray-100 overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-gray-50">
-                      <th className="px-3 py-2 text-left">ID Hàng</th>
-                      <th className="px-3 py-2 text-left">ID Lô</th>
+                      <th className="px-3 py-2 text-left">Vật phẩm</th>
                       <th className="px-3 py-2 text-right">SL</th>
                       <th className="px-3 py-2">ĐV</th>
                       <th className="px-3 py-2" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {form.lines.map((l, i) => (
+                    {lines.map((l, i) => (
                       <tr key={i}>
-                        <td className="px-3 py-2 font-mono">
-                          {l.itemId.slice(-8)}…
-                        </td>
-                        <td className="px-3 py-2 font-mono">
-                          {l.lotId.slice(-8)}…
-                        </td>
+                        <td className="px-3 py-2">{l.itemName}</td>
                         <td className="px-3 py-2 text-right font-bold">
                           {l.qty}
                         </td>
@@ -553,15 +614,14 @@ function CreateModal({
         <div className="flex gap-3 px-6 py-4 border-t bg-gray-50">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 font-semibold text-sm"
+            className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 font-semibold text-sm hover:bg-gray-100"
           >
             Hủy
           </button>
           <button
             onClick={handleSave}
             disabled={loading}
-            className="flex-1 py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-60"
-            style={{ background: "linear-gradient(135deg,#1e3a5f,#1e40af)" }}
+            className="flex-1 py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-60 bg-gradient-to-r from-green-600 to-emerald-600"
           >
             {loading ? "Đang tạo..." : "Tạo phiếu"}
           </button>
@@ -576,11 +636,13 @@ function statusBadge(code: string) {
   const m: Record<string, string> = {
     PENDING: "bg-amber-100 text-amber-700",
     ACKNOWLEDGED: "bg-emerald-100 text-emerald-700",
+    COMPLETED: "bg-blue-100 text-blue-700",
     CANCELLED: "bg-red-100 text-red-600",
   };
   const l: Record<string, string> = {
     PENDING: "Chờ nhận",
     ACKNOWLEDGED: "Đã nhận",
+    COMPLETED: "Hoàn thành",
     CANCELLED: "Đã hủy",
   };
   return (
@@ -690,11 +752,21 @@ export const DistributionTab: React.FC = () => {
                   <td className="px-4 py-3 font-mono text-xs text-blue-700 font-semibold whitespace-nowrap">
                     {dist.code}
                   </td>
-                  <td className="px-4 py-3 text-gray-800 font-medium whitespace-nowrap">
-                    {dist.household?.headName || "—"}
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-800">
+                      {dist.recipient?.name || "—"}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {dist.recipient?.address || ""}
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                    {dist.campaign?.name || "—"}
+                  <td className="px-4 py-3 text-gray-600">
+                    <div className="font-medium">
+                      {dist.campaign?.name || "—"}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {dist.adminArea?.name || ""}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600 text-xs">
                     {dist.ackMethodCode}

@@ -101,12 +101,16 @@ const requestTeamApiWithBody = async <T>(
 export const updateTeamStatus = async (
   request: TeamStatusUpdateRequest,
 ): Promise<TeamStatusUpdateResponse> => {
+  const body: Record<string, unknown> = {
+    statusCode: request.statusCode,
+    note: request.note,
+  };
+  if (request.teamId) {
+    body.teamId = request.teamId;
+  }
   return requestTeamApiWithBody<TeamStatusUpdateResponse>(
     "/api/v1/team/status",
     "POST",
-    {
-      statusCode: request.statusCode,
-      note: request.note,
-    },
+    body,
   );
 };

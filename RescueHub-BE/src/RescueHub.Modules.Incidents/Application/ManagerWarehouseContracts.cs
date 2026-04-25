@@ -70,19 +70,6 @@ public sealed record CreateStockTransactionRequest(
     string? Note,
     CreateStockTransactionLineRequest[] Lines);
 
-public sealed record CreateReliefIssueLineRequest(
-    Guid ItemId,
-    Guid LotId,
-    decimal IssueQty,
-    string UnitCode);
-
-public sealed record CreateReliefIssueRequest(
-    Guid? CampaignId,
-    Guid ReliefPointId,
-    Guid FromWarehouseId,
-    CreateReliefIssueLineRequest[] Lines,
-    string? Note);
-
 public sealed record CreateHouseholdRequest(
     string HeadName,
     string? Phone,
@@ -113,7 +100,8 @@ public sealed record RecipientLocationRequest(
 
 public sealed record CreateDistributionRequest(
     Guid? CampaignId,
-    Guid? ReliefPointId,
+    Guid? AdminAreaId,
+    Guid WarehouseId,
     Guid TeamId,
     CreateDistributionLineRequest[] Lines,
     string AckMethodCode,

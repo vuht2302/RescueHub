@@ -13,6 +13,13 @@ namespace RescueHub.Modules.Incidents.Api;
 public sealed class ManagerWarehousesController(IWarehouseManagementService service, IIncidentService incidentService) : BaseApiController
 {
     /// <summary>
+    /// Dashboard tong quan cho manager.
+    /// </summary>
+    [HttpGet("dashboard")]
+    public async Task<ActionResult<ApiResponse<object>>> GetDashboard()
+        => OkResponse<object>(await service.GetManagerDashboard(), "Lay dashboard manager thanh cong");
+
+    /// <summary>
     /// Lay danh sach kho theo tu khoa va trang thai.
     /// </summary>
     /// <param name="keyword">Tu khoa tim theo ma/ten/dia chi kho.</param>
@@ -260,42 +267,6 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
     }
 
     /// <summary>
-    /// Lay danh sach phieu cap phat.
-    /// </summary>
-    /// <param name="campaignId">Loc theo chien dich.</param>
-    /// <param name="reliefPointId">Loc theo diem cuu tro.</param>
-    /// <param name="statusCode">Loc theo trang thai phieu cap phat.</param>
-    /// <param name="page">Trang hien tai.</param>
-    /// <param name="pageSize">Kich thuoc trang.</param>
-    /// <returns>Danh sach phieu cap phat co phan trang.</returns>
-    [HttpGet("relief-issues")]
-    public async Task<ActionResult<ApiResponse<object>>> ListReliefIssues(
-        [FromQuery] Guid? campaignId,
-        [FromQuery] Guid? reliefPointId,
-        [FromQuery] string? statusCode,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
-        => OkResponse<object>(await service.ListReliefIssues(campaignId, reliefPointId, statusCode, page, pageSize), "Lay danh sach phieu cap phat thanh cong");
-
-    /// <summary>
-    /// Lay chi tiet phieu cap phat.
-    /// </summary>
-    /// <param name="reliefIssueId">Dinh danh phieu cap phat.</param>
-    /// <returns>Thong tin phieu cap phat va danh sach line.</returns>
-    [HttpGet("relief-issues/{reliefIssueId:guid}")]
-    public async Task<ActionResult<ApiResponse<object>>> GetReliefIssue([FromRoute] Guid reliefIssueId)
-    {
-        try
-        {
-            return OkResponse<object>(await service.GetReliefIssue(reliefIssueId), "Lay chi tiet phieu cap phat thanh cong");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequestResponse<object>(ex.Message);
-        }
-    }
-
-    /// <summary>
     /// Lay danh sach chien dich cuu tro.
     /// </summary>
     [HttpGet("relief-campaigns")]
@@ -387,24 +358,6 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
     }
 
     /// <summary>
-    /// Tao phieu cap phat tu kho den diem cuu tro.
-    /// </summary>
-    /// <param name="request">Thong tin cap phat va danh sach hang cap.</param>
-    /// <returns>Id, ma phieu cap phat va ma giao dich kho lien quan.</returns>
-    [HttpPost("relief-issues")]
-    public async Task<ActionResult<ApiResponse<object>>> CreateReliefIssue([FromBody] CreateReliefIssueRequest request)
-    {
-        try
-        {
-            return OkResponse<object>(await service.CreateReliefIssue(request), "Tao phieu cap phat thanh cong");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequestResponse<object>(ex.Message);
-        }
-    }
-
-    /// <summary>
     /// Manager duyet yeu cau cuu tro.
     /// </summary>
     /// <param name="reliefRequestId">Dinh danh yeu cau cuu tro.</param>
@@ -462,7 +415,7 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
     /// Lay danh sach phieu phan phoi.
     /// </summary>
     /// <param name="campaignId">Loc theo chien dich.</param>
-    /// <param name="reliefPointId">Loc theo diem cuu tro.</param>
+    /// <param name="adminAreaId">Loc theo khu vuc hanh chinh.</param>
     /// <param name="statusCode">Loc theo trang thai phieu phan phoi.</param>
     /// <param name="page">Trang hien tai.</param>
     /// <param name="pageSize">Kich thuoc trang.</param>
@@ -470,11 +423,11 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
     [HttpGet("distributions")]
     public async Task<ActionResult<ApiResponse<object>>> ListDistributions(
         [FromQuery] Guid? campaignId,
-        [FromQuery] Guid? reliefPointId,
+        [FromQuery] Guid? adminAreaId,
         [FromQuery] string? statusCode,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
-        => OkResponse<object>(await service.ListDistributions(campaignId, reliefPointId, statusCode, page, pageSize), "Lay danh sach phan phoi thanh cong");
+        => OkResponse<object>(await service.ListDistributions(campaignId, adminAreaId, statusCode, page, pageSize), "Lay danh sach phan phoi thanh cong");
 
     /// <summary>
     /// Cap nhat trang thai yeu cau cuu tro.

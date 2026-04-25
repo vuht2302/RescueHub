@@ -41,6 +41,13 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         "CANCELLED"
     ];
 
+    private static readonly HashSet<string> FieldReportTypeCodes =
+    [
+        "PROGRESS",
+        "ON_SITE",
+        "FINAL"
+    ];
+
     public async Task<object> List()
     {
         var items = await dbContext.incidents
@@ -52,7 +59,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             {
                 id = x.id,
                 incidentCode = x.code,
-                status = new { code = x.status_code, name = x.status_code, color = (string?)null },
+                statusCode = x.status_code,
                 location = x.incident_location == null
                     ? null
                     : new
@@ -95,16 +102,22 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             .GroupBy(x => x.incidentId)
             .ToDictionary(x => x.Key, x => x.Select(v => v.team).ToList());
 
-        return items.Select(x => new
+        return items.Select(x =>
         {
-            x.id,
-            x.incidentCode,
-            x.status,
-            x.location,
-            handlingTeams = handlingTeamsByIncident.TryGetValue(x.id, out var teams)
-                ? teams
-                : new List<IncidentHandlingTeamInfo>(),
-            x.reportedAt
+            var teams = handlingTeamsByIncident.TryGetValue(x.id, out var resolvedTeams)
+                ? resolvedTeams
+                : new List<IncidentHandlingTeamInfo>();
+            var statusCode = ResolveIncidentStatusCodeForTeamView(x.statusCode, teams);
+
+            return new
+            {
+                x.id,
+                x.incidentCode,
+                status = new { code = statusCode, name = statusCode, color = (string?)null },
+                x.location,
+                handlingTeams = teams,
+                x.reportedAt
+            };
         });
     }
 
@@ -150,7 +163,12 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             isSOS = item.is_sos,
             incidentType = new { code = item.incident_type_code, name = item.incident_type_code },
             channel = new { code = item.incident_channel_code, name = item.incident_channel_code },
-            status = new { code = item.status_code, name = item.status_code, color = (string?)null },
+            status = new
+            {
+                code = ResolveIncidentStatusCodeForTeamView(item.status_code, handlingTeams),
+                name = ResolveIncidentStatusCodeForTeamView(item.status_code, handlingTeams),
+                color = (string?)null
+            },
             priority = new { code = item.priority_code, name = item.priority_code, color = (string?)null },
             severity = latestAssessment == null ? null : new { code = latestAssessment.severity_code, name = latestAssessment.severity_code, color = (string?)null },
             description = item.description,
@@ -194,6 +212,16 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             reportedAt = item.created_at,
             updatedAt = item.updated_at
         };
+    }
+
+    private static string ResolveIncidentStatusCodeForTeamView(string persistedStatusCode, IReadOnlyCollection<IncidentHandlingTeamInfo>? handlingTeams)
+    {
+        if (handlingTeams is { Count: > 0 })
+        {
+            return "IN_PROGRESS";
+        }
+
+        return persistedStatusCode;
     }
 
     public async Task<object> Verify(Guid incidentId, VerifyIncidentRequest request)
@@ -1996,12 +2024,13 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             throw new InvalidOperationException("Khong tim thay nhiem vu.");
         }
 
+        var reportTypeCode = NormalizeFieldReportTypeCode(request.ReportTypeCode);
         var now = DateTime.UtcNow;
         var report = new mission_field_report
         {
             id = Guid.NewGuid(),
             mission_id = missionId,
-            report_type_code = request.ReportTypeCode,
+            report_type_code = reportTypeCode,
             summary = request.Summary ?? string.Empty,
             rescued_count = request.VictimRescuedCount ?? 0,
             unreachable_count = request.VictimUnreachableCount ?? 0,
@@ -2049,6 +2078,27 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             reportedAt = now,
             attachedFileCount
         };
+    }
+
+    private static string NormalizeFieldReportTypeCode(string? value)
+    {
+        var normalized = value?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            throw new InvalidOperationException("ReportTypeCode la bat buoc.");
+        }
+
+        if (normalized == "UPDATE")
+        {
+            normalized = "PROGRESS";
+        }
+
+        if (!FieldReportTypeCodes.Contains(normalized))
+        {
+            throw new InvalidOperationException("ReportTypeCode khong hop le. Chi nhan PROGRESS, ON_SITE, FINAL.");
+        }
+
+        return normalized;
     }
 
     public async Task<object> TeamCreateAbortRequest(Guid missionId, TeamAbortRequest request)

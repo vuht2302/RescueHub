@@ -2,6 +2,8 @@ namespace RescueHub.Modules.Incidents.Application;
 
 public interface IWarehouseManagementService
 {
+    Task<object> GetManagerDashboard();
+
     Task<object> ListWarehouses(string? keyword, string? statusCode);
 
     Task<object> GetWarehouse(Guid warehouseId);
@@ -42,12 +44,6 @@ public interface IWarehouseManagementService
 
     Task<object> CreateStockTransaction(CreateStockTransactionRequest request);
 
-    Task<object> ListReliefIssues(Guid? campaignId, Guid? reliefPointId, string? statusCode, int page, int pageSize);
-
-    Task<object> GetReliefIssue(Guid reliefIssueId);
-
-    Task<object> CreateReliefIssue(CreateReliefIssueRequest request);
-
     Task<object> ListHouseholds(string? keyword, Guid? adminAreaId, int page, int pageSize);
 
     Task<object> GetHousehold(Guid householdId);
@@ -58,7 +54,7 @@ public interface IWarehouseManagementService
 
     Task<object> DeleteHousehold(Guid householdId);
 
-    Task<object> ListDistributions(Guid? campaignId, Guid? reliefPointId, string? statusCode, int page, int pageSize);
+    Task<object> ListDistributions(Guid? campaignId, Guid? adminAreaId, string? statusCode, int page, int pageSize);
 
     Task<object> ListReliefCampaigns(string? keyword, string? statusCode);
 

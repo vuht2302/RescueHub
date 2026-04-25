@@ -13,6 +13,9 @@ import {
   Plus,
   X,
   Trash2,
+  Calendar,
+  Flag,
+  Navigation,
 } from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { ConfirmationModal } from "../../../shared/components/ConfirmationModal";
@@ -33,6 +36,10 @@ import {
   AddressAutocomplete,
   type AddressSuggestion,
 } from "../../../shared/components/AddressAutocomplete";
+import {
+  createReliefCampaign,
+  type CreateReliefCampaignPayload,
+} from "../services/warehouseService";
 
 interface ReliefHotspotMapProps {
   className?: string;
@@ -62,6 +69,20 @@ interface CreateReliefPointFormState {
   statusCode: string;
 }
 
+interface ReliefPointWithDistance extends ReliefPointItem {
+  distanceKm: number;
+}
+
+interface CreateCampaignFormState {
+  code: string;
+  name: string;
+  startAt: string;
+  endAt: string;
+  statusCode: string;
+  description: string;
+  selectedReliefPointIds: string[];
+}
+
 const buildInitialCreateForm = (): CreateReliefPointFormState => {
   return {
     code: "",
@@ -69,6 +90,36 @@ const buildInitialCreateForm = (): CreateReliefPointFormState => {
     addressText: "",
     statusCode: "OPEN",
   };
+};
+
+const buildInitialCampaignForm = (): CreateCampaignFormState => {
+  const now = new Date();
+  const end = new Date(now);
+  end.setDate(end.getDate() + 7);
+  return {
+    code: "",
+    name: "",
+    startAt: now.toISOString(),
+    endAt: end.toISOString(),
+    statusCode: "PLANNED",
+    description: "",
+    selectedReliefPointIds: [],
+  };
+};
+
+const getDistanceKm = (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRad(to.lat - from.lat);
+  const dLng = toRad(to.lng - from.lng);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(from.lat)) *
+      Math.cos(toRad(to.lat)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
 };
 
 const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
@@ -106,6 +157,12 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
   const [statusOptions, setStatusOptions] = useState<ReliefPointStatusOption[]>(
     [],
   );
+  const [isCreateCampaignOpen, setIsCreateCampaignOpen] = useState(false);
+  const [campaignForm, setCampaignForm] = useState<CreateCampaignFormState>(() =>
+    buildInitialCampaignForm(),
+  );
+  const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
+  const [campaignError, setCampaignError] = useState<string | null>(null);
 
   const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
   const canUseVietmap = vietmapApiKey.length > 0;
@@ -258,6 +315,91 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleCreateCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCampaignError(null);
+
+    const authSession = getAuthSession();
+    if (!authSession?.accessToken) {
+      setCampaignError("Không có token xác thực.");
+      return;
+    }
+
+    if (!selectedHotspot) {
+      setCampaignError("Vui lòng chọn vùng nóng trước.");
+      return;
+    }
+
+    if (!campaignForm.code.trim() || !campaignForm.name.trim()) {
+      setCampaignError("Vui lòng nhập mã và tên chiến dịch.");
+      return;
+    }
+
+    if (campaignForm.selectedReliefPointIds.length === 0) {
+      setCampaignError("Vui lòng chọn ít nhất một trạm cứu trợ.");
+      return;
+    }
+
+    const payload: CreateReliefCampaignPayload = {
+      code: campaignForm.code.trim(),
+      name: campaignForm.name.trim(),
+      adminAreaId: selectedHotspot.adminAreaId ?? "",
+      startAt: campaignForm.startAt,
+      endAt: campaignForm.endAt,
+      statusCode: campaignForm.statusCode,
+      description: campaignForm.description.trim() || undefined,
+      reliefPointIds: campaignForm.selectedReliefPointIds,
+    };
+
+    setIsCreatingCampaign(true);
+    try {
+      await createReliefCampaign(payload, authSession.accessToken);
+      setIsCreateCampaignOpen(false);
+      setCampaignForm(buildInitialCampaignForm());
+      setSelectedHotspot(null);
+    } catch (err) {
+      setCampaignError(
+        err instanceof Error ? err.message : "Không thể tạo chiến dịch.",
+      );
+    } finally {
+      setIsCreatingCampaign(false);
+    }
+  };
+
+  const handleCampaignFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = e.target;
+    setCampaignForm((prev) => ({ ...prev, [name]: value }));
+    setCampaignError(null);
+  };
+
+  const toggleReliefPointSelection = (pointId: string) => {
+    setCampaignForm((prev) => {
+      const isSelected = prev.selectedReliefPointIds.includes(pointId);
+      return {
+        ...prev,
+        selectedReliefPointIds: isSelected
+          ? prev.selectedReliefPointIds.filter((id) => id !== pointId)
+          : [...prev.selectedReliefPointIds, pointId],
+      };
+    });
+  };
+
+  const getReliefPointsWithDistance = (): ReliefPointWithDistance[] => {
+    if (!selectedHotspot?.center) return [];
+    return reliefPoints
+      .filter((p) => p.location)
+      .map((p) => ({
+        ...p,
+        distanceKm: getDistanceKm(
+          { lat: selectedHotspot.center!.lat, lng: selectedHotspot.center!.lng },
+          { lat: p.location.lat, lng: p.location.lng },
+        ),
+      }))
+      .sort((a, b) => a.distanceKm - b.distanceKm);
   };
 
   const fetchHotspots = React.useCallback(async () => {
@@ -692,6 +834,17 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
               <Clock size={10} />
               Cập nhật: {formatTime(selectedHotspot.latestRequestedAt)}
             </p>
+            <button
+              onClick={() => {
+                setCampaignForm(buildInitialCampaignForm());
+                setCampaignError(null);
+                setIsCreateCampaignOpen(true);
+              }}
+              className="mt-3 w-full flex items-center justify-center gap-1.5 rounded-lg bg-red-500 px-3 py-2 text-xs font-bold text-white hover:bg-red-600 transition-colors"
+            >
+              <Flag size={12} />
+              Tạo chiến dịch
+            </button>
           </div>
         )}
 
@@ -1326,6 +1479,206 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
           confirmText="Xóa"
           cancelText="Hủy"
         />
+      )}
+
+      {/* Create Campaign Modal */}
+      {isCreateCampaignOpen && selectedHotspot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 flex-shrink-0">
+              <div>
+                <h4 className="text-base font-black text-slate-900">
+                  Tạo chiến dịch cứu trợ
+                </h4>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Vùng: <span className="font-semibold">{selectedHotspot.areaName}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsCreateCampaignOpen(false);
+                  setCampaignError(null);
+                }}
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                disabled={isCreatingCampaign}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCampaign} className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">
+                    Mã chiến dịch <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="code"
+                    value={campaignForm.code}
+                    onChange={handleCampaignFormChange}
+                    placeholder="VD: RC-BDT-01"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                    disabled={isCreatingCampaign}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">
+                    Tên chiến dịch <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="name"
+                    value={campaignForm.name}
+                    onChange={handleCampaignFormChange}
+                    placeholder="VD: Chiến dịch cứu trợ Bình Thủy"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                    disabled={isCreatingCampaign}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">
+                    Ngày bắt đầu
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="startAt"
+                    value={campaignForm.startAt.slice(0, 16)}
+                    onChange={handleCampaignFormChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                    disabled={isCreatingCampaign}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">
+                    Ngày kết thúc
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="endAt"
+                    value={campaignForm.endAt.slice(0, 16)}
+                    onChange={handleCampaignFormChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                    disabled={isCreatingCampaign}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">
+                    Mô tả
+                  </label>
+                  <textarea
+                    name="description"
+                    value={campaignForm.description}
+                    onChange={handleCampaignFormChange}
+                    placeholder="Mô tả chi tiết về chiến dịch cứu trợ..."
+                    rows={2}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400 resize-none"
+                    disabled={isCreatingCampaign}
+                  />
+                </div>
+              </div>
+
+              {/* Relief Points Selection with Distance */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+                    <MapPin size={12} />
+                    Chọn trạm cứu trợ <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {campaignForm.selectedReliefPointIds.length} đã chọn
+                  </span>
+                </div>
+                <div className="border border-slate-200 rounded-lg overflow-hidden max-h-[250px] overflow-y-auto">
+                  {reliefPoints.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      Không có trạm cứu trợ nào. Vui lòng tạo trạm trước.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {getReliefPointsWithDistance().map((point) => {
+                        const isSelected = campaignForm.selectedReliefPointIds.includes(point.id);
+                        return (
+                          <div
+                            key={point.id}
+                            onClick={() => toggleReliefPointSelection(point.id)}
+                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                              isSelected
+                                ? "bg-blue-50 border-l-4 border-l-blue-600"
+                                : "hover:bg-gray-50 border-l-4 border-l-transparent"
+                            }`}
+                          >
+                            <div
+                              className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                isSelected
+                                  ? "bg-blue-600 border-blue-600"
+                                  : "border-gray-300"
+                              }`}
+                            >
+                              {isSelected && (
+                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">
+                                {point.name}
+                              </p>
+                              <p className="text-xs text-gray-400 font-mono">
+                                {point.code}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs font-semibold text-blue-600 flex-shrink-0">
+                              <Navigation size={10} />
+                              {point.distanceKm.toFixed(2)} km
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {campaignError && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                  {campaignError}
+                </div>
+              )}
+            </form>
+
+            <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreateCampaignOpen(false);
+                  setCampaignError(null);
+                }}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                disabled={isCreatingCampaign}
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                onClick={handleCreateCampaign}
+                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60 flex items-center gap-1.5"
+                disabled={isCreatingCampaign}
+              >
+                {isCreatingCampaign ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Đang tạo...
+                  </>
+                ) : (
+                  <>
+                    <Flag size={14} />
+                    Tạo chiến dịch
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

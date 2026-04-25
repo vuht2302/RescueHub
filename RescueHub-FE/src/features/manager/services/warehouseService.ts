@@ -643,7 +643,7 @@ export interface DistributionLinePayload {
 
 export interface DistributionPayload {
   campaignId: string;
-  reliefPointId: string;
+  adminAreaId: string;
   teamId: string;
   lines: DistributionLinePayload[];
   ackMethodCode: string;
@@ -655,13 +655,15 @@ export interface DistributionListItem {
   code: string;
   status: CodeName;
   campaign: { id: string; code: string; name: string } | null;
-  reliefPoint: { id: string; code: string; name: string } | null;
-  household: {
+  adminArea: { id: string; code: string; name: string } | null;
+  recipient: {
     id: string;
     code: string;
-    headName: string;
+    name: string;
     phone: string;
     address: string;
+    memberCount: number;
+    vulnerableCount: number;
   } | null;
   ackMethodCode: string;
   note: string;
@@ -675,7 +677,7 @@ export interface Distribution {
   code: string;
   status: CodeName;
   campaign: { id: string; code: string; name: string } | null;
-  reliefPoint: { id: string; code: string; name: string } | null;
+  adminArea: { id: string; code: string; name: string } | null;
   recipient: {
     id: string;
     code: string;
@@ -685,9 +687,9 @@ export interface Distribution {
     memberCount: number;
     vulnerableCount: number;
   } | null;
-  // incidentId: string | null;
   ackMethodCode: string;
   note: string;
+  lineCount: number;
   lines: Array<{
     id: string;
     item: { id: string; code: string; name: string };
@@ -978,4 +980,49 @@ export async function getReliefCampaigns(
   return Array.isArray(data)
     ? data
     : (data as PagedResponse<ReliefCampaign>).items;
+}
+
+export interface ReliefPointSummary {
+  id: string;
+  code: string;
+  name: string;
+  statusCode: string;
+}
+
+export interface ReliefCampaignDetail extends ReliefCampaign {
+  reliefPoints: ReliefPointSummary[];
+}
+
+export async function getReliefCampaign(
+  campaignId: string,
+  token: string,
+): Promise<ReliefCampaignDetail> {
+  return apiFetch<ReliefCampaignDetail>(
+    `${BASE}/relief-campaigns/${campaignId}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export interface CreateReliefCampaignPayload {
+  code: string;
+  name: string;
+  adminAreaId: string;
+  startAt: string;
+  endAt: string;
+  statusCode: string;
+  description?: string;
+  reliefPointIds: string[];
+}
+
+export async function createReliefCampaign(
+  payload: CreateReliefCampaignPayload,
+  token: string,
+): Promise<ReliefCampaign> {
+  return apiFetch<ReliefCampaign>(`${BASE}/relief-campaigns`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
 }

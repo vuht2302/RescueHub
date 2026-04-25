@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { X, MapPin, Truck, Users, Fuel, Clock, Shield, CheckCircle2 } from "lucide-react";
+import {
+  X,
+  MapPin,
+  Truck,
+  Users,
+  Fuel,
+  Clock,
+  Shield,
+  CheckCircle2,
+} from "lucide-react";
 import {
   getDispatchTeams,
   dispatchMission,
@@ -85,8 +94,8 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
               vehicle: `Xe ${team.code}`,
               status: "available",
               currentLocation: `${team.homeAdminArea.name} [${team.currentLocation?.lat.toFixed(2)}, ${team.currentLocation?.lng.toFixed(2)}]`,
-              distance: mockDist, 
-              estimatedTime: mockEta, 
+              distance: mockDist,
+              estimatedTime: mockEta,
               equipment: team.notes ? [team.notes] : [],
               fuel: 80 + (team.id.charCodeAt(1) % 20),
               capacity: team.maxParallelMissions * 5,
@@ -166,16 +175,19 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
       };
 
       await dispatchMission(requestId, session.accessToken, missionPayload);
-      toastSuccess(`Điều phối thành công! Đội cứu hộ đã được phân công đến sự cố.`);
+      toastSuccess(
+        `Điều phối thành công! Đội cứu hộ đã được phân công đến sự cố.`,
+      );
       setIsSuccess(true);
-      
+
       setTimeout(() => {
         onDispatch(selectedTeamId);
         onClose();
         setIsSuccess(false);
       }, 1500);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Co loi khi dieu phoi team";
+      const msg =
+        err instanceof Error ? err.message : "Co loi khi dieu phoi team";
       setDispatchError(msg);
       toastError(`Điều phối thất bại: ${msg}`);
     } finally {
@@ -226,260 +238,267 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
         ) : (
           <>
             <div className="flex-1 overflow-y-auto">
-          {error && (
-            <div className="p-4 bg-red-50 border-l-4 border-red-500 m-6">
-              <p className="text-red-700 font-semibold">{error}</p>
-            </div>
-          )}
+              {error && (
+                <div className="p-4 bg-red-50 border-l-4 border-red-500 m-6">
+                  <p className="text-red-700 font-semibold">{error}</p>
+                </div>
+              )}
 
-          {loading ? (
-            <div className="flex items-center justify-center p-12">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-950 mx-auto mb-4"></div>
-                <p className="text-gray-600">Dang tai danh sach team...</p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-6 p-6">
-              {/* Request Info - Left */}
-              <div className="col-span-1 space-y-4">
-                <div
-                  className="bg-blue-50 border-l-4 p-4 rounded"
-                  style={{ borderColor: "var(--color-blue-950)" }}
-                >
-                  <h3
-                    className="text-sm font-bold mb-3"
-                    style={{
-                      color: "var(--color-blue-950)",
-                      fontFamily: "var(--font-primary)",
-                    }}
-                  >
-                    Thong tin yeu cau
-                  </h3>
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <span className="text-gray-600 block text-xs">
-                        Dia diem
-                      </span>
-                      <p className="font-semibold text-gray-900 flex items-start gap-2">
-                        <MapPin size={14} className="mt-0.5 flex-shrink-0" />
-                        {location}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600 block text-xs">
-                        So nguoi can ho tro
-                      </span>
-                      <p className="font-semibold text-gray-900 flex items-center gap-2">
-                        <Users size={14} />
-                        {victimCount} nguoi
-                      </p>
-                    </div>
+              {loading ? (
+                <div className="flex items-center justify-center p-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-950 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Dang tai danh sach team...</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Teams List - Center */}
-              <div className="col-span-2 space-y-3">
-                <h3
-                  className="font-bold text-gray-900"
-                  style={{ fontFamily: "var(--font-primary)" }}
-                >
-                 Đội cứu hộ gần đó ({teams.length} đội)
-                </h3>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {teams.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      Khong co doi cuu ho khong hoa
-                    </div>
-                  ) : (
-                    teams.map((team) => (
-                      <div
-                        key={team.id}
-                        onClick={() => setSelectedTeamId(team.id)}
-                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                          selectedTeamId === team.id
-                            ? "border-blue-950 bg-blue-50"
-                            : "border-gray-200 hover:border-gray-300"
-                        }`}
-                        style={
-                          selectedTeamId === team.id
-                            ? { borderColor: "var(--color-blue-950)" }
-                            : {}
-                        }
+              ) : (
+                <div className="grid grid-cols-3 gap-6 p-6">
+                  {/* Request Info - Left */}
+                  <div className="col-span-1 space-y-4">
+                    <div
+                      className="bg-blue-50 border-l-4 p-4 rounded"
+                      style={{ borderColor: "var(--color-blue-950)" }}
+                    >
+                      <h3
+                        className="text-sm font-bold mb-3"
+                        style={{
+                          color: "var(--color-blue-950)",
+                          fontFamily: "var(--font-primary)",
+                        }}
                       >
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h4
-                              className="font-bold text-gray-900"
-                              style={{ fontFamily: "var(--font-primary)" }}
-                            >
-                              {team.name}
-                            </h4>
-                            <p className="text-xs text-gray-600">
-                              {team.specialization}
-                            </p>
-                          </div>
-                          <span
-                            className={`text-xs font-bold px-2 py-1 rounded ${getStatusColor(team.status)}`}
-                          >
-                            {getStatusText(team.status)}
+                        Thong tin yeu cau
+                      </h3>
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <span className="text-gray-600 block text-xs">
+                            Dia diem
                           </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 text-sm mb-3">
-                          <div className="flex items-center gap-2 text-gray-600">
-                            <Clock size={14} />
-                            <span>
-                              <strong className="text-gray-900">
-                                {team.estimatedTime}
-                              </strong>{" "}
-                              phut
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-gray-600">
-                            <MapPin size={14} />
-                            <span>
-                              <strong className="text-gray-900">
-                                {team.distance}
-                              </strong>{" "}
-                              km
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-gray-600">
-                            <Users size={14} />
-                            <span>
-                              <strong className="text-gray-900">
-                                {team.members}
-                              </strong>{" "}
-                              thanh vien
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-gray-600">
-                            <Fuel size={14} />
-                            <span>
-                              <strong className="text-gray-900">
-                                {team.fuel}%
-                              </strong>{" "}
-                              nhien lieu
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="text-sm">
-                          <p className="text-xs text-gray-600 mb-1">
-                            Phuong tien:
+                          <p className="font-semibold text-gray-900 flex items-start gap-2">
+                            <MapPin
+                              size={14}
+                              className="mt-0.5 flex-shrink-0"
+                            />
+                            {location}
                           </p>
-                          <p className="text-gray-900 font-semibold">
-                            {team.vehicle}
+                        </div>
+                        <div>
+                          <span className="text-gray-600 block text-xs">
+                            So nguoi can ho tro
+                          </span>
+                          <p className="font-semibold text-gray-900 flex items-center gap-2">
+                            <Users size={14} />
+                            {victimCount} nguoi
                           </p>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+                    </div>
+                  </div>
 
-          {/* Selected Team Details - Full Width */}
-          {!loading && selectedTeam && (
-            <div className="border-t border-gray-200 p-6 bg-gray-50">
-              <h3
-                className="font-bold text-gray-900 mb-4"
-                style={{ fontFamily: "var(--font-primary)" }}
-              >
-                Chi tiết đội được chọn
-              </h3>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Shield
-                      size={16}
-                      style={{ color: "var(--color-blue-950)" }}
-                    />
-                    Thiết bị & trang bị
-                  </h4>
-                  <ul className="space-y-2">
-                    {selectedTeam.equipment.map((item, idx) => (
-                      <li key={idx} className="text-sm text-gray-700">
-                        ✓ {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Truck
-                      size={16}
-                      style={{ color: "var(--color-blue-950)" }}
-                    />
-                    Thông tin khác
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Vị trí hiện tại:</span>
-                      <span className="font-semibold text-gray-900">
-                        {selectedTeam.currentLocation}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Khả năng tiếp nhận:</span>
-                      <span className="font-semibold text-gray-900">
-                        {selectedTeam.capacity} người
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Tình trạng:</span>
-                      <span
-                        className={`font-semibold ${getStatusColor(selectedTeam.status)}`}
-                      >
-                        {getStatusText(selectedTeam.status)}
-                      </span>
+                  {/* Teams List - Center */}
+                  <div className="col-span-2 space-y-3">
+                    <h3
+                      className="font-bold text-gray-900"
+                      style={{ fontFamily: "var(--font-primary)" }}
+                    >
+                      Đội cứu hộ gần đó ({teams.length} đội)
+                    </h3>
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {teams.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          Khong co doi cuu ho khong hoa
+                        </div>
+                      ) : (
+                        teams.map((team) => (
+                          <div
+                            key={team.id}
+                            onClick={() => setSelectedTeamId(team.id)}
+                            className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                              selectedTeamId === team.id
+                                ? "border-blue-950 bg-blue-50"
+                                : "border-gray-200 hover:border-gray-300"
+                            }`}
+                            style={
+                              selectedTeamId === team.id
+                                ? { borderColor: "var(--color-blue-950)" }
+                                : {}
+                            }
+                          >
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                <h4
+                                  className="font-bold text-gray-900"
+                                  style={{ fontFamily: "var(--font-primary)" }}
+                                >
+                                  {team.name}
+                                </h4>
+                                <p className="text-xs text-gray-600">
+                                  {team.specialization}
+                                </p>
+                              </div>
+                              <span
+                                className={`text-xs font-bold px-2 py-1 rounded ${getStatusColor(team.status)}`}
+                              >
+                                {getStatusText(team.status)}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <Clock size={14} />
+                                <span>
+                                  <strong className="text-gray-900">
+                                    {team.estimatedTime}
+                                  </strong>{" "}
+                                  phut
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <MapPin size={14} />
+                                <span>
+                                  <strong className="text-gray-900">
+                                    {team.distance}
+                                  </strong>{" "}
+                                  km
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <Users size={14} />
+                                <span>
+                                  <strong className="text-gray-900">
+                                    {team.members}
+                                  </strong>{" "}
+                                  thanh vien
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <Fuel size={14} />
+                                <span>
+                                  <strong className="text-gray-900">
+                                    {team.fuel}%
+                                  </strong>{" "}
+                                  nhien lieu
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="text-sm">
+                              <p className="text-xs text-gray-600 mb-1">
+                                Phuong tien:
+                              </p>
+                              <p className="text-gray-900 font-semibold">
+                                {team.vehicle}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* Selected Team Details - Full Width */}
+              {!loading && selectedTeam && (
+                <div className="border-t border-gray-200 p-6 bg-gray-50">
+                  <h3
+                    className="font-bold text-gray-900 mb-4"
+                    style={{ fontFamily: "var(--font-primary)" }}
+                  >
+                    Chi tiết đội được chọn
+                  </h3>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <Shield
+                          size={16}
+                          style={{ color: "var(--color-blue-950)" }}
+                        />
+                        Thiết bị & trang bị
+                      </h4>
+                      <ul className="space-y-2">
+                        {selectedTeam.equipment.map((item, idx) => (
+                          <li key={idx} className="text-sm text-gray-700">
+                            ✓ {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <Truck
+                          size={16}
+                          style={{ color: "var(--color-blue-950)" }}
+                        />
+                        Thông tin khác
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">
+                            Vị trí hiện tại:
+                          </span>
+                          <span className="font-semibold text-gray-900">
+                            {selectedTeam.currentLocation}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">
+                            Khả năng tiếp nhận:
+                          </span>
+                          <span className="font-semibold text-gray-900">
+                            {selectedTeam.capacity} người
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Tình trạng:</span>
+                          <span
+                            className={`font-semibold ${getStatusColor(selectedTeam.status)}`}
+                          >
+                            {getStatusText(selectedTeam.status)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-gray-200 p-6 flex flex-col gap-3 bg-gray-50">
+              {dispatchError && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                  <p className="text-red-700 font-semibold">{dispatchError}</p>
+                </div>
+              )}
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={onClose}
+                  disabled={dispatching}
+                  className="px-6 py-2 rounded-lg border-2 border-gray-300 text-gray-900 font-bold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ fontFamily: "var(--font-primary)" }}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  onClick={handleDispatch}
+                  disabled={!selectedTeamId || dispatching}
+                  className="px-6 py-2 rounded-lg text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 flex items-center gap-2"
+                  style={{
+                    backgroundColor:
+                      selectedTeamId && !dispatching
+                        ? "var(--color-blue-950)"
+                        : "#ccc",
+                    fontFamily: "var(--font-primary)",
+                  }}
+                >
+                  {dispatching && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  )}
+                  {dispatching ? "Dang dieu phoi..." : "Điều Phối Ngay"}
+                </button>
               </div>
             </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-gray-200 p-6 flex flex-col gap-3 bg-gray-50">
-          {dispatchError && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
-              <p className="text-red-700 font-semibold">{dispatchError}</p>
-            </div>
-          )}
-          <div className="flex gap-3 justify-end">
-            <button
-              onClick={onClose}
-              disabled={dispatching}
-              className="px-6 py-2 rounded-lg border-2 border-gray-300 text-gray-900 font-bold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ fontFamily: "var(--font-primary)" }}
-            >
-              Hủy bỏ
-            </button>
-            <button
-              onClick={handleDispatch}
-              disabled={!selectedTeamId || dispatching}
-              className="px-6 py-2 rounded-lg text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 flex items-center gap-2"
-              style={{
-                backgroundColor:
-                  selectedTeamId && !dispatching
-                    ? "var(--color-blue-950)"
-                    : "#ccc",
-                fontFamily: "var(--font-primary)",
-              }}
-            >
-              {dispatching && (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              )}
-              {dispatching ? "Dang dieu phoi..." : "Điều Phối Ngay"}
-            </button>
-          </div>
-        </div>
-        </>
+          </>
         )}
       </div>
     </div>

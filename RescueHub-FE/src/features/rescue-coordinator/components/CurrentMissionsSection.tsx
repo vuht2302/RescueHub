@@ -1,19 +1,9 @@
 import React, { useEffect, useState } from "react";
-import {
-  Loader2,
-  AlertTriangle,
-  CheckCircle2,
-  Navigation,
-  Users,
-  MapPin,
-  Clock,
-  Shield,
-  Radio,
-} from "lucide-react";
+import { Loader2, Users, MapPin, Clock, Shield } from "lucide-react";
 import { getIncidents, type IncidentItem } from "../services/incidentServices";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
+import { DispatchModal } from "./DispatchModal";
 
-// HandlingTeam type from incidents API
 interface HandlingTeam {
   teamId: string;
   teamCode: string;
@@ -25,7 +15,6 @@ interface HandlingTeam {
   assignedAt: string;
 }
 
-// Mission type derived from incident with handlingTeams
 interface MissionFromIncident {
   id: string;
   incidentCode: string;
@@ -41,55 +30,60 @@ export function CurrentMissionsSection() {
   const [error, setError] = useState<string | null>(null);
   const [selectedMission, setSelectedMission] =
     useState<MissionFromIncident | null>(null);
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+
+  const fetchIncidentsWithTeams = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const session = getAuthSession();
+      if (!session?.accessToken) {
+        setError("Không có phiên đăng nhập");
+        return;
+      }
+
+      const incidents = await getIncidents(session.accessToken);
+      const incidentsWithTeams = incidents.filter(
+        (incident: IncidentItem) =>
+          incident.handlingTeams && incident.handlingTeams.length > 0,
+      );
+
+      const missionsData: MissionFromIncident[] = incidentsWithTeams.map(
+        (incident: IncidentItem) => ({
+          id: incident.id,
+          incidentCode: incident.incidentCode,
+          location: incident.location?.addressText || "Chưa có vị trí",
+          reportedAt: incident.reportedAt,
+          handlingTeams: incident.handlingTeams || [],
+          status: incident.status?.code || "UNKNOWN",
+        }),
+      );
+
+      setMissions(missionsData);
+      if (missionsData.length === 0) {
+        setSelectedMission(null);
+        return;
+      }
+
+      setSelectedMission((current) => {
+        if (!current) return missionsData[0];
+        return (
+          missionsData.find((mission) => mission.id === current.id) ??
+          missionsData[0]
+        );
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lỗi khi tải nhiệm vụ");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchIncidentsWithTeams = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const session = getAuthSession();
-        if (!session?.accessToken) {
-          setError("Không có phiên đăng nhập");
-          return;
-        }
-
-        // Fetch incidents from API
-        const incidents = await getIncidents(session.accessToken);
-
-        // Filter only incidents with handlingTeams (not empty)
-        const incidentsWithTeams = incidents.filter(
-          (incident: IncidentItem) =>
-            incident.handlingTeams && incident.handlingTeams.length > 0,
-        );
-
-        // Convert to mission format
-        const missionsData: MissionFromIncident[] = incidentsWithTeams.map(
-          (incident: IncidentItem) => ({
-            id: incident.id,
-            incidentCode: incident.incidentCode,
-            location: incident.location?.addressText || "Chưa có vị trí",
-            reportedAt: incident.reportedAt,
-            handlingTeams: incident.handlingTeams || [],
-            status: incident.status?.code || "UNKNOWN",
-          }),
-        );
-
-        setMissions(missionsData);
-        if (missionsData.length > 0) {
-          setSelectedMission(missionsData[0]);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Lỗi khi tải nhiệm vụ");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchIncidentsWithTeams();
+    void fetchIncidentsWithTeams();
   }, []);
 
-  // Map mission status code to label
   function getMissionStatusLabel(statusCode: string): string {
     const labels: Record<string, string> = {
       EN_ROUTE: "Đang di chuyển",
@@ -100,11 +94,13 @@ export function CurrentMissionsSection() {
       RETURNING: "Đang quay về",
       ASSIGNED: "Đã phân công",
       DISPATCHED: "Đã điều phối",
+      ABORT_PENDING: "Đang chờ hủy",
+      ABORTED: "Đã hủy",
+      CANCELLED: "Đã hủy",
     };
     return labels[statusCode] || statusCode;
   }
 
-  // Map mission status code to color
   function getMissionStatusColor(statusCode: string): string {
     const colors: Record<string, string> = {
       EN_ROUTE: "bg-blue-500",
@@ -115,11 +111,13 @@ export function CurrentMissionsSection() {
       RETURNING: "bg-gray-500",
       ASSIGNED: "bg-indigo-500",
       DISPATCHED: "bg-blue-500",
+      ABORT_PENDING: "bg-orange-500",
+      ABORTED: "bg-red-500",
+      CANCELLED: "bg-red-500",
     };
     return colors[statusCode] || "bg-gray-500";
   }
 
-  // Calculate progress based on status
   function calculateProgress(statusCode: string): number {
     const progressMap: Record<string, number> = {
       EN_ROUTE: 25,
@@ -130,11 +128,13 @@ export function CurrentMissionsSection() {
       IN_PROGRESS: 75,
       RETURNING: 90,
       COMPLETED: 100,
+      ABORT_PENDING: 0,
+      ABORTED: 0,
+      CANCELLED: 0,
     };
     return progressMap[statusCode] || 0;
   }
 
-  // Format date
   function formatDate(dateString: string): string {
     const date = new Date(dateString);
     return date.toLocaleString("vi-VN", {
@@ -158,7 +158,6 @@ export function CurrentMissionsSection() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Missions List */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
               <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">
@@ -205,11 +204,9 @@ export function CurrentMissionsSection() {
             </div>
           </div>
 
-          {/* Mission Details */}
           <div className="lg:col-span-2">
             {selectedMission ? (
               <div className="space-y-4">
-                {/* Header Info */}
                 <div className="rounded-lg border border-gray-200 p-5 shadow-sm bg-white">
                   <div className="flex items-start justify-between mb-4">
                     <div>
@@ -234,13 +231,12 @@ export function CurrentMissionsSection() {
                     <span className="text-sm text-gray-700">
                       Trạng thái:{" "}
                       <span className="font-medium">
-                        {selectedMission.status}
+                        {getMissionStatusLabel(selectedMission.status)}
                       </span>
                     </span>
                   </div>
                 </div>
 
-                {/* Assigned Teams */}
                 <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
                   <h4 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">
                     Đội được phân công ({selectedMission.handlingTeams.length})
@@ -248,15 +244,12 @@ export function CurrentMissionsSection() {
 
                   <div className="space-y-3">
                     {selectedMission.handlingTeams.map((team) => {
-                      const progress = calculateProgress(
-                        team.missionStatusCode,
-                      );
+                      const progress = calculateProgress(team.missionStatusCode);
                       return (
                         <div
                           key={team.teamId}
                           className="rounded-lg border border-gray-200 bg-white p-4 hover:shadow-md transition"
                         >
-                          {/* Team Name & Status */}
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
@@ -284,7 +277,17 @@ export function CurrentMissionsSection() {
                             </span>
                           </div>
 
-                          {/* Progress */}
+                          {team.missionStatusCode === "ABORT_PENDING" && (
+                            <div className="mb-3">
+                              <button
+                                onClick={() => setShowDispatchModal(true)}
+                                className="text-xs px-3 py-1.5 rounded-md bg-blue-900 text-white font-semibold hover:bg-blue-800 transition-colors"
+                              >
+                                Điều phối team khác
+                              </button>
+                            </div>
+                          )}
+
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-semibold text-gray-700">
@@ -316,6 +319,21 @@ export function CurrentMissionsSection() {
             )}
           </div>
         </div>
+      )}
+
+      {selectedMission && (
+        <DispatchModal
+          isOpen={showDispatchModal}
+          onClose={() => setShowDispatchModal(false)}
+          requestId={selectedMission.id}
+          requestTitle={`Sự cố ${selectedMission.incidentCode}`}
+          location={selectedMission.location}
+          victimCount={0}
+          onDispatch={() => {
+            setShowDispatchModal(false);
+            void fetchIncidentsWithTeams();
+          }}
+        />
       )}
     </>
   );

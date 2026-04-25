@@ -3,7 +3,9 @@ import React, { createContext, useContext, useState, ReactNode } from "react";
 type ManagerMenuItemType =
   | "overview"
   | "inventory"
+  | "rescue-team"
   | "vehicle"
+  | "reports"
   | "event"
   | "import-export"
   | "settings"
@@ -12,8 +14,8 @@ type ManagerMenuItemType =
   | "relief-distribution";
 
 interface ManagerContextType {
-  activeMenu: string;
-  setActiveMenu: (menu: string) => void;
+  activeMenu: ManagerMenuItemType;
+  setActiveMenu: (menu: ManagerMenuItemType) => void;
 }
 
 const ManagerContext = createContext<ManagerContextType | undefined>(undefined);

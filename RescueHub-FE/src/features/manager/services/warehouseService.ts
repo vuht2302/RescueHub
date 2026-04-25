@@ -798,10 +798,31 @@ export interface Coordinates {
 // ─── Manager Teams ───────────────────────────────────────────────────────────
 export interface ManagerTeam {
   id: string;
+  code?: string;
   teamCode?: string;
-  teamName?: string;
   name?: string;
+  teamName?: string;
   status?: CodeName | { code?: string; name?: string; color?: string | null };
+  leader?: {
+    id: string;
+    username?: string;
+    displayName: string;
+    phone?: string;
+  } | null;
+  homeAdminArea?: {
+    id: string;
+    code?: string;
+    name: string;
+    levelCode?: string;
+  } | null;
+  maxParallelMissions?: number;
+  currentLocation?: Coordinates | null;
+  notes?: string;
+  memberCount?: number;
+  vehicleCount?: number;
+  createdAt?: string;
+  leaderUserId?: string;
+  homeAdminAreaId?: string;
 }
 
 export interface CreateTeamPayload {
@@ -816,12 +837,14 @@ export interface CreateTeamPayload {
 }
 
 export interface Team extends ManagerTeam {
+  code: string;
+  name: string;
   leaderUserId: string;
   leaderUser?: { id: string; displayName: string };
   homeAdminAreaId: string;
-  homeAdminArea?: { id: string; name: string };
+  homeAdminArea?: { id: string; name: string; code?: string; levelCode?: string };
   maxParallelMissions: number;
-  currentLocation?: Coordinates;
+  currentLocation?: Coordinates | null;
   notes: string;
   createdAt: string;
 }
@@ -829,6 +852,32 @@ export interface Team extends ManagerTeam {
 export interface TeamListParams {
   statusCode?: string;
   keyword?: string;
+}
+
+function normalizeManagerTeam(raw: ManagerTeam): Team {
+  const code = String(raw.code ?? raw.teamCode ?? "");
+  const name = String(raw.name ?? raw.teamName ?? "");
+  const leaderUserId = String(raw.leaderUserId ?? raw.leader?.id ?? "");
+  const homeAdminAreaId = String(
+    raw.homeAdminAreaId ?? raw.homeAdminArea?.id ?? "",
+  );
+  const maxParallelMissions = Number(raw.maxParallelMissions ?? 0);
+  const notes = String(raw.notes ?? "");
+  const createdAt = String(raw.createdAt ?? "");
+
+  return {
+    ...raw,
+    code,
+    teamCode: code,
+    name,
+    teamName: name,
+    leaderUserId,
+    homeAdminAreaId,
+    maxParallelMissions,
+    currentLocation: raw.currentLocation ?? null,
+    notes,
+    createdAt,
+  };
 }
 
 export async function getManagerTeams(
@@ -844,27 +893,30 @@ export async function getManagerTeams(
     { headers: authHeaders(token) },
   );
 
-  return Array.isArray(data) ? data : data.items;
+  const items = Array.isArray(data) ? data : data.items;
+  return items.map(normalizeManagerTeam);
 }
 
 export async function createManagerTeam(
   payload: CreateTeamPayload,
   token: string,
 ): Promise<Team> {
-  return apiFetch<Team>(`${BASE}/teams`, {
+  const data = await apiFetch<ManagerTeam>(`${BASE}/teams`, {
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(payload),
   });
+  return normalizeManagerTeam(data);
 }
 
 export async function getTeam(
   id: string,
   token: string,
 ): Promise<Team> {
-  return apiFetch<Team>(`${BASE}/teams/${id}`, {
+  const data = await apiFetch<ManagerTeam>(`${BASE}/teams/${id}`, {
     headers: authHeaders(token),
   });
+  return normalizeManagerTeam(data);
 }
 
 export async function updateManagerTeam(
@@ -872,11 +924,12 @@ export async function updateManagerTeam(
   payload: CreateTeamPayload,
   token: string,
 ): Promise<Team> {
-  return apiFetch<Team>(`${BASE}/teams/${id}`, {
+  const data = await apiFetch<ManagerTeam>(`${BASE}/teams/${id}`, {
     method: "PUT",
     headers: authHeaders(token),
     body: JSON.stringify(payload),
   });
+  return normalizeManagerTeam(data);
 }
 
 export async function deleteManagerTeam(

@@ -1773,9 +1773,8 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             .FirstOrDefaultAsync(x => x.id == request.WarehouseId)
             ?? throw new InvalidOperationException("Khong tim thay kho.");
 
-        var reliefRequest = await ResolveReliefRequestForDistributionCreation(request.TeamId, request.CampaignId);
-        var effectiveCampaignId = request.CampaignId ?? reliefRequest.campaign_id;
-        var effectiveAdminAreaId = request.AdminAreaId ?? reliefRequest.admin_area_id;
+        var effectiveCampaignId = request.CampaignId;
+        var effectiveAdminAreaId = request.AdminAreaId;
         var reliefPoint = await ResolveReliefPointForDistribution(effectiveCampaignId, effectiveAdminAreaId);
 
         var team = await dbContext.teams
@@ -1783,15 +1782,15 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             .FirstOrDefaultAsync(x => x.id == request.TeamId)
             ?? throw new InvalidOperationException("Khong tim thay team duoc phan cong.");
 
-        var recipientName = NormalizeRequired(reliefRequest.requester_name, nameof(reliefRequest.requester_name));
-        var recipientAddress = NormalizeRequired(reliefRequest.address_text, nameof(reliefRequest.address_text));
-        var normalizedRecipientPhone = NormalizeOptional(reliefRequest.requester_phone);
-        var recipientMemberCount = reliefRequest.household_count <= 0 ? 1 : reliefRequest.household_count;
+        var recipientName = $"TEAM {team.code}";
+        var recipientAddress = NormalizeRequired(reliefPoint.address_text, nameof(reliefPoint.address_text));
+        var recipientAdminAreaId = effectiveAdminAreaId ?? reliefPoint.admin_area_id;
+        var recipientMemberCount = 1;
 
         var household = await dbContext.households.FirstOrDefaultAsync(x =>
             x.head_name == recipientName &&
             x.address_text == recipientAddress &&
-            x.phone == normalizedRecipientPhone);
+            x.phone == null);
 
         if (household is null)
         {
@@ -1800,10 +1799,10 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 id = Guid.NewGuid(),
                 code = GenerateCode("HH"),
                 head_name = recipientName,
-                phone = normalizedRecipientPhone,
-                admin_area_id = reliefRequest.admin_area_id,
+                phone = null,
+                admin_area_id = recipientAdminAreaId,
                 address_text = recipientAddress,
-                geom = reliefRequest.geom,
+                geom = reliefPoint.geom,
                 member_count = recipientMemberCount,
                 vulnerable_count = 0
             };
@@ -1811,9 +1810,9 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         }
         else
         {
-            household.admin_area_id = reliefRequest.admin_area_id;
+            household.admin_area_id = recipientAdminAreaId;
             household.member_count = recipientMemberCount;
-            household.geom = reliefRequest.geom;
+            household.geom = reliefPoint.geom;
         }
 
         var ackMethod = NormalizeCode(request.AckMethodCode);
@@ -1830,7 +1829,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             campaign_id = effectiveCampaignId,
             relief_point_id = reliefPoint.id,
             household_id = household.id,
-            linked_incident_id = reliefRequest.linked_incident_id,
+            linked_incident_id = null,
             ack_method_code = ackMethod,
             status_code = "PENDING",
             note = NormalizeOptional(request.Note) is { Length: > 0 } note
@@ -1894,8 +1893,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             distributionId = distribution.id,
             distributionCode = distribution.code,
             ackCode,
-            team = new { id = team.id, code = team.code, name = team.name },
-            reliefRequest = new { id = reliefRequest.id, code = reliefRequest.code }
+            team = new { id = team.id, code = team.code, name = team.name }
         };
     }
 

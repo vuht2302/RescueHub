@@ -66,6 +66,12 @@ public sealed class IncidentService(IIncidentRepository repository) : IIncidentS
     public Task<object> TeamCreateAbortRequest(Guid missionId, TeamAbortRequest request)
         => repository.TeamCreateAbortRequest(missionId, request);
 
+    public Task<object> ListMissionAbortRequestsForCoordinator(string? statusCode, int page, int pageSize)
+        => repository.ListMissionAbortRequestsForCoordinator(statusCode, page, pageSize);
+
+    public Task<object> DecideMissionAbortRequest(Guid missionId, Guid abortRequestId, DecideMissionAbortRequest request)
+        => repository.DecideMissionAbortRequest(missionId, abortRequestId, request);
+
     public Task<object> TeamCreateSupportRequest(Guid missionId, TeamSupportRequest request)
         => repository.TeamCreateSupportRequest(missionId, request);
 

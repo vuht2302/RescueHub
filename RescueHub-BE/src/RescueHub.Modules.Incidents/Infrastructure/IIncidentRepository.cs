@@ -48,6 +48,10 @@ public interface IIncidentRepository
 
     Task<object> TeamCreateAbortRequest(Guid missionId, TeamAbortRequest request);
 
+    Task<object> ListMissionAbortRequestsForCoordinator(string? statusCode, int page, int pageSize);
+
+    Task<object> DecideMissionAbortRequest(Guid missionId, Guid abortRequestId, DecideMissionAbortRequest request);
+
     Task<object> TeamCreateSupportRequest(Guid missionId, TeamSupportRequest request);
 
     Task<object> TeamUpdateReliefDistributionStatus(Guid distributionId, TeamReliefStatusRequest request);

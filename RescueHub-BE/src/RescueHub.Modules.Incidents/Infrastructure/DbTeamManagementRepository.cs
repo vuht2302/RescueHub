@@ -59,6 +59,113 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
         return Task.FromResult<object>(data);
     }
 
+    public async Task<object> ListAdminAreas(string? keyword, string? levelCode, Guid? parentId, int page, int pageSize)
+    {
+        var normalizedPage = page <= 0 ? 1 : page;
+        var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 200);
+        var normalizedKeyword = NormalizeOptional(keyword);
+        var normalizedLevelCode = NormalizeOptional(levelCode)?.ToUpperInvariant();
+
+        var query = dbContext.admin_areas
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(normalizedKeyword))
+        {
+            query = query.Where(x => x.code.Contains(normalizedKeyword) || x.name.Contains(normalizedKeyword));
+        }
+
+        if (!string.IsNullOrWhiteSpace(normalizedLevelCode))
+        {
+            query = query.Where(x => x.level_code == normalizedLevelCode);
+        }
+
+        if (parentId.HasValue)
+        {
+            query = query.Where(x => x.parent_id == parentId.Value);
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderBy(x => x.level_code)
+            .ThenBy(x => x.code)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                levelCode = x.level_code,
+                parentId = x.parent_id
+            })
+            .ToListAsync();
+
+        var parentIds = items
+            .Where(x => x.parentId.HasValue)
+            .Select(x => x.parentId!.Value)
+            .Distinct()
+            .ToArray();
+
+        var parentLookup = await dbContext.admin_areas
+            .AsNoTracking()
+            .Where(x => parentIds.Contains(x.id))
+            .ToDictionaryAsync(x => x.id, x => new { x.id, x.code, x.name });
+
+        var shapedItems = items.Select(x => new
+        {
+            x.id,
+            x.code,
+            x.name,
+            x.levelCode,
+            parent = x.parentId.HasValue && parentLookup.TryGetValue(x.parentId.Value, out var parent)
+                ? parent
+                : null
+        });
+
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)normalizedPageSize);
+        return new
+        {
+            items = shapedItems,
+            page = normalizedPage,
+            pageSize = normalizedPageSize,
+            totalItems,
+            totalPages
+        };
+    }
+
+    public async Task<object> GetAdminArea(Guid adminAreaId)
+    {
+        var entity = await dbContext.admin_areas
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.id == adminAreaId)
+            ?? throw new InvalidOperationException("Khong tim thay admin area.");
+
+        var childCount = await dbContext.admin_areas
+            .AsNoTracking()
+            .CountAsync(x => x.parent_id == adminAreaId);
+
+        object? parent = null;
+        if (entity.parent_id.HasValue)
+        {
+            parent = await dbContext.admin_areas
+                .AsNoTracking()
+                .Where(x => x.id == entity.parent_id.Value)
+                .Select(x => new { id = x.id, code = x.code, name = x.name })
+                .FirstOrDefaultAsync();
+        }
+
+        return new
+        {
+            id = entity.id,
+            code = entity.code,
+            name = entity.name,
+            levelCode = entity.level_code,
+            parent,
+            childCount
+        };
+    }
+
     public async Task<object> ListTeams(string? keyword, string? statusCode)
     {
         var query = dbContext.teams
@@ -291,7 +398,18 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
         }
 
         await EnsureLeaderUserExists(request.LeaderUserId);
-        await EnsureAdminAreaExists(request.HomeAdminAreaId);
+        if (request.HomeBase is null)
+        {
+            throw new InvalidOperationException("HomeBase la bat buoc.");
+        }
+
+        var homeAddress = NormalizeRequired(request.HomeBase.Address, nameof(request.HomeBase.Address));
+        var homeAdminAreaId = await ResolveAdminAreaIdFromLocation(request.HomeBase.Location);
+        if (!homeAdminAreaId.HasValue)
+        {
+            throw new InvalidOperationException("Khong the suy ra admin area tu toa do home base.");
+        }
+        var currentLocation = request.CurrentLocation;
 
         var now = DateTime.UtcNow;
         var team = new team
@@ -300,11 +418,11 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
             code = normalizedCode,
             name = normalizedName,
             leader_user_id = request.LeaderUserId,
-            home_admin_area_id = request.HomeAdminAreaId,
+            home_admin_area_id = homeAdminAreaId.Value,
             status_code = normalizedStatusCode,
             max_parallel_missions = maxParallelMissions,
-            current_location = ToPointOrNull(request.CurrentLocation),
-            notes = NormalizeOptional(request.Notes),
+            current_location = ToPointOrNull(currentLocation),
+            notes = MergeTeamNotes(homeAddress, request.Notes),
             created_at = now
         };
 
@@ -1306,6 +1424,24 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
         }
     }
 
+    private async Task<Guid?> ResolveAdminAreaIdFromLocation(GeoPointRequest? location)
+    {
+        var point = ToPointOrNull(location);
+        if (point is null)
+        {
+            return null;
+        }
+
+        var areas = await dbContext.admin_areas
+            .AsNoTracking()
+            .Where(x => x.geom != null && x.geom.Contains(point))
+            .OrderBy(x => AdminAreaPriority(x.level_code))
+            .Select(x => (Guid?)x.id)
+            .ToListAsync();
+
+        return areas.FirstOrDefault();
+    }
+
     private async Task EnsureAppUserExists(Guid? userId)
     {
         if (!userId.HasValue)
@@ -1387,6 +1523,14 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
     private static object ToCodeItem(string code)
         => new { code, name = code, color = (string?)null };
 
+    private static string? MergeTeamNotes(string homeAddress, string? notes)
+    {
+        var normalizedNote = NormalizeOptional(notes);
+        return string.IsNullOrWhiteSpace(normalizedNote)
+            ? $"HOME_ADDRESS:{homeAddress}"
+            : $"HOME_ADDRESS:{homeAddress}; {normalizedNote}";
+    }
+
     private static void ValidateTeamStatus(string code)
     {
         if (!TeamStatusCodes.Contains(code))
@@ -1418,4 +1562,13 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
             throw new InvalidOperationException($"Status vehicle khong hop le: {code}");
         }
     }
+
+    private static int AdminAreaPriority(string? levelCode)
+        => levelCode?.ToUpperInvariant() switch
+        {
+            "WARD" => 0,
+            "DISTRICT" => 1,
+            "PROVINCE" => 2,
+            _ => 3
+        };
 }

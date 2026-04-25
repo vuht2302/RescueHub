@@ -222,4 +222,37 @@ public sealed class IncidentsController(IIncidentService service) : BaseApiContr
             return BadRequestResponse<object>(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Coordinator xem danh sach yeu cau huy nhiem vu cua team.
+    /// </summary>
+    [HttpGet("missions/abort-requests")]
+    public async Task<ActionResult<ApiResponse<object>>> ListMissionAbortRequests(
+        [FromQuery] string? statusCode,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+        => OkResponse<object>(
+            await service.ListMissionAbortRequestsForCoordinator(statusCode, page, pageSize),
+            "Lay danh sach yeu cau huy nhiem vu thanh cong");
+
+    /// <summary>
+    /// Coordinator duyet/tu choi yeu cau huy nhiem vu cua team.
+    /// </summary>
+    [HttpPost("missions/{missionId:guid}/abort-requests/{abortRequestId:guid}/decision")]
+    public async Task<ActionResult<ApiResponse<object>>> DecideMissionAbortRequest(
+        [FromRoute] Guid missionId,
+        [FromRoute] Guid abortRequestId,
+        [FromBody] DecideMissionAbortRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(
+                await service.DecideMissionAbortRequest(missionId, abortRequestId, request),
+                "Xu ly yeu cau huy nhiem vu thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
 }

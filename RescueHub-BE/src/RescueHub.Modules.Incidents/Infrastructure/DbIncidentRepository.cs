@@ -48,6 +48,12 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         "FINAL"
     ];
 
+    private static readonly HashSet<string> AbortDecisionCodes =
+    [
+        "APPROVE",
+        "REJECT"
+    ];
+
     public async Task<object> List()
     {
         var items = await dbContext.incidents
@@ -2101,6 +2107,17 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         return normalized;
     }
 
+    private static string NormalizeAbortDecisionCode(string? value)
+    {
+        var normalized = value?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalized) || !AbortDecisionCodes.Contains(normalized))
+        {
+            throw new InvalidOperationException("DecisionCode khong hop le. Chi nhan APPROVE hoac REJECT.");
+        }
+
+        return normalized;
+    }
+
     public async Task<object> TeamCreateAbortRequest(Guid missionId, TeamAbortRequest request)
     {
         var mission = await dbContext.missions
@@ -2149,6 +2166,156 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             status = abortRequest.status_code,
             missionStatusCode = mission.status_code,
             requestedAt = now
+        };
+    }
+
+    public async Task<object> ListMissionAbortRequestsForCoordinator(string? statusCode, int page, int pageSize)
+    {
+        var normalizedPage = page <= 0 ? 1 : page;
+        var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 200);
+        var normalizedStatusCode = string.IsNullOrWhiteSpace(statusCode)
+            ? null
+            : statusCode.Trim().ToUpperInvariant();
+
+        var query = dbContext.mission_abort_requests
+            .AsNoTracking()
+            .Include(x => x.mission)
+            .ThenInclude(x => x.incident)
+            .Include(x => x.mission)
+            .ThenInclude(x => x.mission_teams)
+            .ThenInclude(x => x.team)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(normalizedStatusCode))
+        {
+            query = query.Where(x => x.status_code == normalizedStatusCode);
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(x => x.requested_at)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(x => new
+            {
+                abortRequestId = x.id,
+                statusCode = x.status_code,
+                reasonCode = x.reason_code,
+                detailNote = x.detail_note,
+                requestedAt = x.requested_at,
+                decidedAt = x.decided_at,
+                mission = new
+                {
+                    id = x.mission.id,
+                    code = x.mission.code,
+                    statusCode = x.mission.status_code,
+                    primaryTeam = x.mission.mission_teams
+                        .Where(t => t.is_primary_team)
+                        .OrderByDescending(t => t.assigned_at)
+                        .Select(t => new
+                        {
+                            teamId = t.team_id,
+                            teamCode = t.team.code,
+                            teamName = t.team.name
+                        })
+                        .FirstOrDefault()
+                },
+                incident = new
+                {
+                    id = x.mission.incident.id,
+                    code = x.mission.incident.code,
+                    statusCode = x.mission.incident.status_code
+                }
+            })
+            .ToListAsync();
+
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)normalizedPageSize);
+        return new
+        {
+            items,
+            page = normalizedPage,
+            pageSize = normalizedPageSize,
+            totalItems,
+            totalPages
+        };
+    }
+
+    public async Task<object> DecideMissionAbortRequest(Guid missionId, Guid abortRequestId, DecideMissionAbortRequest request)
+    {
+        var decisionCode = NormalizeAbortDecisionCode(request.DecisionCode);
+        var note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
+
+        var abortRequest = await dbContext.mission_abort_requests
+            .Include(x => x.mission)
+            .FirstOrDefaultAsync(x => x.id == abortRequestId)
+            ?? throw new InvalidOperationException("Khong tim thay yeu cau huy nhiem vu.");
+
+        if (abortRequest.mission_id != missionId)
+        {
+            throw new InvalidOperationException("Abort request khong thuoc mission duoc chi dinh.");
+        }
+
+        if (!string.Equals(abortRequest.status_code, "PENDING", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Yeu cau huy nhiem vu da duoc xu ly truoc do.");
+        }
+
+        var mission = abortRequest.mission;
+        var now = DateTime.UtcNow;
+        var fromStatus = mission.status_code;
+        string toStatus;
+
+        if (decisionCode == "APPROVE")
+        {
+            toStatus = "ABORTED";
+            mission.status_code = toStatus;
+            mission.updated_at = now;
+            mission.completed_at ??= now;
+            abortRequest.status_code = "APPROVED";
+        }
+        else
+        {
+            var resumeStatus = await dbContext.mission_status_histories
+                .AsNoTracking()
+                .Where(x =>
+                    x.mission_id == missionId &&
+                    x.action_code == "REQUEST_ABORT" &&
+                    x.to_status_code == "ABORT_PENDING")
+                .OrderByDescending(x => x.changed_at)
+                .Select(x => x.from_status_code)
+                .FirstOrDefaultAsync();
+
+            toStatus = string.IsNullOrWhiteSpace(resumeStatus) ? "RESCUING" : resumeStatus;
+            mission.status_code = toStatus;
+            mission.updated_at = now;
+            abortRequest.status_code = "REJECTED";
+        }
+
+        abortRequest.decided_at = now;
+
+        dbContext.mission_status_histories.Add(new mission_status_history
+        {
+            id = Guid.NewGuid(),
+            mission_id = missionId,
+            from_status_code = fromStatus,
+            to_status_code = toStatus,
+            action_code = decisionCode == "APPROVE" ? "COORDINATOR_APPROVE_ABORT" : "COORDINATOR_REJECT_ABORT",
+            changed_at = now,
+            note = note
+        });
+
+        await SyncIncidentStatusFromMission(mission, now, note);
+
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            missionId,
+            abortRequestId,
+            decisionCode,
+            abortRequestStatusCode = abortRequest.status_code,
+            missionStatusCode = mission.status_code,
+            decidedAt = now
         };
     }
 

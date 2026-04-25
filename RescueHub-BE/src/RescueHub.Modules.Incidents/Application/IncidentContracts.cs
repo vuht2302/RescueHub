@@ -69,3 +69,7 @@ public sealed record IncidentReliefItemRequest(
     string SupportTypeCode,
     decimal RequestedQty,
     string? UnitCode);
+
+public sealed record DecideMissionAbortRequest(
+    string DecisionCode,
+    string? Note);

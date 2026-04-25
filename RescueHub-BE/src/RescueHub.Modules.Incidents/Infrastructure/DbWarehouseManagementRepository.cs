@@ -1111,7 +1111,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             query = query.Where(x => x.status_code == normalized);
         }
 
-        var items = await query
+        var campaigns = await query
             .OrderByDescending(x => x.start_at)
             .ThenBy(x => x.code)
             .Select(x => new
@@ -1123,10 +1123,55 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 adminArea = x.admin_area == null ? null : new { id = x.admin_area.id, code = x.admin_area.code, name = x.admin_area.name },
                 startAt = x.start_at,
                 endAt = x.end_at,
-                description = x.description,
-                reliefPointCount = x.relief_points.Count
+                description = x.description
             })
             .ToListAsync();
+
+        var campaignIds = campaigns.Select(x => x.id).ToArray();
+        var reliefPointRows = await dbContext.relief_points
+            .AsNoTracking()
+            .Include(x => x.admin_area)
+            .Where(x => campaignIds.Contains(x.campaign_id))
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                campaignId = x.campaign_id,
+                point = new
+                {
+                    id = x.id,
+                    code = x.code,
+                    name = x.name,
+                    statusCode = x.status_code,
+                    addressText = x.address_text,
+                    adminArea = x.admin_area == null ? null : new { id = x.admin_area.id, code = x.admin_area.code, name = x.admin_area.name }
+                }
+            })
+            .ToListAsync();
+
+        var reliefPointsByCampaign = reliefPointRows
+            .GroupBy(x => x.campaignId)
+            .ToDictionary(x => x.Key, x => x.Select(v => v.point).ToList());
+
+        var items = campaigns.Select(x =>
+        {
+            var reliefPoints = reliefPointsByCampaign.TryGetValue(x.id, out var points)
+                ? points
+                : [];
+
+            return new
+            {
+                x.id,
+                x.code,
+                x.name,
+                x.status,
+                x.adminArea,
+                x.startAt,
+                x.endAt,
+                x.description,
+                reliefPointCount = reliefPoints.Count,
+                reliefPoints
+            };
+        });
 
         return new { items };
     }
@@ -1446,10 +1491,25 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             })
             .ToListAsync();
 
+        var warehouses = await dbContext.warehouses
+            .AsNoTracking()
+            .Include(x => x.admin_area)
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                statusCode = x.status_code,
+                adminArea = x.admin_area == null ? null : new { id = x.admin_area.id, code = x.admin_area.code, name = x.admin_area.name }
+            })
+            .ToListAsync();
+
         return new
         {
             campaigns,
             reliefPoints,
+            warehouses,
             ackMethodCodes = AckMethodCodes.Order().Select(x => new { code = x, name = x }).ToArray(),
             distributionStatusCodes = DistributionStatusCodes.Order().Select(x => new { code = x, name = x }).ToArray()
         };
@@ -1708,10 +1768,13 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         await EnsureCampaignExists(request.CampaignId);
         await EnsureAdminAreaExists(request.AdminAreaId);
         await EnsureTeamExists(request.TeamId);
+        var warehouse = await dbContext.warehouses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.id == request.WarehouseId)
+            ?? throw new InvalidOperationException("Khong tim thay kho.");
 
-        var reliefRequest = await ResolveReliefRequestForDistributionCreation(request.TeamId, request.CampaignId);
-        var effectiveCampaignId = request.CampaignId ?? reliefRequest.campaign_id;
-        var effectiveAdminAreaId = request.AdminAreaId ?? reliefRequest.admin_area_id;
+        var effectiveCampaignId = request.CampaignId;
+        var effectiveAdminAreaId = request.AdminAreaId;
         var reliefPoint = await ResolveReliefPointForDistribution(effectiveCampaignId, effectiveAdminAreaId);
 
         var team = await dbContext.teams
@@ -1719,15 +1782,15 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             .FirstOrDefaultAsync(x => x.id == request.TeamId)
             ?? throw new InvalidOperationException("Khong tim thay team duoc phan cong.");
 
-        var recipientName = NormalizeRequired(reliefRequest.requester_name, nameof(reliefRequest.requester_name));
-        var recipientAddress = NormalizeRequired(reliefRequest.address_text, nameof(reliefRequest.address_text));
-        var normalizedRecipientPhone = NormalizeOptional(reliefRequest.requester_phone);
-        var recipientMemberCount = reliefRequest.household_count <= 0 ? 1 : reliefRequest.household_count;
+        var recipientName = $"TEAM {team.code}";
+        var recipientAddress = NormalizeRequired(reliefPoint.address_text, nameof(reliefPoint.address_text));
+        var recipientAdminAreaId = effectiveAdminAreaId ?? reliefPoint.admin_area_id;
+        var recipientMemberCount = 1;
 
         var household = await dbContext.households.FirstOrDefaultAsync(x =>
             x.head_name == recipientName &&
             x.address_text == recipientAddress &&
-            x.phone == normalizedRecipientPhone);
+            x.phone == null);
 
         if (household is null)
         {
@@ -1736,10 +1799,10 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 id = Guid.NewGuid(),
                 code = GenerateCode("HH"),
                 head_name = recipientName,
-                phone = normalizedRecipientPhone,
-                admin_area_id = reliefRequest.admin_area_id,
+                phone = null,
+                admin_area_id = recipientAdminAreaId,
                 address_text = recipientAddress,
-                geom = reliefRequest.geom,
+                geom = reliefPoint.geom,
                 member_count = recipientMemberCount,
                 vulnerable_count = 0
             };
@@ -1747,15 +1810,15 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         }
         else
         {
-            household.admin_area_id = reliefRequest.admin_area_id;
+            household.admin_area_id = recipientAdminAreaId;
             household.member_count = recipientMemberCount;
-            household.geom = reliefRequest.geom;
+            household.geom = reliefPoint.geom;
         }
 
         var ackMethod = NormalizeCode(request.AckMethodCode);
         EnsureAllowed(ackMethod, AckMethodCodes, nameof(request.AckMethodCode));
 
-        var warehouseId = await ResolveWarehouseForDistribution(reliefPoint.id);
+        var warehouseId = warehouse.id;
 
         await using var tx = await dbContext.Database.BeginTransactionAsync();
 
@@ -1766,7 +1829,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             campaign_id = effectiveCampaignId,
             relief_point_id = reliefPoint.id,
             household_id = household.id,
-            linked_incident_id = reliefRequest.linked_incident_id,
+            linked_incident_id = null,
             ack_method_code = ackMethod,
             status_code = "PENDING",
             note = NormalizeOptional(request.Note) is { Length: > 0 } note
@@ -1826,11 +1889,11 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
 
         return new
         {
+            id = distribution.id,
             distributionId = distribution.id,
             distributionCode = distribution.code,
             ackCode,
-            team = new { id = team.id, code = team.code, name = team.name },
-            reliefRequest = new { id = reliefRequest.id, code = reliefRequest.code }
+            team = new { id = team.id, code = team.code, name = team.name }
         };
     }
 
@@ -2233,33 +2296,6 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         }
 
         throw new InvalidOperationException("Khong tim thay relief point OPEN phu hop de tao phan phoi.");
-    }
-
-    private async Task<Guid> ResolveWarehouseForDistribution(Guid reliefPointId)
-    {
-        var reliefPoint = await dbContext.relief_points
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.id == reliefPointId)
-            ?? throw new InvalidOperationException("Khong tim thay diem cuu tro.");
-
-        var candidateWarehouse = await dbContext.warehouses
-            .AsNoTracking()
-            .Where(x => x.admin_area_id == reliefPoint.admin_area_id)
-            .OrderBy(x => x.code)
-            .FirstOrDefaultAsync();
-
-        if (candidateWarehouse is not null)
-        {
-            return candidateWarehouse.id;
-        }
-
-        var fallback = await dbContext.warehouses.AsNoTracking().OrderBy(x => x.code).FirstOrDefaultAsync();
-        if (fallback is null)
-        {
-            throw new InvalidOperationException("He thong chua co kho de cap phat.");
-        }
-
-        return fallback.id;
     }
 
     private async Task<relief_campaign> ResolveCampaignForReliefPoint(Guid? adminAreaId)

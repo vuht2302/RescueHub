@@ -6,6 +6,12 @@ public sealed class TeamManagementService(ITeamManagementRepository repository) 
 {
     public Task<object> GetStatusOptions() => repository.GetStatusOptions();
 
+    public Task<object> ListAdminAreas(string? keyword, string? levelCode, Guid? parentId, int page, int pageSize)
+        => repository.ListAdminAreas(keyword, levelCode, parentId, page, pageSize);
+
+    public Task<object> GetAdminArea(Guid adminAreaId)
+        => repository.GetAdminArea(adminAreaId);
+
     public Task<object> ListTeams(string? keyword, string? statusCode)
         => repository.ListTeams(keyword, statusCode);
 

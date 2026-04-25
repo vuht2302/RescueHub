@@ -2,11 +2,15 @@ namespace RescueHub.Modules.Incidents.Application;
 
 public sealed record GeoPointRequest(decimal Lat, decimal Lng);
 
+public sealed record TeamHomeRequest(
+    GeoPointRequest Location,
+    string Address);
+
 public sealed record CreateTeamRequest(
     string Code,
     string Name,
     Guid? LeaderUserId,
-    Guid? HomeAdminAreaId,
+    TeamHomeRequest HomeBase,
     string StatusCode,
     int? MaxParallelMissions,
     GeoPointRequest? CurrentLocation,

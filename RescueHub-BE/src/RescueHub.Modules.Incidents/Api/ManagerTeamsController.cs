@@ -20,6 +20,34 @@ public sealed class ManagerTeamsController(ITeamManagementService service) : Bas
         => OkResponse<object>(await service.GetStatusOptions(), "Lay status options thanh cong");
 
     /// <summary>
+    /// Lay danh sach dia ban hanh chinh cho manager.
+    /// </summary>
+    [HttpGet("admin-areas")]
+    public async Task<ActionResult<ApiResponse<object>>> ListAdminAreas(
+        [FromQuery] string? keyword,
+        [FromQuery] string? levelCode,
+        [FromQuery] Guid? parentId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+        => OkResponse<object>(await service.ListAdminAreas(keyword, levelCode, parentId, page, pageSize), "Lay danh sach dia ban hanh chinh thanh cong");
+
+    /// <summary>
+    /// Lay chi tiet dia ban hanh chinh cho manager.
+    /// </summary>
+    [HttpGet("admin-areas/{adminAreaId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> GetAdminArea([FromRoute] Guid adminAreaId)
+    {
+        try
+        {
+            return OkResponse<object>(await service.GetAdminArea(adminAreaId), "Lay chi tiet dia ban hanh chinh thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Lay danh sach team theo bo loc.
     /// </summary>
     [HttpGet("teams")]

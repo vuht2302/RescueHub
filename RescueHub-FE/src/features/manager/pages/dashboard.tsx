@@ -10,6 +10,7 @@ import { ImportExportSection } from "../components/ImportExportSection";
 import { VehicleManagementSection } from "../components/VehicleManagementSection";
 import { PendingVerificationSection } from "../components/PendingVerificationSection";
 import { ReliefHotspotMap } from "../components/ReliefHotspotMap";
+import { RescueTeamManagementSection } from "../components/RescueTeamManagementSection";
 import { ReliefRequestsPage } from "../../rescue-coordinator/pages/ReliefRequestsPage";
 import { ReliefDistributionPage } from "../pages/ReliefDistributionPage";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
@@ -75,6 +76,9 @@ export default function ManagerDashboard() {
 
         {/* Vehicle Management Section */}
         {activeMenu === "vehicle" && <VehicleManagementSection />}
+
+        {/* Rescue Team Management Section */}
+        {activeMenu === "rescue-team" && <RescueTeamManagementSection />}
 
         {/* Relief Distribution Section */}
         {activeMenu === "relief-distribution" && (

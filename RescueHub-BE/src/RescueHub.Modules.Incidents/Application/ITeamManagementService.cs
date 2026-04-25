@@ -4,6 +4,10 @@ public interface ITeamManagementService
 {
     Task<object> GetStatusOptions();
 
+    Task<object> ListAdminAreas(string? keyword, string? levelCode, Guid? parentId, int page, int pageSize);
+
+    Task<object> GetAdminArea(Guid adminAreaId);
+
     Task<object> ListTeams(string? keyword, string? statusCode);
 
     Task<object> GetTeam(Guid teamId);

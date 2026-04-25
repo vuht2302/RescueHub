@@ -101,6 +101,7 @@ public sealed record RecipientLocationRequest(
 public sealed record CreateDistributionRequest(
     Guid? CampaignId,
     Guid? AdminAreaId,
+    Guid WarehouseId,
     Guid TeamId,
     CreateDistributionLineRequest[] Lines,
     string AckMethodCode,

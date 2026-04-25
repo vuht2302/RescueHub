@@ -1446,10 +1446,25 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             })
             .ToListAsync();
 
+        var warehouses = await dbContext.warehouses
+            .AsNoTracking()
+            .Include(x => x.admin_area)
+            .OrderBy(x => x.code)
+            .Select(x => new
+            {
+                id = x.id,
+                code = x.code,
+                name = x.name,
+                statusCode = x.status_code,
+                adminArea = x.admin_area == null ? null : new { id = x.admin_area.id, code = x.admin_area.code, name = x.admin_area.name }
+            })
+            .ToListAsync();
+
         return new
         {
             campaigns,
             reliefPoints,
+            warehouses,
             ackMethodCodes = AckMethodCodes.Order().Select(x => new { code = x, name = x }).ToArray(),
             distributionStatusCodes = DistributionStatusCodes.Order().Select(x => new { code = x, name = x }).ToArray()
         };
@@ -1708,6 +1723,10 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         await EnsureCampaignExists(request.CampaignId);
         await EnsureAdminAreaExists(request.AdminAreaId);
         await EnsureTeamExists(request.TeamId);
+        var warehouse = await dbContext.warehouses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.id == request.WarehouseId)
+            ?? throw new InvalidOperationException("Khong tim thay kho.");
 
         var reliefRequest = await ResolveReliefRequestForDistributionCreation(request.TeamId, request.CampaignId);
         var effectiveCampaignId = request.CampaignId ?? reliefRequest.campaign_id;
@@ -1755,7 +1774,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         var ackMethod = NormalizeCode(request.AckMethodCode);
         EnsureAllowed(ackMethod, AckMethodCodes, nameof(request.AckMethodCode));
 
-        var warehouseId = await ResolveWarehouseForDistribution(reliefPoint.id);
+        var warehouseId = warehouse.id;
 
         await using var tx = await dbContext.Database.BeginTransactionAsync();
 
@@ -1826,6 +1845,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
 
         return new
         {
+            id = distribution.id,
             distributionId = distribution.id,
             distributionCode = distribution.code,
             ackCode,
@@ -2233,33 +2253,6 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         }
 
         throw new InvalidOperationException("Khong tim thay relief point OPEN phu hop de tao phan phoi.");
-    }
-
-    private async Task<Guid> ResolveWarehouseForDistribution(Guid reliefPointId)
-    {
-        var reliefPoint = await dbContext.relief_points
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.id == reliefPointId)
-            ?? throw new InvalidOperationException("Khong tim thay diem cuu tro.");
-
-        var candidateWarehouse = await dbContext.warehouses
-            .AsNoTracking()
-            .Where(x => x.admin_area_id == reliefPoint.admin_area_id)
-            .OrderBy(x => x.code)
-            .FirstOrDefaultAsync();
-
-        if (candidateWarehouse is not null)
-        {
-            return candidateWarehouse.id;
-        }
-
-        var fallback = await dbContext.warehouses.AsNoTracking().OrderBy(x => x.code).FirstOrDefaultAsync();
-        if (fallback is null)
-        {
-            throw new InvalidOperationException("He thong chua co kho de cap phat.");
-        }
-
-        return fallback.id;
     }
 
     private async Task<relief_campaign> ResolveCampaignForReliefPoint(Guid? adminAreaId)

@@ -14,9 +14,9 @@ import {
   getReliefCampaign,
   type ReliefCampaign,
   type ReliefCampaignDetail,
-} from "../services/warehouseService";
-import { getAuthSession } from "../../auth/services/authStorage";
-import { StatusBadge, CAMPAIGN_STATUS } from "../constants/statusConfig";
+} from "../../../services/warehouseService";
+import { getAuthSession } from "../../../../auth/services/authStorage";
+import { StatusBadge, CAMPAIGN_STATUS } from "../../../constants/statusConfig";
 
 interface ReliefCampaignTabProps {
   onSelectCampaign?: (campaign: ReliefCampaign) => void;

@@ -36,7 +36,7 @@ import {
 } from "../constants/statusConfig";
 import { DistributionDetailModal } from "../components/DistributionDetailModal";
 import { CreateReliefDistributionModal } from "../components/CreateReliefDistributionModal";
-import { ReliefCampaignTab } from "../components/ReliefCampaignTab";
+import { ReliefCampaignTab } from "../components/ReliefDistributionPage/TabReliefCampaign/ReliefCampaignTab";
 
 export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   className = "",

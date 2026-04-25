@@ -16,6 +16,7 @@ import {
   Calendar,
   Flag,
   Navigation,
+  Warehouse,
 } from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { ConfirmationModal } from "../../../shared/components/ConfirmationModal";
@@ -33,13 +34,15 @@ import {
   type ReliefPointStatusOption,
 } from "../services/reliefPointService";
 import {
+  getWarehouses,
+  createReliefCampaign,
+  type CreateReliefCampaignPayload,
+  type Warehouse as WarehouseType,
+} from "../services/warehouseService";
+import {
   AddressAutocomplete,
   type AddressSuggestion,
 } from "../../../shared/components/AddressAutocomplete";
-import {
-  createReliefCampaign,
-  type CreateReliefCampaignPayload,
-} from "../services/warehouseService";
 
 interface ReliefHotspotMapProps {
   className?: string;
@@ -129,9 +132,11 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
   const mapRef = useRef<vietmapgl.Map | null>(null);
   const hotspotMarkersRef = useRef<vietmapgl.Marker[]>([]);
   const reliefPointMarkersRef = useRef<vietmapgl.Marker[]>([]);
+  const warehouseMarkersRef = useRef<vietmapgl.Marker[]>([]);
 
   const [hotspots, setHotspots] = useState<ReliefHotspotItem[]>([]);
   const [reliefPoints, setReliefPoints] = useState<ReliefPointItem[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -178,6 +183,18 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       setReliefPoints(points);
     } catch (err) {
       console.error("Lỗi khi tải điểm cứu trợ:", err);
+    }
+  }, []);
+
+  const fetchWarehouses = React.useCallback(async () => {
+    try {
+      const authSession = getAuthSession();
+      if (!authSession?.accessToken) return;
+
+      const warehouseList = await getWarehouses(authSession.accessToken, { statusCode: "ACTIVE" });
+      setWarehouses(warehouseList);
+    } catch (err) {
+      console.error("Lỗi khi tải kho:", err);
     }
   }, []);
 
@@ -429,7 +446,8 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
   useEffect(() => {
     void fetchHotspots();
     void fetchReliefPoints();
-  }, [fetchHotspots, fetchReliefPoints]);
+    void fetchWarehouses();
+  }, [fetchHotspots, fetchReliefPoints, fetchWarehouses]);
 
   useEffect(() => {
     if (!isCreateModalOpen) return;
@@ -470,8 +488,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       resizeObserver.disconnect();
       hotspotMarkersRef.current.forEach((m) => m.remove());
       reliefPointMarkersRef.current.forEach((m) => m.remove());
+      warehouseMarkersRef.current.forEach((m) => m.remove());
       hotspotMarkersRef.current = [];
       reliefPointMarkersRef.current = [];
+      warehouseMarkersRef.current = [];
       map.remove();
       mapRef.current = null;
     };
@@ -668,6 +688,86 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       }
     }
   }, [reliefPoints, viewMode]);
+
+  // Update warehouse markers on map
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+
+    warehouseMarkersRef.current.forEach((m) => m.remove());
+    warehouseMarkersRef.current = [];
+
+    warehouses.forEach((warehouse) => {
+      if (!warehouse.location?.lat || !warehouse.location?.lng) return;
+
+      const { lat, lng } = warehouse.location;
+
+      const el = document.createElement("div");
+      el.style.width = "36px";
+      el.style.height = "36px";
+      el.style.borderRadius = "8px";
+      el.style.background = "#f59e0b";
+      el.style.border = "3px solid white";
+      el.style.boxShadow = "0 2px 8px rgba(245,158,11,0.6)";
+      el.style.display = "flex";
+      el.style.alignItems = "center";
+      el.style.justifyContent = "center";
+      el.style.cursor = "pointer";
+      el.style.transition = "box-shadow 0.2s ease, filter 0.2s ease";
+      el.style.zIndex = "1";
+
+      const icon = document.createElement("span");
+      icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
+      el.appendChild(icon);
+
+      el.addEventListener("mouseenter", () => {
+        el.style.filter = "brightness(1.08)";
+        el.style.boxShadow = "0 3px 12px rgba(245,158,11,0.7)";
+        el.style.zIndex = "10";
+      });
+      el.addEventListener("mouseleave", () => {
+        el.style.filter = "none";
+        el.style.boxShadow = "0 2px 8px rgba(245,158,11,0.6)";
+        el.style.zIndex = "1";
+      });
+
+      const marker = new vietmapgl.Marker({ element: el, anchor: "center" })
+        .setLngLat([lng, lat])
+        .addTo(map);
+
+      const popup = new vietmapgl.Popup({
+        offset: 20,
+        closeButton: false,
+      }).setHTML(
+        `<div style="font-family:sans-serif;padding:4px;min-width:180px">
+          <strong style="font-size:13px;color:#f59e0b">${warehouse.warehouseName}</strong><br/>
+          <span style="font-size:11px;color:#6b7280">${warehouse.adminArea?.name ?? "Không có khu vực"}</span><br/>
+          <span style="font-size:11px;color:#6b7280">Mã: <b>${warehouse.warehouseCode}</b></span>
+        </div>`,
+      );
+      marker.setPopup(popup);
+
+      warehouseMarkersRef.current.push(marker);
+    });
+
+    // Include warehouses in bounds
+    if (warehouses.length > 0) {
+      const validWarehouses = warehouses.filter(
+        (w) => w.location?.lat && w.location?.lng
+      );
+      if (validWarehouses.length > 0 && viewMode === "both") {
+        const bounds = new vietmapgl.LngLatBounds();
+        validWarehouses.forEach((w) => {
+          if (w.location) {
+            bounds.extend([w.location.lng, w.location.lat]);
+          }
+        });
+        if (!bounds.isEmpty()) {
+          map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 800 });
+        }
+      }
+    }
+  }, [warehouses, viewMode]);
 
   const formatTime = (isoString: string) => {
     try {
@@ -930,6 +1030,14 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                 <div className="w-4 h-4 rounded-full bg-[#007399] border-2 border-white shadow-sm flex-shrink-0" />
                 <span className="text-xs text-gray-600 font-medium">
                   Điểm cứu trợ
+                </span>
+              </div>
+            )}
+            {warehouses.length > 0 && (
+              <div className="flex items-center gap-2 mt-1 pt-1 border-t border-gray-200">
+                <div className="w-4 h-4 rounded bg-amber-500 border-2 border-white shadow-sm flex-shrink-0" />
+                <span className="text-xs text-gray-600 font-medium">
+                  Kho cứu trợ
                 </span>
               </div>
             )}

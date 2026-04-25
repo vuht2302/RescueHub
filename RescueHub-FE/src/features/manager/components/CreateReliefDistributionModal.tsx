@@ -18,8 +18,11 @@ import {
   getItemsWithLots,
   createDistribution,
   getReliefCampaign,
+  getWarehouses,
+  getStocks,
   type ManagerTeam,
   type ItemWithLots,
+  type Warehouse,
 } from "../services/warehouseService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -196,6 +199,59 @@ export function CreateReliefDistributionModal({
   const [ackMethodCode, setAckMethodCode] = useState("OTP");
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<DistributionLine[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [warehouseId, setWarehouseId] = useState("");
+
+  // Load stocks for selected warehouse
+  const loadWarehouseStocks = useCallback(async (whId: string) => {
+    try {
+      const token = getAuthSession()?.accessToken ?? "";
+      const stockResponse = await getStocks(token, {
+        warehouseId: whId,
+        pageSize: 100,
+      });
+      const stocks = stockResponse.items ?? [];
+
+      // Transform stocks to items with lots
+      const itemMap = new Map<string, ItemWithLots>();
+      for (const stock of stocks) {
+        if (!itemMap.has(stock.item.id)) {
+          itemMap.set(stock.item.id, {
+            id: stock.item.id,
+            itemCode: stock.item.code,
+            itemName: stock.item.name,
+            itemCategoryCode: "",
+            itemCategory: { id: "", code: "", name: "" },
+            unitCode: stock.item.unitCode,
+            requiresLotTracking: true,
+            requiresExpiryTracking: false,
+            issuePolicyCode: "FIFO",
+            isActive: true,
+            lotCount: 0,
+            lots: [],
+            totalQtyAvailable: 0,
+          });
+        }
+
+        const item = itemMap.get(stock.item.id)!;
+        item.totalQtyAvailable += stock.qtyAvailable;
+
+        if (stock.lot) {
+          item.lots.push({
+            id: stock.lot.id,
+            lotNo: stock.lot.lotNo,
+            expDate: stock.lot.expDate ?? null,
+            statusCode: stock.lot.statusCode ?? "ACTIVE",
+          });
+          item.lotCount++;
+        }
+      }
+
+      setItemsWithLots(Array.from(itemMap.values()));
+    } catch (e) {
+      console.error("Lỗi tải tồn kho:", e);
+    }
+  }, []);
 
   // Load initial data
   const loadData = useCallback(async () => {
@@ -204,6 +260,12 @@ export function CreateReliefDistributionModal({
       const options = await getDistributionOptions(token);
       setCampaigns(options.campaigns);
       setAckMethodCodes(options.ackMethodCodes);
+
+      // Load warehouses
+      const warehouseList = await getWarehouses(token, {
+        statusCode: "ACTIVE",
+      });
+      setWarehouses(warehouseList);
 
       // Load campaign detail if initialCampaignId is provided
       if (initialCampaignId) {
@@ -215,6 +277,16 @@ export function CreateReliefDistributionModal({
           code: detail.code,
           adminAreaName: detail.adminArea?.name,
         });
+
+        // Auto-select warehouse matching campaign's adminArea
+        const matchingWarehouse = warehouseList.find(
+          (w) => w.adminArea?.id === detail.adminArea?.id,
+        );
+        if (matchingWarehouse) {
+          setWarehouseId(matchingWarehouse.id);
+          // Load stocks for this warehouse
+          await loadWarehouseStocks(matchingWarehouse.id);
+        }
       }
 
       const teamItems = await getManagerTeams(token, {
@@ -232,20 +304,31 @@ export function CreateReliefDistributionModal({
         })
         .filter((team) => team.statusCode === "AVAILABLE");
       setTeams(mappedTeams);
-
-      // Load items with lots
-      const items = await getItemsWithLots(token);
-      setItemsWithLots(items);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lỗi tải dữ liệu");
     } finally {
       setLoading(false);
     }
-  }, [initialCampaignId]);
+  }, [initialCampaignId, loadWarehouseStocks]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  // Handle warehouse selection
+  const handleWarehouseChange = async (newWarehouseId: string) => {
+    setWarehouseId(newWarehouseId);
+    setLines([]); // Clear existing lines when warehouse changes
+
+    if (newWarehouseId) {
+      await loadWarehouseStocks(newWarehouseId);
+    } else {
+      // Load all items if no warehouse selected
+      const token = getAuthSession()?.accessToken ?? "";
+      const items = await getItemsWithLots(token);
+      setItemsWithLots(items);
+    }
+  };
 
   // Handle campaign selection
   const handleCampaignChange = async (newCampaignId: string) => {
@@ -260,12 +343,24 @@ export function CreateReliefDistributionModal({
           code: detail.code,
           adminAreaName: detail.adminArea?.name,
         });
+
+        // Auto-select warehouse matching campaign's adminArea
+        const matchingWarehouse = warehouses.find(
+          (w) => w.adminArea?.id === detail.adminArea?.id,
+        );
+        if (matchingWarehouse) {
+          setWarehouseId(matchingWarehouse.id);
+          await loadWarehouseStocks(matchingWarehouse.id);
+        } else {
+          setWarehouseId("");
+        }
       } catch (e) {
         toast.error("Không thể tải thông tin chiến dịch");
       }
     } else {
       setAdminAreaId("");
       setCampaignDetail(null);
+      setWarehouseId("");
     }
   };
 
@@ -303,10 +398,8 @@ export function CreateReliefDistributionModal({
           if (item) {
             updated.unitCode = item.unitCode;
             updated.itemName = item.itemName;
-            // Set available qty from lots
-            const totalAvailable =
-              item.lots?.reduce((sum, lot) => sum + (lot.qty ?? 0), 0) ?? 0;
-            updated.availableQty = totalAvailable;
+            // Set available qty from stock data
+            updated.availableQty = item.totalQtyAvailable ?? 0;
           }
         }
 
@@ -328,6 +421,10 @@ export function CreateReliefDistributionModal({
       toast.error("Vui lòng chọn đội cứu trợ");
       return;
     }
+    if (!warehouseId) {
+      toast.error("Vui lòng chọn kho xuất hàng");
+      return;
+    }
     if (lines.length === 0) {
       toast.error("Vui lòng thêm ít nhất một vật phẩm");
       return;
@@ -345,6 +442,7 @@ export function CreateReliefDistributionModal({
       const payload = {
         campaignId,
         adminAreaId,
+        warehouseId,
         teamId,
         lines: lines.map((l) => ({
           itemId: l.itemId,
@@ -438,22 +536,43 @@ export function CreateReliefDistributionModal({
                   <AlertCircle size={16} />
                   Thông tin điều phối
                 </h3>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                    Đội cứu trợ <span className="text-red-500">*</span>
-                  </label>
-                  <SearchableSelect
-                    value={teamId}
-                    onChange={setTeamId}
-                    options={teams}
-                    getLabel={(team) =>
-                      team.code ? `${team.name} (${team.code})` : team.name
-                    }
-                    getSubLabel={() => "AVAILABLE"}
-                    placeholder="-- Chọn đội có sẵn"
-                    searchPlaceholder="Tìm đội cứu trợ..."
-                    loading={loading}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                      Đội cứu trợ <span className="text-red-500">*</span>
+                    </label>
+                    <SearchableSelect
+                      value={teamId}
+                      onChange={setTeamId}
+                      options={teams}
+                      getLabel={(team) =>
+                        team.code ? `${team.name} (${team.code})` : team.name
+                      }
+                      getSubLabel={() => "AVAILABLE"}
+                      placeholder="-- Chọn đội có sẵn"
+                      searchPlaceholder="Tìm đội cứu trợ..."
+                      loading={loading}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                      Kho xuất hàng <span className="text-red-500">*</span>
+                    </label>
+                    <SearchableSelect
+                      value={warehouseId}
+                      onChange={handleWarehouseChange}
+                      options={warehouses}
+                      getLabel={(wh) =>
+                        wh.warehouseCode
+                          ? `${wh.warehouseName} (${wh.warehouseCode})`
+                          : wh.warehouseName
+                      }
+                      getSubLabel={(wh) => wh.adminArea?.name ?? ""}
+                      placeholder="-- Chọn kho"
+                      searchPlaceholder="Tìm kho..."
+                      loading={loading}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -522,16 +641,13 @@ export function CreateReliefDistributionModal({
                               <option value="">-- Chọn vật phẩm --</option>
                               {availableItems.map((item) => {
                                 const totalAvailable =
-                                  item.lots?.reduce(
-                                    (sum, lot) => sum + (lot.qty ?? 0),
-                                    0,
-                                  ) ?? 0;
+                                  item.totalQtyAvailable ?? 0;
                                 return (
                                   <option key={item.id} value={item.id}>
                                     {item.itemName} ({item.itemCode})
                                     {totalAvailable > 0
-                                      ? ` - Còn: ${totalAvailable}`
-                                      : ""}
+                                      ? ` - Còn: ${totalAvailable} ${item.unitCode}`
+                                      : " - Hết hàng"}
                                   </option>
                                 );
                               })}

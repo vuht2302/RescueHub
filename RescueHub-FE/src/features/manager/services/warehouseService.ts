@@ -238,12 +238,12 @@ export interface ItemWithLots {
   issuePolicyCode: string;
   isActive: boolean;
   lotCount: number;
+  totalQtyAvailable?: number;
   lots: Array<{
     id: string;
     lotNo: string;
     expDate: string | null;
     statusCode: string;
-    receivedAt: string;
   }>;
 }
 
@@ -858,10 +858,7 @@ export async function createManagerTeam(
   });
 }
 
-export async function getTeam(
-  id: string,
-  token: string,
-): Promise<Team> {
+export async function getTeam(id: string, token: string): Promise<Team> {
   return apiFetch<Team>(`${BASE}/teams/${id}`, {
     headers: authHeaders(token),
   });
@@ -888,7 +885,6 @@ export async function deleteManagerTeam(
     headers: authHeaders(token),
   });
 }
-
 
 // ─── MAN-10  Relief Campaign ──────────────────────────────────────────────────
 export interface ReliefCampaign {
@@ -918,11 +914,12 @@ export async function getReliefCampaigns(
   if (params.statusCode) q.set("statusCode", params.statusCode);
   if (params.adminAreaId) q.set("adminAreaId", params.adminAreaId);
 
-  const data = await apiFetch<
-    ReliefCampaign[] | PagedResponse<ReliefCampaign>
-  >(`${BASE}/relief-campaigns?${q.toString()}`, {
-    headers: authHeaders(token),
-  });
+  const data = await apiFetch<ReliefCampaign[] | PagedResponse<ReliefCampaign>>(
+    `${BASE}/relief-campaigns?${q.toString()}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
 
   return Array.isArray(data)
     ? data

@@ -225,7 +225,34 @@ export interface ItemPayload {
   isActive: boolean;
 }
 
-// Item with embedded lots (from /api/v1/manager/items)
+// Item list response from /api/v1/manager/items
+export interface ItemListResponse {
+  items: ItemListItem[];
+}
+
+export interface ItemListItem {
+  id: string;
+  itemCode: string;
+  itemName: string;
+  itemCategoryCode: string;
+  itemCategory: { id: string; code: string; name: string };
+  unitCode: string;
+  requiresLotTracking: boolean;
+  requiresExpiryTracking: boolean;
+  issuePolicyCode: string;
+  expDate: string | null;
+  receivedAt: string;
+  isActive: boolean;
+}
+
+export async function getAllItems(token: string): Promise<ItemListItem[]> {
+  const data = await apiFetch<ItemListResponse>(`${BASE}/items`, {
+    headers: authHeaders(token),
+  });
+  return data.items ?? [];
+}
+
+// Item with embedded lots (from /api/v1/manager/items with lots detail)
 export interface ItemWithLots {
   id: string;
   itemCode: string;
@@ -237,6 +264,8 @@ export interface ItemWithLots {
   requiresExpiryTracking: boolean;
   issuePolicyCode: string;
   isActive: boolean;
+  expDate: string | null;
+  receivedAt: string;
   lotCount: number;
   totalQtyAvailable?: number;
   lots: Array<{
@@ -847,7 +876,12 @@ export interface Team extends ManagerTeam {
   leaderUserId: string;
   leaderUser?: { id: string; displayName: string };
   homeAdminAreaId: string;
-  homeAdminArea?: { id: string; name: string; code?: string; levelCode?: string };
+  homeAdminArea?: {
+    id: string;
+    name: string;
+    code?: string;
+    levelCode?: string;
+  };
   maxParallelMissions: number;
   currentLocation?: Coordinates | null;
   notes: string;
@@ -914,11 +948,7 @@ export async function createManagerTeam(
   return normalizeManagerTeam(data);
 }
 
-
-export async function getTeam(
-  id: string,
-  token: string,
-): Promise<Team> {
+export async function getTeam(id: string, token: string): Promise<Team> {
   const data = await apiFetch<ManagerTeam>(`${BASE}/teams/${id}`, {
     headers: authHeaders(token),
   });
@@ -988,15 +1018,55 @@ export async function getReliefCampaigns(
     : (data as PagedResponse<ReliefCampaign>).items;
 }
 
-export interface ReliefPointSummary {
+export interface ReliefPointDetail {
   id: string;
   code: string;
   name: string;
   statusCode: string;
+  addressText: string | null;
+  adminAreaId: string | null;
+  adminArea: { id: string; code: string; name: string } | null;
+}
+
+export interface ReliefRequestItem {
+  reliefRequestItemId: string;
+  supportTypeCode: string;
+  supportTypeName: string;
+  requestedQty: number;
+  approvedQty: number;
+  unitCode: string;
+}
+
+export interface ReliefRequestSummary {
+  total: number;
+  newCount: number;
+  approvedCount: number;
+  fulfilledCount: number;
+  rejectedCount: number;
+  cancelledCount: number;
+}
+
+export interface ReliefRequestDetail {
+  id: string;
+  code: string;
+  sourceTypeCode: string;
+  status: CodeName;
+  requester: { name: string; phone: string };
+  householdCount: number;
+  addressText: string;
+  adminArea: { id: string; code: string; name: string };
+  location: { lat: number; lng: number } | null;
+  incident: { id: string; code: string; name: string } | null;
+  items: ReliefRequestItem[];
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ReliefCampaignDetail extends ReliefCampaign {
-  reliefPoints: ReliefPointSummary[];
+  reliefPoints: ReliefPointDetail[];
+  reliefRequestSummary: ReliefRequestSummary;
+  reliefRequests: ReliefRequestDetail[];
 }
 
 export async function getReliefCampaign(
@@ -1031,4 +1101,34 @@ export async function createReliefCampaign(
     headers: authHeaders(token),
     body: JSON.stringify(payload),
   });
+}
+
+// ─── MAN-11  Relief Request Approval ─────────────────────────────────────────
+export interface ApproveReliefRequestItem {
+  reliefRequestItemId: string;
+  supportTypeCode?: string;
+  itemId?: string;
+  approvedQty: number;
+  unitCode: string;
+}
+
+export interface ApproveReliefRequestPayload {
+  decisionCode: string;
+  note?: string;
+  items: ApproveReliefRequestItem[];
+}
+
+export async function approveReliefRequest(
+  reliefRequestId: string,
+  payload: ApproveReliefRequestPayload,
+  token: string,
+): Promise<void> {
+  await apiFetch<unknown>(
+    `${BASE}/relief-requests/${reliefRequestId}/approve`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    },
+  );
 }

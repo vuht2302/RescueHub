@@ -57,6 +57,10 @@ public sealed record StandardizedReliefItemRequest(
     decimal ApprovedQty,
     string? UnitCode);
 
+public sealed record ApproveReliefRequest(
+    string? Note,
+    IReadOnlyCollection<StandardizedReliefItemRequest>? Items);
+
 public sealed record RejectReliefRequest(
     string? Note);
 

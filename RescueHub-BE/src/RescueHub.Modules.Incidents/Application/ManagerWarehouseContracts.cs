@@ -118,7 +118,8 @@ public sealed record CreateReliefCampaignRequest(
     DateTime? EndAt,
     string StatusCode,
     string? Description,
-    Guid[]? ReliefPointIds);
+    Guid[]? ReliefPointIds,
+    Guid[]? ReliefRequestIds);
 
 public sealed record UpdateReliefCampaignRequest(
     string Code,
@@ -128,7 +129,8 @@ public sealed record UpdateReliefCampaignRequest(
     DateTime? EndAt,
     string StatusCode,
     string? Description,
-    Guid[]? ReliefPointIds);
+    Guid[]? ReliefPointIds,
+    Guid[]? ReliefRequestIds);
 
 public sealed record UpdateReliefRequestStatusRequest(
     string StatusCode,

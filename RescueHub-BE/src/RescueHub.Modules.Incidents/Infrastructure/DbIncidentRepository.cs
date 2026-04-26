@@ -1504,7 +1504,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
 
         if (approvedItems.Count == 0)
         {
-            throw new InvalidOperationException("Khong co item nao duoc phe duyet sau chuan hoa.");
+            throw new InvalidOperationException("Khong co item nao duoc phe duyet. Vui long bo sung items can cap phat khi approve relief request.");
         }
 
         reliefRequest.status_code = "APPROVED";

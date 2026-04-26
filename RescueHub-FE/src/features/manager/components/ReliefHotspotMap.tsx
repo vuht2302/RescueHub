@@ -91,7 +91,7 @@ const buildInitialCreateForm = (): CreateReliefPointFormState => {
     code: "",
     name: "",
     addressText: "",
-    statusCode: "OPEN",
+    statusCode: "Đang mở",
   };
 };
 
@@ -110,7 +110,10 @@ const buildInitialCampaignForm = (): CreateCampaignFormState => {
   };
 };
 
-const getDistanceKm = (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
+const getDistanceKm = (
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+) => {
   const toRad = (value: number) => (value * Math.PI) / 180;
   const earthRadiusKm = 6371;
   const dLat = toRad(to.lat - from.lat);
@@ -163,8 +166,8 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     [],
   );
   const [isCreateCampaignOpen, setIsCreateCampaignOpen] = useState(false);
-  const [campaignForm, setCampaignForm] = useState<CreateCampaignFormState>(() =>
-    buildInitialCampaignForm(),
+  const [campaignForm, setCampaignForm] = useState<CreateCampaignFormState>(
+    () => buildInitialCampaignForm(),
   );
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
   const [campaignError, setCampaignError] = useState<string | null>(null);
@@ -179,7 +182,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
         throw new Error("Không có token xác thực.");
       }
 
-      const points = await getManagerReliefPoints(authSession.accessToken, "OPEN");
+      const points = await getManagerReliefPoints(
+        authSession.accessToken,
+        "OPEN",
+      );
       setReliefPoints(points);
     } catch (err) {
       console.error("Lỗi khi tải điểm cứu trợ:", err);
@@ -191,7 +197,9 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       const authSession = getAuthSession();
       if (!authSession?.accessToken) return;
 
-      const warehouseList = await getWarehouses(authSession.accessToken, { statusCode: "ACTIVE" });
+      const warehouseList = await getWarehouses(authSession.accessToken, {
+        statusCode: "ACTIVE",
+      });
       setWarehouses(warehouseList);
     } catch (err) {
       console.error("Lỗi khi tải kho:", err);
@@ -321,7 +329,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
         throw new Error("Không có token xác thực.");
       }
 
-      await deleteManagerReliefPoint(authSession.accessToken, selectedReliefPoint.id);
+      await deleteManagerReliefPoint(
+        authSession.accessToken,
+        selectedReliefPoint.id,
+      );
       setSelectedReliefPoint(null);
       setIsDeleteConfirmOpen(false);
       await fetchReliefPoints();
@@ -386,7 +397,9 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
   };
 
   const handleCampaignFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
   ) => {
     const { name, value } = e.target;
     setCampaignForm((prev) => ({ ...prev, [name]: value }));
@@ -412,11 +425,23 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       .map((p) => ({
         ...p,
         distanceKm: getDistanceKm(
-          { lat: selectedHotspot.center!.lat, lng: selectedHotspot.center!.lng },
+          {
+            lat: selectedHotspot.center!.lat,
+            lng: selectedHotspot.center!.lng,
+          },
           { lat: p.location.lat, lng: p.location.lng },
         ),
       }))
       .sort((a, b) => a.distanceKm - b.distanceKm);
+  };
+
+  const getStatusNameVi = (statusCode: string): string => {
+    const statusMap: Record<string, string> = {
+      OPEN: "Đang mở",
+      CLOSED: "Đã đóng",
+      SUSPENDED: "Tạm ngưng",
+    };
+    return statusMap[statusCode] || statusCode;
   };
 
   const fetchHotspots = React.useCallback(async () => {
@@ -656,8 +681,8 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
         `<div style="font-family:sans-serif;padding:4px;min-width:180px">
           <strong style="font-size:13px;color:#007399">${point.name}</strong><br/>
           <span style="font-size:11px;color:#6b7280">${point.addressText}</span><br/>
-          <span style="font-size:11px;color:#6b7280">Chiến dịch: <b>${point.campaign.name}</b></span><br/>
-          <span style="font-size:11px;color:#6b7280">Trạng thái: <b>${point.status.name}</b></span>
+          <span style="font-size:11px;color:#6b7280">Chiến dịch: <b>${point.campaign?.name || "N/A"}</b></span><br/>
+          <span style="font-size:11px;color:#6b7280">Trạng thái: <b>${getStatusNameVi(point.status?.code)}</b></span>
         </div>`,
       );
       marker.setPopup(popup);
@@ -753,7 +778,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     // Include warehouses in bounds
     if (warehouses.length > 0) {
       const validWarehouses = warehouses.filter(
-        (w) => w.location?.lat && w.location?.lng
+        (w) => w.location?.lat && w.location?.lng,
       );
       if (validWarehouses.length > 0 && viewMode === "both") {
         const bounds = new vietmapgl.LngLatBounds();
@@ -985,10 +1010,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
             </p>
             <div className="mt-2 flex items-center gap-2">
               <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-blue-50 text-blue-600">
-                {selectedReliefPoint.status.name}
+                {getStatusNameVi(selectedReliefPoint.status?.code)}
               </span>
               <span className="text-[10px] text-gray-500">
-                {selectedReliefPoint.campaign.name}
+                {selectedReliefPoint.campaign?.name || "N/A"}
               </span>
             </div>
             {deleteError && (
@@ -1342,7 +1367,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                         </div>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-green-100 text-green-600">
-                        {point.status.name}
+                        {getStatusNameVi(point.status?.code)}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 truncate">
@@ -1453,7 +1478,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                             </p>
                           </div>
                           <span className="text-xs font-bold text-green-600">
-                            {point.status.name}
+                            {getStatusNameVi(point.status?.code)}
                           </span>
                         </div>
                       </div>
@@ -1518,7 +1543,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                 >
                   {statusOptions.map((status) => (
                     <option key={status.code} value={status.code}>
-                      {status.name}
+                      {getStatusNameVi(status.code)}
                     </option>
                   ))}
                 </select>
@@ -1599,7 +1624,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                   Tạo chiến dịch cứu trợ
                 </h4>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Vùng: <span className="font-semibold">{selectedHotspot.areaName}</span>
+                  Vùng:{" "}
+                  <span className="font-semibold">
+                    {selectedHotspot.areaName}
+                  </span>
                 </p>
               </div>
               <button
@@ -1614,7 +1642,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleCreateCampaign} className="flex-1 overflow-y-auto px-5 py-4">
+            <form
+              onSubmit={handleCreateCampaign}
+              className="flex-1 overflow-y-auto px-5 py-4"
+            >
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-gray-600 block mb-1">
@@ -1703,7 +1734,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                   ) : (
                     <div className="divide-y divide-gray-100">
                       {getReliefPointsWithDistance().map((point) => {
-                        const isSelected = campaignForm.selectedReliefPointIds.includes(point.id);
+                        const isSelected =
+                          campaignForm.selectedReliefPointIds.includes(
+                            point.id,
+                          );
                         return (
                           <div
                             key={point.id}
@@ -1722,8 +1756,18 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                               }`}
                             >
                               {isSelected && (
-                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                <svg
+                                  className="w-3 h-3 text-white"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={3}
+                                    d="M5 13l4 4L19 7"
+                                  />
                                 </svg>
                               )}
                             </div>

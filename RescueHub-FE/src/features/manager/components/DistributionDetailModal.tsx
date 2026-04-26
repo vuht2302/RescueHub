@@ -129,25 +129,27 @@ export function DistributionDetailModal({
             <div className="bg-blue-50 rounded-xl p-4">
               <h3 className="text-sm font-bold text-blue-800 mb-3">
                 <User size={16} className="inline mr-2" />
-                Hộ dân nhận cứu trợ
+                Thông tin nhận cứu trợ
               </h3>
               <div className="grid grid-cols-3 gap-3 text-sm">
                 <div>
-                  <span className="text-xs text-gray-500 block">Họ tên</span>
+                  <span className="text-xs text-gray-500 block">Team</span>
                   <p className="font-semibold">{dist.recipient?.name || "—"}</p>
                 </div>
-                <div>
+                {/* <div>
                   <span className="text-xs text-gray-500 block">SĐT</span>
                   <p className="font-semibold text-blue-700">
                     {dist.recipient?.phone || "—"}
                   </p>
-                </div>
+                </div> */}
                 <div>
                   <span className="text-xs text-gray-500 block">Ngày tạo</span>
                   <p className="font-semibold">{formatDate(dist.createdAt)}</p>
                 </div>
-                <div className="col-span-3">
-                  <span className="text-xs text-gray-500 block">Địa chỉ</span>
+                <div>
+                  <span className="text-xs text-gray-500 block">
+                    Điểm cứu trợ
+                  </span>
                   <p className="font-semibold">
                     {dist.recipient?.address || "—"}
                   </p>
@@ -156,9 +158,7 @@ export function DistributionDetailModal({
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-xs text-gray-500 block">
-                  Khu vực
-                </span>
+                <span className="text-xs text-gray-500 block">Khu vực</span>
                 <p className="font-semibold">{dist.adminArea?.name || "—"}</p>
               </div>
               <div>
@@ -183,9 +183,9 @@ export function DistributionDetailModal({
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">
                         Hàng hóa
                       </th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">
+                      {/* <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">
                         LOT
-                      </th>
+                      </th> */}
                       <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500">
                         SL
                       </th>
@@ -200,9 +200,9 @@ export function DistributionDetailModal({
                         <td className="px-3 py-2 font-medium">
                           {l.item?.name}
                         </td>
-                        <td className="px-3 py-2 text-gray-500 font-mono text-xs">
+                        {/* <td className="px-3 py-2 text-gray-500 font-mono text-xs">
                           {l.lot?.lotNo || "—"}
-                        </td>
+                        </td> */}
                         <td className="px-3 py-2 text-right font-bold text-green-700">
                           {l.qty}
                         </td>

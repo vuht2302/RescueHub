@@ -815,6 +815,10 @@ export interface ManagerTeam {
     name: string;
     levelCode?: string;
   } | null;
+  homeBase?: {
+    address?: string;
+    location?: Coordinates | null;
+  } | null;
   maxParallelMissions?: number;
   currentLocation?: Coordinates | null;
   notes?: string;
@@ -829,10 +833,11 @@ export interface CreateTeamPayload {
   code: string;
   name: string;
   leaderUserId: string;
-  homeAdminAreaId: string;
+  homeBase: {
+    location: Coordinates;
+    address: string;
+  };
   statusCode: string;
-  maxParallelMissions: number;
-  currentLocation: Coordinates;
   notes: string;
 }
 

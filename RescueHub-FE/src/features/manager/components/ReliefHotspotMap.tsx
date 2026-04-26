@@ -17,12 +17,14 @@ import {
   Flag,
   Navigation,
   Warehouse,
+  FileText,
 } from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { ConfirmationModal } from "../../../shared/components/ConfirmationModal";
 import {
   getReliefHotspots,
   type ReliefHotspotItem,
+  type SampleLocation,
 } from "../../rescue-coordinator/services/incidentServices";
 import {
   createManagerReliefPoint,
@@ -84,6 +86,7 @@ interface CreateCampaignFormState {
   statusCode: string;
   description: string;
   selectedReliefPointIds: string[];
+  selectedReliefRequestIds: string[];
 }
 
 const buildInitialCreateForm = (): CreateReliefPointFormState => {
@@ -107,6 +110,7 @@ const buildInitialCampaignForm = (): CreateCampaignFormState => {
     statusCode: "PLANNED",
     description: "",
     selectedReliefPointIds: [],
+    selectedReliefRequestIds: [],
   };
 };
 
@@ -379,6 +383,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       statusCode: campaignForm.statusCode,
       description: campaignForm.description.trim() || undefined,
       reliefPointIds: campaignForm.selectedReliefPointIds,
+      reliefRequestIds: campaignForm.selectedReliefRequestIds,
     };
 
     setIsCreatingCampaign(true);
@@ -1789,6 +1794,92 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Relief Requests Selection - from selectedHotspot */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+                    <FileText size={12} />
+                    Chọn yêu cầu cứu trợ (khu vực {selectedHotspot.areaName})
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {campaignForm.selectedReliefRequestIds.length} đã chọn / {selectedHotspot.sampleLocations.length} yêu cầu
+                  </span>
+                </div>
+                {selectedHotspot.sampleLocations.length === 0 ? (
+                  <div className="border border-slate-200 rounded-lg p-4 text-center text-sm text-gray-500">
+                    Không có yêu cầu cứu trợ nào trong khu vực này.
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-lg overflow-hidden max-h-[200px] overflow-y-auto">
+                    <div className="divide-y divide-gray-100">
+                      {selectedHotspot.sampleLocations.map((location) => {
+                        const isSelected = campaignForm.selectedReliefRequestIds.includes(
+                          location.reliefRequestId,
+                        );
+                        return (
+                          <div
+                            key={location.reliefRequestId}
+                            onClick={() => {
+                              setCampaignForm((prev) => ({
+                                ...prev,
+                                selectedReliefRequestIds: isSelected
+                                  ? prev.selectedReliefRequestIds.filter(
+                                      (id) => id !== location.reliefRequestId,
+                                    )
+                                  : [...prev.selectedReliefRequestIds, location.reliefRequestId],
+                              }));
+                            }}
+                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                              isSelected
+                                ? "bg-green-50 border-l-4 border-l-green-600"
+                                : "hover:bg-gray-50 border-l-4 border-l-transparent"
+                            }`}
+                          >
+                            <div
+                              className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                isSelected
+                                  ? "bg-green-600 border-green-600"
+                                  : "border-gray-300"
+                              }`}
+                            >
+                              {isSelected && (
+                                <svg
+                                  className="w-3 h-3 text-white"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={3}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">
+                                {location.requestCode}
+                              </p>
+                              <p className="text-xs text-gray-400 truncate">
+                                {location.addressText}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                              <span className="text-xs font-semibold text-gray-600">
+                                <MapPin size={10} className="inline mr-1" />
+                                {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {campaignError && (

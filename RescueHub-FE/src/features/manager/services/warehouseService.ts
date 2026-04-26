@@ -1090,6 +1090,7 @@ export interface CreateReliefCampaignPayload {
   statusCode: string;
   description?: string;
   reliefPointIds: string[];
+  reliefRequestIds: string[];
 }
 
 export async function createReliefCampaign(

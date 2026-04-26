@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   AlertCircle,
   Package,
@@ -9,6 +9,9 @@ import {
   Loader2,
   Search,
   MapPin,
+  CheckCircle,
+  AlertTriangle,
+  Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
@@ -23,9 +26,20 @@ import {
   type ManagerTeam,
   type ItemWithLots,
   type Warehouse,
+  type ReliefCampaignDetail,
+  type ReliefRequestDetail,
 } from "../services/warehouseService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+interface AggregatedItem {
+  supportTypeCode: string;
+  supportTypeName: string;
+  totalNeededQty: number;
+  unitCode: string;
+  warehouseStock: Map<string, number>; // warehouseId -> available qty
+  sufficientWarehouseIds: string[];
+}
+
 interface DistributionLine {
   id: string;
   itemId: string;
@@ -33,6 +47,18 @@ interface DistributionLine {
   unitCode: string;
   itemName: string;
   availableQty: number;
+  supportTypeCode?: string;
+  supportTypeName?: string;
+  neededQty?: number;
+}
+
+interface WarehouseStockInfo {
+  warehouseId: string;
+  warehouseName: string;
+  warehouseCode: string;
+  canFulfillAll: boolean;
+  itemStocks: Map<string, { available: number; needed: number }>;
+  missingItems: string[];
 }
 
 interface CreateDistributionModalProps {
@@ -46,6 +72,33 @@ interface TeamOption {
   code: string;
   name: string;
   statusCode: string;
+}
+
+// ─── Helper Components ──────────────────────────────────────────────────────────
+function SummaryBanner({ lines }: { lines: DistributionLine[] }) {
+  const allSufficient = lines.every(
+    (l) => !l.neededQty || l.availableQty >= l.neededQty,
+  );
+  const bgClass = allSufficient ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200";
+  const textClass = allSufficient ? "text-green-600" : "text-orange-600";
+  const icon = allSufficient ? <CheckCircle size={12} /> : <AlertTriangle size={12} />;
+  const message = allSufficient
+    ? "Đủ hàng cho tất cả vật phẩm"
+    : "Một số vật phẩm không đủ số lượng";
+
+  return (
+    <div className={`mt-3 p-3 rounded-lg border ${bgClass}`}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-gray-600">
+          Tổng hợp: {lines.length} vật phẩm
+        </span>
+        <span className={`flex items-center gap-1 text-xs font-semibold ${textClass}`}>
+          {icon}
+          {message}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 // ─── Searchable Select Component ───────────────────────────────────────────────
@@ -184,6 +237,8 @@ export function CreateReliefDistributionModal({
   >([]);
   const [teams, setTeams] = useState<TeamOption[]>([]);
   const [itemsWithLots, setItemsWithLots] = useState<ItemWithLots[]>([]);
+  const [allWarehouses, setAllWarehouses] = useState<Warehouse[]>([]);
+  const [allWarehouseStocks, setAllWarehouseStocks] = useState<Map<string, Map<string, number>>>(new Map()); // warehouseId -> (itemId -> qty)
 
   // Campaign detail data
   const [campaignDetail, setCampaignDetail] = useState<{
@@ -191,6 +246,14 @@ export function CreateReliefDistributionModal({
     code: string;
     adminAreaName?: string;
   } | null>(null);
+  const [campaignFullDetail, setCampaignFullDetail] = useState<ReliefCampaignDetail | null>(null);
+
+  // Aggregated items from relief requests
+  const [aggregatedItems, setAggregatedItems] = useState<AggregatedItem[]>([]);
+  const [isLoadingAggregatedItems, setIsLoadingAggregatedItems] = useState(false);
+
+  // Warehouse suggestions
+  const [warehouseSuggestions, setWarehouseSuggestions] = useState<WarehouseStockInfo[]>([]);
 
   // Form state
   const [campaignId, setCampaignId] = useState(initialCampaignId ?? "");
@@ -201,6 +264,113 @@ export function CreateReliefDistributionModal({
   const [lines, setLines] = useState<DistributionLine[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [warehouseId, setWarehouseId] = useState("");
+
+  // Aggregate items from relief requests
+  const aggregateReliefRequestItems = useCallback((
+    reliefRequests: ReliefRequestDetail[]
+  ): AggregatedItem[] => {
+    const itemMap = new Map<string, AggregatedItem>();
+
+    for (const request of reliefRequests) {
+      if (!request.items) continue;
+      for (const item of request.items) {
+        const key = `${item.supportTypeCode}-${item.unitCode}`;
+        if (!itemMap.has(key)) {
+          itemMap.set(key, {
+            supportTypeCode: item.supportTypeCode,
+            supportTypeName: item.supportTypeName,
+            totalNeededQty: 0,
+            unitCode: item.unitCode,
+            warehouseStock: new Map(),
+            sufficientWarehouseIds: [],
+          });
+        }
+        const aggregated = itemMap.get(key)!;
+        aggregated.totalNeededQty += item.approvedQty || item.requestedQty;
+      }
+    }
+
+    return Array.from(itemMap.values());
+  }, []);
+
+  // Load all warehouses with their stocks
+  const loadAllWarehouseStocks = useCallback(async () => {
+    const token = getAuthSession()?.accessToken ?? "";
+    const warehouseStockMap = new Map<string, Map<string, number>>();
+
+    try {
+      const warehouseList = await getWarehouses(token, { statusCode: "ACTIVE" });
+      setAllWarehouses(warehouseList);
+
+      // Load stocks for each warehouse
+      const stockPromises = warehouseList.map(async (wh) => {
+        try {
+          const stockResponse = await getStocks(token, { warehouseId: wh.id, pageSize: 500 });
+          const itemStockMap = new Map<string, number>();
+          for (const stock of stockResponse.items ?? []) {
+            const current = itemStockMap.get(stock.item.id) ?? 0;
+            itemStockMap.set(stock.item.id, current + (stock.qtyAvailable ?? 0));
+          }
+          warehouseStockMap.set(wh.id, itemStockMap);
+        } catch (e) {
+          console.error(`Lỗi tải tồn kho kho ${wh.warehouseName}:`, e);
+          warehouseStockMap.set(wh.id, new Map());
+        }
+      });
+
+      await Promise.all(stockPromises);
+      setAllWarehouseStocks(warehouseStockMap);
+    } catch (e) {
+      console.error("Lỗi tải danh sách kho:", e);
+    }
+  }, []);
+
+  // Analyze warehouse suggestions based on aggregated items
+  const analyzeWarehouseSuggestions = useCallback((
+    aggregated: AggregatedItem[],
+    stockMap: Map<string, Map<string, number>>,
+    warehouseList: Warehouse[]
+  ): WarehouseStockInfo[] => {
+    const suggestions: WarehouseStockInfo[] = [];
+
+    for (const wh of warehouseList) {
+      const itemStocks = stockMap.get(wh.id);
+      if (!itemStocks) continue;
+
+      const stockInfo = new Map<string, { available: number; needed: number }>();
+      const missingItems: string[] = [];
+      let canFulfillAll = true;
+
+      for (const aggItem of aggregated) {
+        const available = itemStocks.get(aggItem.supportTypeCode) ?? 0;
+        stockInfo.set(aggItem.supportTypeCode, {
+          available,
+          needed: aggItem.totalNeededQty,
+        });
+
+        if (available < aggItem.totalNeededQty) {
+          canFulfillAll = false;
+          missingItems.push(aggItem.supportTypeName);
+        }
+      }
+
+      suggestions.push({
+        warehouseId: wh.id,
+        warehouseName: wh.warehouseName,
+        warehouseCode: wh.warehouseCode ?? "",
+        canFulfillAll,
+        itemStocks: stockInfo,
+        missingItems,
+      });
+    }
+
+    // Sort: warehouses that can fulfill all first, then by missing item count
+    return suggestions.sort((a, b) => {
+      if (a.canFulfillAll && !b.canFulfillAll) return -1;
+      if (!a.canFulfillAll && b.canFulfillAll) return 1;
+      return a.missingItems.length - b.missingItems.length;
+    });
+  }, []);
 
   // Load stocks for selected warehouse
   const loadWarehouseStocks = useCallback(async (whId: string) => {
@@ -222,11 +392,13 @@ export function CreateReliefDistributionModal({
             itemName: stock.item.name,
             itemCategoryCode: "",
             itemCategory: { id: "", code: "", name: "" },
-            unitCode: stock.item.unitCode,
+            unitCode: stock.item.unitCode ?? "",
             requiresLotTracking: true,
             requiresExpiryTracking: false,
             issuePolicyCode: "FIFO",
             isActive: true,
+            expDate: null,
+            receivedAt: "",
             lotCount: 0,
             lots: [],
             totalQtyAvailable: 0,
@@ -234,12 +406,12 @@ export function CreateReliefDistributionModal({
         }
 
         const item = itemMap.get(stock.item.id)!;
-        item.totalQtyAvailable += stock.qtyAvailable;
+        item.totalQtyAvailable += stock.qtyAvailable ?? 0;
 
         if (stock.lot) {
           item.lots.push({
             id: stock.lot.id,
-            lotNo: stock.lot.lotNo,
+            lotNo: stock.lot.lotNo ?? "",
             expDate: stock.lot.expDate ?? null,
             statusCode: stock.lot.statusCode ?? "ACTIVE",
           });
@@ -256,6 +428,7 @@ export function CreateReliefDistributionModal({
   // Load initial data
   const loadData = useCallback(async () => {
     try {
+      setLoading(true);
       const token = getAuthSession()?.accessToken ?? "";
       const options = await getDistributionOptions(token);
       setCampaigns(options.campaigns);
@@ -267,6 +440,9 @@ export function CreateReliefDistributionModal({
       });
       setWarehouses(warehouseList);
 
+      // Load all warehouse stocks in background
+      void loadAllWarehouseStocks();
+
       // Load campaign detail if initialCampaignId is provided
       if (initialCampaignId) {
         const detail = await getReliefCampaign(initialCampaignId, token);
@@ -277,15 +453,24 @@ export function CreateReliefDistributionModal({
           code: detail.code,
           adminAreaName: detail.adminArea?.name,
         });
+        setCampaignFullDetail(detail);
 
-        // Auto-select warehouse matching campaign's adminArea
-        const matchingWarehouse = warehouseList.find(
-          (w) => w.adminArea?.id === detail.adminArea?.id,
-        );
-        if (matchingWarehouse) {
-          setWarehouseId(matchingWarehouse.id);
-          // Load stocks for this warehouse
-          await loadWarehouseStocks(matchingWarehouse.id);
+        // Aggregate items from relief requests
+        if (detail.reliefRequests && detail.reliefRequests.length > 0) {
+          setIsLoadingAggregatedItems(true);
+          const aggregated = aggregateReliefRequestItems(detail.reliefRequests);
+          setAggregatedItems(aggregated);
+
+          // Auto-select warehouse matching campaign's adminArea
+          const matchingWarehouse = warehouseList.find(
+            (w) => w.adminArea?.id === detail.adminArea?.id,
+          );
+          if (matchingWarehouse) {
+            setWarehouseId(matchingWarehouse.id);
+            // Load stocks for this warehouse
+            await loadWarehouseStocks(matchingWarehouse.id);
+          }
+          setIsLoadingAggregatedItems(false);
         }
       }
 
@@ -309,7 +494,24 @@ export function CreateReliefDistributionModal({
     } finally {
       setLoading(false);
     }
-  }, [initialCampaignId, loadWarehouseStocks]);
+  }, [initialCampaignId, loadWarehouseStocks, loadAllWarehouseStocks, aggregateReliefRequestItems]);
+
+  // Update warehouse suggestions when aggregated items or stocks change
+  useEffect(() => {
+    if (aggregatedItems.length > 0 && allWarehouseStocks.size > 0 && allWarehouses.length > 0) {
+      const suggestions = analyzeWarehouseSuggestions(aggregatedItems, allWarehouseStocks, allWarehouses);
+      setWarehouseSuggestions(suggestions);
+
+      // Auto-select first warehouse that can fulfill all if no warehouse selected
+      if (!warehouseId && suggestions.length > 0) {
+        const firstSufficient = suggestions.find((s) => s.canFulfillAll);
+        if (firstSufficient) {
+          setWarehouseId(firstSufficient.warehouseId);
+          void loadWarehouseStocks(firstSufficient.warehouseId);
+        }
+      }
+    }
+  }, [aggregatedItems, allWarehouseStocks, allWarehouses, warehouseId, analyzeWarehouseSuggestions, loadWarehouseStocks]);
 
   useEffect(() => {
     void loadData();
@@ -343,6 +545,17 @@ export function CreateReliefDistributionModal({
           code: detail.code,
           adminAreaName: detail.adminArea?.name,
         });
+        setCampaignFullDetail(detail);
+
+        // Aggregate items from relief requests
+        if (detail.reliefRequests && detail.reliefRequests.length > 0) {
+          setIsLoadingAggregatedItems(true);
+          const aggregated = aggregateReliefRequestItems(detail.reliefRequests);
+          setAggregatedItems(aggregated);
+          setIsLoadingAggregatedItems(false);
+        } else {
+          setAggregatedItems([]);
+        }
 
         // Auto-select warehouse matching campaign's adminArea
         const matchingWarehouse = warehouses.find(
@@ -360,6 +573,8 @@ export function CreateReliefDistributionModal({
     } else {
       setAdminAreaId("");
       setCampaignDetail(null);
+      setCampaignFullDetail(null);
+      setAggregatedItems([]);
       setWarehouseId("");
     }
   };
@@ -468,6 +683,9 @@ export function CreateReliefDistributionModal({
     (item) => item.isActive && item.lots && item.lots.length > 0,
   );
 
+  // Check if summary should be shown
+  const shouldShowSummary = lines.length > 0 && aggregatedItems.length > 0;
+
   return (
     <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -530,6 +748,153 @@ export function CreateReliefDistributionModal({
                 </div>
               </div>
 
+              {/* Aggregated Items Summary from Relief Requests */}
+              {(aggregatedItems.length > 0 || isLoadingAggregatedItems) && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+                  <h3 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
+                    <Package size={16} />
+                    Tổng hợp vật phẩm cần thiết
+                    <span className="ml-auto text-xs font-normal text-blue-600">
+                      {campaignFullDetail?.reliefRequestSummary?.total ?? aggregatedItems.length} yêu cầu
+                    </span>
+                  </h3>
+                  {isLoadingAggregatedItems ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 size={20} className="animate-spin text-blue-500" />
+                      <span className="ml-2 text-sm text-gray-500">Đang tổng hợp...</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {aggregatedItems.map((item, index) => {
+                        const selectedWarehouseStock = warehouseId
+                          ? allWarehouseStocks.get(warehouseId)?.get(item.supportTypeCode) ?? 0
+                          : 0;
+                        const isSufficient = selectedWarehouseStock >= item.totalNeededQty;
+                        const shortfall = item.totalNeededQty - selectedWarehouseStock;
+
+                        return (
+                          <div
+                            key={index}
+                            className={`flex items-center justify-between p-3 rounded-lg border ${
+                              isSufficient
+                                ? "bg-white border-green-200"
+                                : "bg-white border-orange-200"
+                            }`}
+                          >
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-gray-800">
+                                {item.supportTypeName}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {item.supportTypeCode}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <p className="text-xs text-gray-500">Cần</p>
+                                <p className="text-sm font-bold text-blue-600">
+                                  {item.totalNeededQty} {item.unitCode}
+                                </p>
+                              </div>
+                              {warehouseId && (
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500">Kho có</p>
+                                  <p className={`text-sm font-bold ${
+                                    isSufficient ? "text-green-600" : "text-orange-600"
+                                  }`}>
+                                    {selectedWarehouseStock} {item.unitCode}
+                                  </p>
+                                </div>
+                              )}
+                              {!isSufficient && selectedWarehouseStock > 0 && (
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500">Thiếu</p>
+                                  <p className="text-sm font-bold text-red-600">
+                                    {shortfall} {item.unitCode}
+                                  </p>
+                                </div>
+                              )}
+                              {isSufficient && (
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100">
+                                  <CheckCircle size={16} className="text-green-600" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Warehouse Suggestions */}
+              {warehouseSuggestions.length > 0 && aggregatedItems.length > 0 && (
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200">
+                  <h3 className="text-sm font-bold text-purple-800 mb-3 flex items-center gap-2">
+                    <WarehouseIcon size={16} />
+                    Gợi ý kho xuất hàng
+                  </h3>
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {warehouseSuggestions.slice(0, 5).map((suggestion) => (
+                      <div
+                        key={suggestion.warehouseId}
+                        onClick={() => {
+                          setWarehouseId(suggestion.warehouseId);
+                          void loadWarehouseStocks(suggestion.warehouseId);
+                        }}
+                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                          suggestion.warehouseId === warehouseId
+                            ? "bg-purple-100 border-purple-400"
+                            : suggestion.canFulfillAll
+                            ? "bg-white border-green-200 hover:border-green-400"
+                            : "bg-white border-gray-200 hover:border-gray-400"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            suggestion.canFulfillAll
+                              ? "bg-green-100"
+                              : "bg-orange-100"
+                          }`}>
+                            {suggestion.canFulfillAll ? (
+                              <CheckCircle size={16} className="text-green-600" />
+                            ) : (
+                              <AlertTriangle size={16} className="text-orange-600" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">
+                              {suggestion.warehouseName}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {suggestion.warehouseCode}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {suggestion.canFulfillAll ? (
+                            <span className="text-xs font-semibold text-green-600">
+                              Đủ hàng
+                            </span>
+                          ) : (
+                            <div>
+                              <p className="text-xs text-orange-600">
+                                Thiếu {suggestion.missingItems.length} loại
+                              </p>
+                              <p className="text-[10px] text-gray-400 truncate max-w-[150px]">
+                                {suggestion.missingItems.slice(0, 2).join(", ")}
+                                {suggestion.missingItems.length > 2 && "..."}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Team Selection */}
               <div className="bg-green-50 rounded-xl p-4 border border-green-200">
                 <h3 className="text-sm font-bold text-green-800 mb-3 flex items-center gap-2">
@@ -583,14 +948,42 @@ export function CreateReliefDistributionModal({
                     <Package size={14} />
                     Danh sách vật phẩm <span className="text-red-500">*</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={handleAddLine}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
-                  >
-                    <Plus size={14} />
-                    Thêm vật phẩm
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {aggregatedItems.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Auto-fill lines from aggregated items
+                          const newLines: DistributionLine[] = aggregatedItems.map((item) => ({
+                            id: crypto.randomUUID(),
+                            itemId: "",
+                            qty: item.totalNeededQty,
+                            unitCode: item.unitCode,
+                            itemName: item.supportTypeName,
+                            availableQty: warehouseId
+                              ? allWarehouseStocks.get(warehouseId)?.get(item.supportTypeCode) ?? 0
+                              : 0,
+                            supportTypeCode: item.supportTypeCode,
+                            supportTypeName: item.supportTypeName,
+                            neededQty: item.totalNeededQty,
+                          }));
+                          setLines(newLines);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        <Package size={14} />
+                        Điền từ yêu cầu
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleAddLine}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                    >
+                      <Plus size={14} />
+                      Thêm vật phẩm
+                    </button>
+                  </div>
                 </div>
 
                 {lines.length === 0 ? (
@@ -673,8 +1066,17 @@ export function CreateReliefDistributionModal({
                               className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-green-400 bg-white disabled:bg-gray-100"
                             />
                             {line.availableQty > 0 && (
-                              <p className="text-[9px] text-gray-400 mt-0.5">
+                              <p className={`text-[9px] mt-0.5 ${
+                                line.neededQty && line.availableQty >= line.neededQty
+                                  ? "text-green-600"
+                                  : "text-gray-400"
+                              }`}>
                                 Còn: {line.availableQty}
+                                {line.neededQty && (
+                                  <span className={line.availableQty >= line.neededQty ? " text-green-600" : " text-orange-600"}>
+                                    {" "}/ Cần: {line.neededQty}
+                                  </span>
+                                )}
                               </p>
                             )}
                           </div>
@@ -686,9 +1088,25 @@ export function CreateReliefDistributionModal({
                               {line.unitCode || "—"}
                             </div>
                           </div>
+                          {line.neededQty && line.availableQty > 0 && (
+                            <div className="col-span-1 flex items-center justify-center">
+                              {line.availableQty >= line.neededQty ? (
+                                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                                  <CheckCircle size={14} className="text-green-600" />
+                                </div>
+                              ) : (
+                                <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center">
+                                  <AlertTriangle size={14} className="text-orange-600" />
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
+                    {shouldShowSummary && (
+                      <SummaryBanner lines={lines} />
+                    )}
                   </div>
                 )}
               </div>
@@ -709,12 +1127,14 @@ export function CreateReliefDistributionModal({
                         {m.name}
                       </option>
                     ))}
-                    {!ackMethodCodes.find((m) => m.code === "OTP") && (
-                      <>
-                        <option value="OTP">OTP (Mã xác nhận SMS)</option>
-                        <option value="SIGNATURE">Chữ ký</option>
-                        <option value="MANUAL">Thủ công</option>
-                      </>
+                    {!ackMethodCodes.some((m) => m.code === "OTP") && (
+                      <option value="OTP">OTP (Mã xác nhận SMS)</option>
+                    )}
+                    {!ackMethodCodes.some((m) => m.code === "SIGNATURE") && (
+                      <option value="SIGNATURE">Chữ ký</option>
+                    )}
+                    {!ackMethodCodes.some((m) => m.code === "MANUAL") && (
+                      <option value="MANUAL">Thủ công</option>
                     )}
                   </select>
                 </div>

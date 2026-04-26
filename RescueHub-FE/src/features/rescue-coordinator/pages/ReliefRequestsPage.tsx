@@ -42,7 +42,6 @@ const ReliefRequestsPage: React.FC<ReliefRequestsPageProps> = ({ className = "" 
   const [detailError, setDetailError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [selectedCampaign, setSelectedCampaign] = useState("");
   const [standardizeNote, setStandardizeNote] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -76,7 +75,6 @@ const ReliefRequestsPage: React.FC<ReliefRequestsPageProps> = ({ className = "" 
         setDetail(null);
         setDetailError(null);
         setApprovedQuantities({});
-        setSelectedCampaign("");
         setStandardizeNote("");
         setEditHouseholdCount(1);
         setEditAddressText("");
@@ -98,10 +96,6 @@ const ReliefRequestsPage: React.FC<ReliefRequestsPageProps> = ({ className = "" 
           initQtys[item.reliefRequestItemId] = item.defaultApprovedQty ?? item.requestedQty;
         });
         setApprovedQuantities(initQtys);
-        // Pre-select active campaign if available
-        const activeCampaign = data.campaignOptions.find((c) => c.status === "ACTIVE");
-        if (activeCampaign) setSelectedCampaign(activeCampaign.campaignId);
-        else if (data.campaignOptions.length > 0) setSelectedCampaign(data.campaignOptions[0].campaignId);
       } catch (err) {
         setDetailError(err instanceof Error ? err.message : "Lỗi khi tải chi tiết");
       } finally {
@@ -568,24 +562,6 @@ const ReliefRequestsPage: React.FC<ReliefRequestsPageProps> = ({ className = "" 
                         <Send size={12} /> Hành động
                       </h3>
                       <div className="bg-gray-50 rounded-xl p-4 space-y-4">
-                        {detail.campaignOptions.length > 0 && (
-                          <div>
-                            <label className="text-xs text-gray-500 font-semibold block mb-2">Gắn chiến dịch</label>
-                            <select
-                              value={selectedCampaign}
-                              onChange={(e) => setSelectedCampaign(e.target.value)}
-                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:border-blue-400 bg-white"
-                            >
-                              <option value="">-- Chọn chiến dịch --</option>
-                              {detail.campaignOptions.map((opt) => (
-                                <option key={opt.campaignId} value={opt.campaignId}>
-                                  {opt.campaignName} ({opt.status})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-
                         {/* Standardize Note */}
                         <div>
                           <label className="text-xs text-gray-500 font-semibold block mb-2">

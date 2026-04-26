@@ -90,3 +90,21 @@ export interface HotspotResponse {
 export const getHotspots = async (): Promise<HotspotResponse> => {
     return requestApi("/api/v1/admin/reports/hotspots");
 };
+
+export interface RescueReliefVolumePeriod {
+    fromDateUtc: string;
+    toDateUtc: string;
+    rescueCount: number;
+    reliefCount: number;
+}
+
+export interface RescueReliefVolumesResponse {
+    generatedAtUtc: string;
+    monthly: RescueReliefVolumePeriod;
+    quarterly: RescueReliefVolumePeriod;
+    yearly: RescueReliefVolumePeriod;
+}
+
+export const getRescueReliefVolumes = async (): Promise<RescueReliefVolumesResponse> => {
+    return requestApi("/api/v1/admin/reports/rescue-relief/volumes");
+};

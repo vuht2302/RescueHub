@@ -478,12 +478,14 @@ function ReliefRequestDetailModal({
   }, [detail]);
 
   const handleApprove = async () => {
-    // Build items from requestedItems
+    // Build items from requestedItems - dùng supportTypeCode (itemCode)
     const existingItems = detail.requestedItems
       .map((item) => ({
-        reliefRequestItemId: item.reliefRequestItemId,
-        supportTypeCode: item.supportTypeCode ?? "",
-        approvedQty: approvedItems[item.reliefRequestItemId]?.approvedQty ?? 0,
+        supportTypeCode: item.supportTypeCode, // Là itemCode như "AO-PHAO", "MI-GOI"
+        approvedQty:
+          approvedItems[item.reliefRequestItemId]?.approvedQty ??
+          item.requestedQty ??
+          1,
         unitCode:
           approvedItems[item.reliefRequestItemId]?.unitCode ?? item.unitCode,
       }))
@@ -493,8 +495,7 @@ function ReliefRequestDetailModal({
     const newItems = addedItems
       .filter((item) => item.qty > 0)
       .map((item) => ({
-        reliefRequestItemId: "",
-        itemId: item.itemId,
+        supportTypeCode: item.itemCode, // Dùng itemCode
         approvedQty: item.qty,
         unitCode: item.unitCode,
       }));
@@ -509,7 +510,7 @@ function ReliefRequestDetailModal({
     }
 
     const payload: ApproveReliefRequestPayload = {
-      decisionCode: "APPROVE",
+      decisionCode: "APPROVED",
       note: approvalNote,
       items: allItems,
     };
@@ -653,13 +654,8 @@ function ReliefRequestDetailModal({
                           Vật phẩm
                         </th>
                         <th className="px-3 py-2 text-center font-bold text-gray-500">
-                          SL yêu cầu
+                          SL duyệt
                         </th>
-                        {showApproveForm && (
-                          <th className="px-3 py-2 text-center font-bold text-gray-500">
-                            SL duyệt
-                          </th>
-                        )}
                         <th className="px-3 py-2 text-center font-bold text-gray-500">
                           ĐV
                         </th>
@@ -676,9 +672,6 @@ function ReliefRequestDetailModal({
                         >
                           <td className="px-4 py-2.5 font-semibold">
                             {item.supportTypeName}
-                          </td>
-                          <td className="px-3 py-2.5 text-center text-gray-600">
-                            {item.requestedQty}
                           </td>
                           {showApproveForm ? (
                             <>
@@ -711,7 +704,10 @@ function ReliefRequestDetailModal({
                           ) : (
                             <>
                               <td className="px-3 py-2.5 text-center text-green-700 font-bold">
-                                {item.defaultApprovedQty || item.requestedQty}
+                                {approvedItems[item.reliefRequestItemId]
+                                  ?.approvedQty ??
+                                  item.requestedQty ??
+                                  0}
                               </td>
                               <td className="px-3 py-2.5 text-center text-gray-500">
                                 {item.unitCode}
@@ -731,9 +727,6 @@ function ReliefRequestDetailModal({
                             <span className="ml-2 text-[10px] font-normal text-blue-500">
                               ({item.itemCode})
                             </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-center text-gray-400">
-                            —
                           </td>
                           {showApproveForm ? (
                             <>

@@ -1103,6 +1103,16 @@ export async function createReliefCampaign(
   });
 }
 
+export async function deleteReliefCampaign(
+  campaignId: string,
+  token: string,
+): Promise<void> {
+  await apiFetch<unknown>(`${BASE}/relief-campaigns/${campaignId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
+
 // ─── MAN-11  Relief Request Approval ─────────────────────────────────────────
 export interface ApproveReliefRequestItem {
   reliefRequestItemId: string;

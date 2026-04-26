@@ -787,21 +787,13 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         var normalizedDays = days <= 0 ? 7 : Math.Min(days, 90);
         var normalizedTop = top <= 0 ? 10 : Math.Min(top, 100);
         var fromTime = DateTime.UtcNow.AddDays(-normalizedDays);
+        var normalizedStatusCode = "APPROVED";
 
         var query = dbContext.relief_requests
             .AsNoTracking()
             .Include(x => x.admin_area)
-            .Where(x => x.created_at >= fromTime)
+            .Where(x => x.created_at >= fromTime && x.status_code == normalizedStatusCode)
             .AsQueryable();
-
-        var normalizedStatusCode = string.IsNullOrWhiteSpace(statusCode)
-            ? null
-            : statusCode.Trim().ToUpperInvariant();
-
-        if (!string.IsNullOrWhiteSpace(normalizedStatusCode))
-        {
-            query = query.Where(x => x.status_code == normalizedStatusCode);
-        }
 
         var requests = await query
             .Select(x => new

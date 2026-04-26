@@ -266,12 +266,12 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                           fontFamily: "var(--font-primary)",
                         }}
                       >
-                        Thong tin yeu cau
+                        Thông tin yêu cầu
                       </h3>
                       <div className="space-y-3 text-sm">
                         <div>
                           <span className="text-gray-600 block text-xs">
-                            Dia diem
+                            Địa điểm
                           </span>
                           <p className="font-semibold text-gray-900 flex items-start gap-2">
                             <MapPin
@@ -283,11 +283,11 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                         </div>
                         <div>
                           <span className="text-gray-600 block text-xs">
-                            So nguoi can ho tro
+                            Số người cần hỗ trợ
                           </span>
                           <p className="font-semibold text-gray-900 flex items-center gap-2">
                             <Users size={14} />
-                            {victimCount} nguoi
+                            {victimCount} người
                           </p>
                         </div>
                       </div>
@@ -305,7 +305,8 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       {teams.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
-                          Khong co doi cuu ho khong hoa
+                          Không có đội cứu hộ nào sẵn sàng gần khu vực này. Vui
+                          lòng thử lại sau hoặc mở rộng phạm vi tìm kiếm.
                         </div>
                       ) : (
                         teams.map((team) => (
@@ -349,7 +350,7 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                                   <strong className="text-gray-900">
                                     {team.estimatedTime}
                                   </strong>{" "}
-                                  phut
+                                  phút
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 text-gray-600">
@@ -367,7 +368,7 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                                   <strong className="text-gray-900">
                                     {team.members}
                                   </strong>{" "}
-                                  thanh vien
+                                  thành viên
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 text-gray-600">
@@ -376,14 +377,14 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                                   <strong className="text-gray-900">
                                     {team.fuel}%
                                   </strong>{" "}
-                                  nhien lieu
+                                  nhiên liệu
                                 </span>
                               </div>
                             </div>
 
                             <div className="text-sm">
                               <p className="text-xs text-gray-600 mb-1">
-                                Phuong tien:
+                                Phương tiện:
                               </p>
                               <p className="text-gray-900 font-semibold">
                                 {team.vehicle}

@@ -3,6 +3,12 @@ import { Loader2, Users, MapPin, Clock, Shield } from "lucide-react";
 import { getIncidents, type IncidentItem } from "../services/incidentServices";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { DispatchModal } from "./DispatchModal";
+import { toastError, toastSuccess } from "../../../shared/utils/toast";
+import {
+  decideMissionAbortRequest,
+  getMissionAbortRequests,
+  type MissionAbortRequestItem,
+} from "../services/missionAbortRequestService";
 
 interface HandlingTeam {
   teamId: string;
@@ -24,13 +30,29 @@ interface MissionFromIncident {
   status: string;
 }
 
+interface DispatchContext {
+  incidentId: string;
+  incidentCode: string;
+  location: string;
+}
+
 export function CurrentMissionsSection() {
   const [missions, setMissions] = useState<MissionFromIncident[]>([]);
+  const [abortRequests, setAbortRequests] = useState<MissionAbortRequestItem[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingAbortRequests, setIsLoadingAbortRequests] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [abortError, setAbortError] = useState<string | null>(null);
+  const [decidingAbortRequestId, setDecidingAbortRequestId] = useState<
+    string | null
+  >(null);
   const [selectedMission, setSelectedMission] =
     useState<MissionFromIncident | null>(null);
   const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [dispatchContext, setDispatchContext] =
+    useState<DispatchContext | null>(null);
 
   const fetchIncidentsWithTeams = async () => {
     setIsLoading(true);
@@ -39,7 +61,7 @@ export function CurrentMissionsSection() {
     try {
       const session = getAuthSession();
       if (!session?.accessToken) {
-        setError("Không có phiên đăng nhập");
+        setError("Khong co phien dang nhap");
         return;
       }
 
@@ -53,7 +75,7 @@ export function CurrentMissionsSection() {
         (incident: IncidentItem) => ({
           id: incident.id,
           incidentCode: incident.incidentCode,
-          location: incident.location?.addressText || "Chưa có vị trí",
+          location: incident.location?.addressText || "Chua co vi tri",
           reportedAt: incident.reportedAt,
           handlingTeams: incident.handlingTeams || [],
           status: incident.status?.code || "UNKNOWN",
@@ -74,22 +96,56 @@ export function CurrentMissionsSection() {
         );
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Lỗi khi tải nhiệm vụ");
+      setError(err instanceof Error ? err.message : "Loi khi tai nhiem vu");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const fetchAbortRequests = async () => {
+    setIsLoadingAbortRequests(true);
+    setAbortError(null);
+
+    try {
+      const session = getAuthSession();
+      if (!session?.accessToken) {
+        setAbortError("Khong co phien dang nhap");
+        return;
+      }
+
+      const data = await getMissionAbortRequests(session.accessToken, {
+        statusCode: "PENDING",
+        page: 1,
+        pageSize: 20,
+      });
+      setAbortRequests(data.items);
+    } catch (err) {
+      setAbortError(
+        err instanceof Error ? err.message : "Loi khi tai yeu cau huy",
+      );
+    } finally {
+      setIsLoadingAbortRequests(false);
+    }
+  };
+
+  const refreshAllData = async () => {
+    await Promise.all([fetchIncidentsWithTeams(), fetchAbortRequests()]);
+  };
+
   useEffect(() => {
-    void fetchIncidentsWithTeams();
+    void refreshAllData();
   }, []);
+
+  const findMissionByIncidentId = (incidentId: string) =>
+    missions.find((mission) => mission.id === incidentId);
 
   function getMissionStatusLabel(statusCode: string): string {
     const labels: Record<string, string> = {
       EN_ROUTE: "Đang di chuyển",
-      ON_SITE: "Tại hiện trường",
+      ON_SITE: "ại hiện trường",
       RESCUING: "Đang cứu hộ",
       IN_PROGRESS: "Đang xử lý",
+      ACCEPTED: "Đã chấp nhận",
       COMPLETED: "Hoàn thành",
       RETURNING: "Đang quay về",
       ASSIGNED: "Đã phân công",
@@ -105,6 +161,7 @@ export function CurrentMissionsSection() {
     const colors: Record<string, string> = {
       EN_ROUTE: "bg-blue-500",
       ON_SITE: "bg-amber-500",
+      ACCEPTED: "bg-green-500",
       RESCUING: "bg-red-500",
       IN_PROGRESS: "bg-amber-500",
       COMPLETED: "bg-green-500",
@@ -135,6 +192,26 @@ export function CurrentMissionsSection() {
     return progressMap[statusCode] || 0;
   }
 
+  function getAbortReasonLabel(reasonCode: string): string {
+    const labels: Record<string, string> = {
+      RESOURCE_LIMIT: "Thieu nguon luc",
+      SAFETY_RISK: "Rui ro an toan",
+      ACCESS_BLOCKED: "Khong tiep can duoc",
+      EQUIPMENT_FAILURE: "Su co thiet bi",
+      OTHER: "Ly do khac",
+    };
+    return labels[reasonCode] || reasonCode;
+  }
+
+  function getAbortStatusLabel(statusCode: string): string {
+    const labels: Record<string, string> = {
+      PENDING: "Cho duyet",
+      APPROVED: "Da duyet",
+      REJECTED: "Tu choi",
+    };
+    return labels[statusCode] || statusCode;
+  }
+
   function formatDate(dateString: string): string {
     const date = new Date(dateString);
     return date.toLocaleString("vi-VN", {
@@ -145,6 +222,61 @@ export function CurrentMissionsSection() {
       minute: "2-digit",
     });
   }
+
+  const handleAbortDecision = async (
+    abortRequest: MissionAbortRequestItem,
+    decisionCode: "APPROVE" | "REJECT",
+  ) => {
+    const session = getAuthSession();
+    if (!session?.accessToken) {
+      toastError("Khong co phien dang nhap");
+      return;
+    }
+
+    setDecidingAbortRequestId(abortRequest.abortRequestId);
+
+    try {
+      await decideMissionAbortRequest(
+        abortRequest.mission.id,
+        abortRequest.abortRequestId,
+        {
+          decisionCode,
+          note:
+            decisionCode === "APPROVE"
+              ? "Coordinator da duyet yeu cau huy"
+              : "Coordinator tu choi yeu cau huy",
+        },
+        session.accessToken,
+      );
+
+      toastSuccess(
+        decisionCode === "APPROVE"
+          ? "Da duyet yeu cau huy nhiem vu"
+          : "Da tu choi yeu cau huy nhiem vu",
+      );
+
+      const matchedMission = findMissionByIncidentId(abortRequest.incident.id);
+      if (decisionCode === "APPROVE") {
+        setDispatchContext({
+          incidentId: abortRequest.incident.id,
+          incidentCode: abortRequest.incident.code,
+          location: matchedMission?.location ?? "Chua co vi tri",
+        });
+        if (matchedMission) {
+          setSelectedMission(matchedMission);
+        }
+        setShowDispatchModal(true);
+      }
+
+      await refreshAllData();
+    } catch (err) {
+      toastError(
+        err instanceof Error ? err.message : "Khong the xu ly yeu cau huy",
+      );
+    } finally {
+      setDecidingAbortRequestId(null);
+    }
+  };
 
   return (
     <>
@@ -201,6 +333,92 @@ export function CurrentMissionsSection() {
                   ))}
                 </div>
               )}
+
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <h4 className="font-bold text-gray-900 mb-3 text-xs uppercase tracking-wide">
+                  Yêu cầu huỷ nhiệm vụ ({abortRequests.length})
+                </h4>
+
+                {isLoadingAbortRequests ? (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Loader2 size={14} className="animate-spin" />
+                    Đang tải yêu cầu huỷ .....
+                  </div>
+                ) : abortError ? (
+                  <p className="text-xs text-red-600">{abortError}</p>
+                ) : abortRequests.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    Không có yêu cầu huỷ nhiệm vụ nào đang chờ xử lý
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {abortRequests.map((abortRequest) => {
+                      const isDeciding =
+                        decidingAbortRequestId === abortRequest.abortRequestId;
+                      return (
+                        <div
+                          key={abortRequest.abortRequestId}
+                          className="rounded-lg border border-orange-200 bg-orange-50/40 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div>
+                              <p className="font-semibold text-xs text-gray-900">
+                                {abortRequest.incident.code}
+                              </p>
+                              <p className="text-xs text-gray-600 mt-0.5">
+                                {abortRequest.mission.code} -{" "}
+                                {abortRequest.mission.primaryTeam?.teamName ??
+                                  "Chưa có đội"}
+                              </p>
+                            </div>
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-500 text-white">
+                              {getAbortStatusLabel(abortRequest.statusCode)}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-gray-700">
+                            Lý do:{" "}
+                            {getAbortReasonLabel(abortRequest.reasonCode)}
+                          </p>
+                          {abortRequest.detailNote && (
+                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                              Ghi chú: {abortRequest.detailNote}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-1 text-[11px] text-gray-500 mt-2">
+                            <Clock size={11} />
+                            {formatDate(abortRequest.requestedAt)}
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-3">
+                            <button
+                              onClick={() =>
+                                void handleAbortDecision(
+                                  abortRequest,
+                                  "APPROVE",
+                                )
+                              }
+                              disabled={isDeciding}
+                              className="flex-1 text-xs px-2 py-1.5 rounded bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              Duyệt
+                            </button>
+                            <button
+                              onClick={() =>
+                                void handleAbortDecision(abortRequest, "REJECT")
+                              }
+                              disabled={isDeciding}
+                              className="flex-1 text-xs px-2 py-1.5 rounded bg-gray-700 text-white font-semibold hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              Từ chối
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -244,7 +462,9 @@ export function CurrentMissionsSection() {
 
                   <div className="space-y-3">
                     {selectedMission.handlingTeams.map((team) => {
-                      const progress = calculateProgress(team.missionStatusCode);
+                      const progress = calculateProgress(
+                        team.missionStatusCode,
+                      );
                       return (
                         <div
                           key={team.teamId}
@@ -263,7 +483,7 @@ export function CurrentMissionsSection() {
                                 )}
                               </div>
                               <p className="text-xs text-gray-500 mt-1">
-                                Mã đội: {team.teamCode} | Mã nhiệm vụ:{" "}
+                                Ma doi: {team.teamCode} | Ma nhiem vu:{" "}
                                 {team.missionCode}
                               </p>
                               <p className="text-xs text-gray-400 mt-1">
@@ -276,17 +496,6 @@ export function CurrentMissionsSection() {
                               {getMissionStatusLabel(team.missionStatusCode)}
                             </span>
                           </div>
-
-                          {team.missionStatusCode === "ABORT_PENDING" && (
-                            <div className="mb-3">
-                              <button
-                                onClick={() => setShowDispatchModal(true)}
-                                className="text-xs px-3 py-1.5 rounded-md bg-blue-900 text-white font-semibold hover:bg-blue-800 transition-colors"
-                              >
-                                Điều phối team khác
-                              </button>
-                            </div>
-                          )}
 
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
@@ -321,17 +530,21 @@ export function CurrentMissionsSection() {
         </div>
       )}
 
-      {selectedMission && (
+      {dispatchContext && (
         <DispatchModal
           isOpen={showDispatchModal}
-          onClose={() => setShowDispatchModal(false)}
-          requestId={selectedMission.id}
-          requestTitle={`Sự cố ${selectedMission.incidentCode}`}
-          location={selectedMission.location}
+          onClose={() => {
+            setShowDispatchModal(false);
+            setDispatchContext(null);
+          }}
+          requestId={dispatchContext.incidentId}
+          requestTitle={`Su co ${dispatchContext.incidentCode}`}
+          location={dispatchContext.location}
           victimCount={0}
           onDispatch={() => {
             setShowDispatchModal(false);
-            void fetchIncidentsWithTeams();
+            setDispatchContext(null);
+            void refreshAllData();
           }}
         />
       )}

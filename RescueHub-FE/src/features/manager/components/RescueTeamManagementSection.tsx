@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Edit2, Plus, Search, Trash2, Users } from "lucide-react";
 import { getAuthSession } from "../../auth/services/authStorage";
 import {
+  AddressAutocomplete,
+  type AddressSuggestion,
+} from "../../../shared/components/AddressAutocomplete";
+import { getUsers } from "../../../shared/services/adminUser.service";
+import {
   createManagerTeam,
   deleteManagerTeam,
   getManagerTeams,
@@ -15,11 +20,8 @@ type TeamForm = {
   code: string;
   name: string;
   leaderUserId: string;
-  homeAdminAreaId: string;
+  homeBaseAddress: string;
   statusCode: string;
-  maxParallelMissions: number;
-  lat: string;
-  lng: string;
   notes: string;
 };
 
@@ -27,11 +29,8 @@ const DEFAULT_FORM: TeamForm = {
   code: "",
   name: "",
   leaderUserId: "",
-  homeAdminAreaId: "",
+  homeBaseAddress: "",
   statusCode: "AVAILABLE",
-  maxParallelMissions: 1,
-  lat: "",
-  lng: "",
   notes: "",
 };
 
@@ -64,17 +63,54 @@ const getStatusLabel = (statusCode: string, fallbackName?: string) => {
   return fallbackName || statusCode || "Không rõ";
 };
 
-const buildPayload = (form: TeamForm): CreateTeamPayload => ({
+type TeamLeader = {
+  id: string;
+  displayName: string;
+  phone?: string;
+};
+
+const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number }> {
+  const params = new URLSearchParams({
+    q: address,
+    format: "json",
+    limit: "1",
+    countrycodes: "vn",
+  });
+
+  const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
+    headers: {
+      "Accept-Language": "vi",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Khong the lay toa do tu dia chi da nhap.");
+  }
+
+  const data = (await response.json()) as Array<{ lat?: string; lon?: string }>;
+  const firstResult = data[0];
+  const lat = Number(firstResult?.lat);
+  const lng = Number(firstResult?.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new Error("Khong tim thay toa do phu hop cho dia chi nay.");
+  }
+  return { lat, lng };
+}
+
+const buildPayload = (
+  form: TeamForm,
+  location: { lat: number; lng: number },
+): CreateTeamPayload => ({
   code: form.code.trim(),
   name: form.name.trim(),
   leaderUserId: form.leaderUserId.trim(),
-  homeAdminAreaId: form.homeAdminAreaId.trim(),
-  statusCode: form.statusCode.trim(),
-  maxParallelMissions: Number(form.maxParallelMissions),
-  currentLocation: {
-    lat: Number(form.lat),
-    lng: Number(form.lng),
+  homeBase: {
+    address: form.homeBaseAddress.trim(),
+    location,
   },
+  statusCode: form.statusCode.trim(),
   notes: form.notes.trim(),
 });
 
@@ -82,13 +118,8 @@ const mapTeamToForm = (team: ManagerTeam): TeamForm => ({
   code: String(team.code ?? team.teamCode ?? ""),
   name: String(team.name ?? team.teamName ?? ""),
   leaderUserId: String(team.leader?.id ?? team.leaderUserId ?? ""),
-  homeAdminAreaId: String(team.homeAdminArea?.id ?? team.homeAdminAreaId ?? ""),
+  homeBaseAddress: String(team.homeBase?.address ?? team.homeAdminArea?.name ?? ""),
   statusCode: String(team.status?.code ?? "AVAILABLE"),
-  maxParallelMissions: Number(team.maxParallelMissions ?? 1),
-  lat:
-    team.currentLocation?.lat == null ? "" : String(team.currentLocation.lat),
-  lng:
-    team.currentLocation?.lng == null ? "" : String(team.currentLocation.lng),
   notes: String(team.notes ?? ""),
 });
 
@@ -103,6 +134,10 @@ export const RescueTeamManagementSection: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingTeam, setEditingTeam] = useState<ManagerTeam | null>(null);
   const [form, setForm] = useState<TeamForm>(DEFAULT_FORM);
+  const [leaders, setLeaders] = useState<TeamLeader[]>([]);
+  const [isLoadingLeaders, setIsLoadingLeaders] = useState(false);
+  const [selectedAddressSuggestion, setSelectedAddressSuggestion] =
+    useState<AddressSuggestion | null>(null);
 
   const [deletingTeam, setDeletingTeam] = useState<ManagerTeam | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -138,15 +173,81 @@ export const RescueTeamManagementSection: React.FC = () => {
     void fetchTeams();
   }, [statusFilter]);
 
+  useEffect(() => {
+    if (!isFormOpen) return;
+    let mounted = true;
+
+    const fetchLeaders = async () => {
+      setIsLoadingLeaders(true);
+      try {
+        const response = await getUsers({
+          roleCode: "COORDINATOR",
+          isActive: true,
+          page: 1,
+          pageSize: 100,
+        });
+        if (!mounted) return;
+        const items = (response.items ?? []).map((user) => ({
+          id: user.id,
+          displayName: user.displayName || user.username,
+          phone: user.phone,
+        }));
+        setLeaders(items);
+      } catch {
+        if (!mounted) return;
+        setLeaders([]);
+      } finally {
+        if (mounted) {
+          setIsLoadingLeaders(false);
+        }
+      }
+    };
+
+    void fetchLeaders();
+    return () => {
+      mounted = false;
+    };
+  }, [isFormOpen]);
+
   const openCreateModal = () => {
     setEditingTeam(null);
     setForm(DEFAULT_FORM);
+    setSelectedAddressSuggestion(null);
     setIsFormOpen(true);
   };
 
   const openEditModal = (team: ManagerTeam) => {
     setEditingTeam(team);
     setForm(mapTeamToForm(team));
+    if (
+      team.homeBase?.location?.lat != null &&
+      team.homeBase?.location?.lng != null &&
+      (team.homeBase?.address || team.homeAdminArea?.name)
+    ) {
+      const addressText = team.homeBase?.address ?? team.homeAdminArea?.name ?? "";
+      setSelectedAddressSuggestion({
+        id: team.id,
+        display: addressText,
+        address: addressText,
+        lat: team.homeBase.location.lat,
+        lng: team.homeBase.location.lng,
+      });
+    } else if (
+      team.currentLocation?.lat != null &&
+      team.currentLocation?.lng != null &&
+      (team.homeBase?.address || team.homeAdminArea?.name)
+    ) {
+      const addressText = team.homeBase?.address ?? team.homeAdminArea?.name ?? "";
+      setSelectedAddressSuggestion({
+        id: `${team.id}-current`,
+        display: addressText,
+        address: addressText,
+        lat: team.currentLocation.lat,
+        lng: team.currentLocation.lng,
+      });
+    } else {
+      setSelectedAddressSuggestion(null);
+    }
     setIsFormOpen(true);
   };
 
@@ -161,23 +262,25 @@ export const RescueTeamManagementSection: React.FC = () => {
       !form.code.trim() ||
       !form.name.trim() ||
       !form.leaderUserId.trim() ||
-      !form.homeAdminAreaId.trim() ||
-      !form.statusCode.trim() ||
-      !form.lat.trim() ||
-      !form.lng.trim()
+      !form.homeBaseAddress.trim() ||
+      !form.statusCode.trim()
     ) {
       toastError("Vui lòng nhập đầy đủ thông tin bắt buộc");
       return;
     }
 
-    if (Number.isNaN(Number(form.lat)) || Number.isNaN(Number(form.lng))) {
-      toastError("Tọa độ không hợp lệ");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      const payload = buildPayload(form);
+      const trimmedAddress = form.homeBaseAddress.trim();
+      const location =
+        selectedAddressSuggestion?.address.trim() === trimmedAddress
+          ? {
+              lat: selectedAddressSuggestion.lat,
+              lng: selectedAddressSuggestion.lng,
+            }
+          : await geocodeAddress(trimmedAddress);
+
+      const payload = buildPayload(form, location);
       if (editingTeam?.id) {
         await updateManagerTeam(editingTeam.id, payload, accessToken);
         toastSuccess("Cập nhật đội cứu hộ thành công");
@@ -332,7 +435,9 @@ export const RescueTeamManagementSection: React.FC = () => {
                         <p className="text-xs text-slate-500">{team.leader?.phone ?? ""}</p>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-700">
-                        <p className="font-medium">{team.homeAdminArea?.name ?? "--"}</p>
+                        <p className="font-medium">
+                          {team.homeBase?.address ?? team.homeAdminArea?.name ?? "--"}
+                        </p>
                         <p className="text-xs text-slate-500">{team.homeAdminArea?.code ?? ""}</p>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-700">
@@ -405,22 +510,44 @@ export const RescueTeamManagementSection: React.FC = () => {
                 placeholder="Tên đội *"
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
               />
-              <input
+              <select
                 value={form.leaderUserId}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, leaderUserId: e.target.value }))
                 }
-                placeholder="Leader User ID *"
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-              <input
-                value={form.homeAdminAreaId}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, homeAdminAreaId: e.target.value }))
-                }
-                placeholder="Home Admin Area ID *"
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
+                disabled={isLoadingLeaders}
+              >
+                <option value="">
+                  {isLoadingLeaders
+                    ? "Đang tải danh sách coordinator..."
+                    : "Chọn đội trưởng (Coordinator) *"}
+                </option>
+                {leaders.map((leader) => (
+                  <option key={leader.id} value={leader.id}>
+                    {leader.displayName}
+                    {leader.phone ? ` - ${leader.phone}` : ""}
+                  </option>
+                ))}
+              </select>
+              <div className="md:col-span-2">
+                <AddressAutocomplete
+                  value={form.homeBaseAddress}
+                  onChange={(address) => {
+                    setForm((p) => ({ ...p, homeBaseAddress: address }));
+                    setSelectedAddressSuggestion(null);
+                  }}
+                  onSelect={(suggestion) => {
+                    setForm((p) => ({ ...p, homeBaseAddress: suggestion.address }));
+                    setSelectedAddressSuggestion(suggestion);
+                  }}
+                  placeholder="Địa chỉ home base *"
+                  disabled={isSubmitting}
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Tọa độ lat/lng sẽ tự lấy từ địa chỉ đã chọn.
+                </p>
+              </div>
               <select
                 value={form.statusCode}
                 onChange={(e) =>
@@ -432,31 +559,6 @@ export const RescueTeamManagementSection: React.FC = () => {
                 <option value="BUSY">BUSY</option>
                 <option value="OFFLINE">OFFLINE</option>
               </select>
-              <input
-                type="number"
-                min={1}
-                value={form.maxParallelMissions}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    maxParallelMissions: Number(e.target.value || 0),
-                  }))
-                }
-                placeholder="Số nhiệm vụ song song *"
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-              <input
-                value={form.lat}
-                onChange={(e) => setForm((p) => ({ ...p, lat: e.target.value }))}
-                placeholder="Vĩ độ (lat) *"
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-              <input
-                value={form.lng}
-                onChange={(e) => setForm((p) => ({ ...p, lng: e.target.value }))}
-                placeholder="Kinh độ (lng) *"
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
               <textarea
                 value={form.notes}
                 onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}

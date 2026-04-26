@@ -47,9 +47,36 @@ export interface UpdateUserPayload {
     roleCodes?: string[];
 }
 
+export interface GetUsersParams {
+    keyword?: string;
+    isActive?: boolean;
+    roleCode?: string;
+    page?: number;
+    pageSize?: number;
+}
 
-export const getUsers = async (): Promise<UserListResponse> => {
-    return requestApi("/api/v1/admin/users");
+export const getUsers = async (
+    params?: GetUsersParams
+): Promise<UserListResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.keyword?.trim()) {
+        searchParams.set("keyword", params.keyword.trim());
+    }
+    if (typeof params?.isActive === "boolean") {
+        searchParams.set("isActive", String(params.isActive));
+    }
+    if (params?.roleCode?.trim()) {
+        searchParams.set("roleCode", params.roleCode.trim());
+    }
+    if (typeof params?.page === "number") {
+        searchParams.set("page", String(params.page));
+    }
+    if (typeof params?.pageSize === "number") {
+        searchParams.set("pageSize", String(params.pageSize));
+    }
+
+    const query = searchParams.toString();
+    return requestApi(`/api/v1/admin/users${query ? `?${query}` : ""}`);
 };
 
 export const getUserById = async (userId: string): Promise<UserItem> => {

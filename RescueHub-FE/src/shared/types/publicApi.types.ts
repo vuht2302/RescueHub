@@ -244,15 +244,41 @@ export interface PublicTrackingMyHistoryItem {
   statusCode?: string;
   createdAt?: string;
   updatedAt?: string;
+  incidentId?: string;
+  incidentCode?: string;
+  trackingCode?: string;
+  incidentTypeCode?: string;
+  status?: PublicMeHistoryStatus;
+  priority?: PublicMeHistoryStatus;
+  location?: {
+    lat?: number;
+    lng?: number;
+    addressText?: string;
+    landmark?: string;
+  };
+  imageUrls?: string[];
+  media?: Array<{
+    id?: string;
+    mediaTypeCode?: string;
+    fileUrl?: string;
+    thumbnailUrl?: string;
+    aiOptimizedUrl?: string;
+    width?: number;
+    height?: number;
+    uploadedAt?: string;
+  }>;
+  reportedAt?: string;
   [key: string]: unknown;
 }
 
-export interface PublicTrackingMyHistoryResponse {
-  items: PublicTrackingMyHistoryItem[];
-  totalCount?: number;
+export interface PublicTrackingMyPagedResponse<TItem> {
+  items: TItem[];
+  total?: number;
   page?: number;
   pageSize?: number;
 }
+
+export interface PublicTrackingMyHistoryResponse extends PublicTrackingMyPagedResponse<PublicTrackingMyHistoryItem> {}
 
 export interface PublicMeHistoryStatus {
   code?: string;

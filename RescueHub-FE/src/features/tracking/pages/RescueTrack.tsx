@@ -86,8 +86,8 @@ export const RescueTrack: React.FC = () => {
   ): TrackingListItem => {
     const code = String(
       item.code ??
-        (item as any).trackingCode ??
-        (item as any).incidentCode ??
+        item.trackingCode ??
+        item.incidentCode ??
         (item as any).requestCode ??
         "",
     ).trim();
@@ -95,12 +95,30 @@ export const RescueTrack: React.FC = () => {
     const fallbackTitle =
       kind === "rescue" ? "Yêu cầu cứu hộ" : "Yêu cầu cứu trợ";
 
+    const statusName = String(
+      item.status?.name ?? item.statusName ?? "Đang xử lý",
+    );
+
+    const createdAt = String(
+      item.reportedAt ?? item.createdAt ?? item.updatedAt ?? "",
+    );
+
     return {
-      id: String(item.id ?? code ?? `${kind}-${Math.random()}`),
+      id: String(
+        item.id ??
+          item.incidentId ??
+          item.reliefRequestId ??
+          code ??
+          `${kind}-${Math.random()}`,
+      ),
       code,
-      title: String(item.title ?? fallbackTitle),
-      statusName: String(item.statusName ?? "Đang xử lý"),
-      createdAt: String(item.createdAt ?? item.updatedAt ?? ""),
+      title: String(
+        item.title ??
+          (kind === "rescue" ? item.description : item.note) ??
+          fallbackTitle,
+      ),
+      statusName,
+      createdAt,
     };
   };
 
@@ -441,11 +459,23 @@ export const RescueTrack: React.FC = () => {
           const rescueItems: TrackingListItem[] = (
             data.rescues?.items ?? []
           ).map((item) => ({
-            id: String(item.id ?? item.code ?? `rescue-${Math.random()}`),
-            code: String(item.code ?? ""),
-            title: String(item.title ?? "Yêu cầu cứu hộ"),
-            statusName: String(item.statusName ?? "Đang xử lý"),
-            createdAt: String(item.createdAt ?? item.updatedAt ?? ""),
+            id: String(
+              item.id ??
+                item.incidentId ??
+                item.trackingCode ??
+                item.code ??
+                `rescue-${Math.random()}`,
+            ),
+            code: String(
+              item.incidentCode ?? item.trackingCode ?? item.code ?? "",
+            ),
+            title: String(item.description ?? item.title ?? "Yêu cầu cứu hộ"),
+            statusName: String(
+              item.status?.name ?? item.statusName ?? "Đang xử lý",
+            ),
+            createdAt: String(
+              item.reportedAt ?? item.createdAt ?? item.updatedAt ?? "",
+            ),
           }));
 
           // Convert relief requests to TrackingListItem

@@ -508,9 +508,22 @@ export const RescueTeamMission: React.FC = () => {
     ]);
   };
 
-  const handleViewMission = (missionId: string, status: MissionStatus) => {
-    setSelectedMissionId(missionId);
+  const handleViewMission = (
+    mission: TeamMissionListItem,
+    status: MissionStatus,
+  ) => {
+    setTeamMissions((prev) => {
+      const existed = prev.some((item) => item.missionId === mission.missionId);
+      if (existed) {
+        return prev;
+      }
+
+      return [mission, ...prev];
+    });
+
+    setSelectedMissionId(mission.missionId);
     setReportStatus(status);
+    void loadTeamMissionDetail(mission.missionId, true);
     setActiveMenu("map");
   };
 

@@ -71,7 +71,9 @@ type TeamLeader = {
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 
-async function geocodeAddress(address: string): Promise<{ lat: number; lng: number }> {
+async function geocodeAddress(
+  address: string,
+): Promise<{ lat: number; lng: number }> {
   const params = new URLSearchParams({
     q: address,
     format: "json",
@@ -118,7 +120,9 @@ const mapTeamToForm = (team: ManagerTeam): TeamForm => ({
   code: String(team.code ?? team.teamCode ?? ""),
   name: String(team.name ?? team.teamName ?? ""),
   leaderUserId: String(team.leader?.id ?? team.leaderUserId ?? ""),
-  homeBaseAddress: String(team.homeBase?.address ?? team.homeAdminArea?.name ?? ""),
+  homeBaseAddress: String(
+    team.homeBase?.address ?? team.homeAdminArea?.name ?? "",
+  ),
   statusCode: String(team.status?.code ?? "AVAILABLE"),
   notes: String(team.notes ?? ""),
 });
@@ -162,7 +166,8 @@ export const RescueTeamManagementSection: React.FC = () => {
       });
       setTeams(data);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Không thể tải danh sách đội";
+      const msg =
+        e instanceof Error ? e.message : "Không thể tải danh sách đội";
       setError(msg);
     } finally {
       setIsLoading(false);
@@ -224,7 +229,8 @@ export const RescueTeamManagementSection: React.FC = () => {
       team.homeBase?.location?.lng != null &&
       (team.homeBase?.address || team.homeAdminArea?.name)
     ) {
-      const addressText = team.homeBase?.address ?? team.homeAdminArea?.name ?? "";
+      const addressText =
+        team.homeBase?.address ?? team.homeAdminArea?.name ?? "";
       setSelectedAddressSuggestion({
         id: team.id,
         display: addressText,
@@ -237,7 +243,8 @@ export const RescueTeamManagementSection: React.FC = () => {
       team.currentLocation?.lng != null &&
       (team.homeBase?.address || team.homeAdminArea?.name)
     ) {
-      const addressText = team.homeBase?.address ?? team.homeAdminArea?.name ?? "";
+      const addressText =
+        team.homeBase?.address ?? team.homeAdminArea?.name ?? "";
       setSelectedAddressSuggestion({
         id: `${team.id}-current`,
         display: addressText,
@@ -399,14 +406,16 @@ export const RescueTeamManagementSection: React.FC = () => {
                   <th className="px-4 py-3">Khu vực</th>
                   <th className="px-4 py-3">Nhiệm vụ song song</th>
                   <th className="px-4 py-3">Nhân sự / xe</th>
-                  <th className="px-4 py-3">Vị trí</th>
                   <th className="px-4 py-3">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {teams.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">
+                    <td
+                      colSpan={8}
+                      className="px-4 py-8 text-center text-sm text-slate-500"
+                    >
                       Chưa có đội cứu hộ nào.
                     </td>
                   </tr>
@@ -416,7 +425,10 @@ export const RescueTeamManagementSection: React.FC = () => {
                   const code = team.code ?? team.teamCode ?? "--";
                   const name = team.name ?? team.teamName ?? "Đội cứu hộ";
                   return (
-                    <tr key={team.id} className="border-b border-slate-100 hover:bg-slate-50">
+                    <tr
+                      key={team.id}
+                      className="border-b border-slate-100 hover:bg-slate-50"
+                    >
                       <td className="px-4 py-3">
                         <p className="font-semibold text-slate-900">{name}</p>
                         <p className="text-xs text-slate-500">{code}</p>
@@ -431,14 +443,22 @@ export const RescueTeamManagementSection: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-700">
-                        <p className="font-medium">{team.leader?.displayName ?? "--"}</p>
-                        <p className="text-xs text-slate-500">{team.leader?.phone ?? ""}</p>
+                        <p className="font-medium">
+                          {team.leader?.displayName ?? "--"}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {team.leader?.phone ?? ""}
+                        </p>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-700">
                         <p className="font-medium">
-                          {team.homeBase?.address ?? team.homeAdminArea?.name ?? "--"}
+                          {team.homeBase?.address ??
+                            team.homeAdminArea?.name ??
+                            "--"}
                         </p>
-                        <p className="text-xs text-slate-500">{team.homeAdminArea?.code ?? ""}</p>
+                        <p className="text-xs text-slate-500">
+                          {team.homeAdminArea?.code ?? ""}
+                        </p>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-700">
                         {team.maxParallelMissions ?? 0}
@@ -446,11 +466,7 @@ export const RescueTeamManagementSection: React.FC = () => {
                       <td className="px-4 py-3 text-sm text-slate-700">
                         {team.memberCount ?? 0} / {team.vehicleCount ?? 0}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-600">
-                        {team.currentLocation?.lat != null && team.currentLocation?.lng != null
-                          ? `${team.currentLocation.lat}, ${team.currentLocation.lng}`
-                          : "--"}
-                      </td>
+
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button
@@ -500,13 +516,17 @@ export const RescueTeamManagementSection: React.FC = () => {
             <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-2">
               <input
                 value={form.code}
-                onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, code: e.target.value }))
+                }
                 placeholder="Mã đội *"
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
               />
               <input
                 value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
                 placeholder="Tên đội *"
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
               />
@@ -538,7 +558,10 @@ export const RescueTeamManagementSection: React.FC = () => {
                     setSelectedAddressSuggestion(null);
                   }}
                   onSelect={(suggestion) => {
-                    setForm((p) => ({ ...p, homeBaseAddress: suggestion.address }));
+                    setForm((p) => ({
+                      ...p,
+                      homeBaseAddress: suggestion.address,
+                    }));
                     setSelectedAddressSuggestion(suggestion);
                   }}
                   placeholder="Địa chỉ home base *"
@@ -561,7 +584,9 @@ export const RescueTeamManagementSection: React.FC = () => {
               </select>
               <textarea
                 value={form.notes}
-                onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, notes: e.target.value }))
+                }
                 placeholder="Ghi chú"
                 className="md:col-span-2 min-h-24 rounded-lg border border-slate-200 px-3 py-2 text-sm"
               />
@@ -595,7 +620,9 @@ export const RescueTeamManagementSection: React.FC = () => {
             <p className="mt-2 text-sm text-slate-600">
               Bạn chắc chắn muốn xóa đội{" "}
               <span className="font-semibold">
-                {deletingTeam.name ?? deletingTeam.teamName ?? deletingTeam.code}
+                {deletingTeam.name ??
+                  deletingTeam.teamName ??
+                  deletingTeam.code}
               </span>
               ?
             </p>

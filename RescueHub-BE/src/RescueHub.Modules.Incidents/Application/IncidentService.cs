@@ -48,6 +48,9 @@ public sealed class IncidentService(IIncidentRepository repository) : IIncidentS
     public Task<object> GetTeamMissions()
         => repository.GetTeamMissions();
 
+    public Task<object> GetMyMissions(Guid leaderUserId, Guid? teamId, string? statusCode, int page, int pageSize)
+        => repository.GetMyMissions(leaderUserId, teamId, statusCode, page, pageSize);
+
     public Task<object> GetMyTeamMembers(Guid leaderUserId)
         => repository.GetMyTeamMembers(leaderUserId);
 

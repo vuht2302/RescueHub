@@ -409,7 +409,6 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
         {
             throw new InvalidOperationException("Khong the suy ra admin area tu toa do home base.");
         }
-        var currentLocation = request.CurrentLocation;
 
         var now = DateTime.UtcNow;
         var team = new team
@@ -421,7 +420,7 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
             home_admin_area_id = homeAdminAreaId.Value,
             status_code = normalizedStatusCode,
             max_parallel_missions = maxParallelMissions,
-            current_location = ToPointOrNull(currentLocation),
+            current_location = ToPointOrNull(request.HomeBase.Location),
             notes = MergeTeamNotes(homeAddress, request.Notes),
             created_at = now
         };
@@ -464,28 +463,26 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
 
         await EnsureLeaderUserExists(request.LeaderUserId);
 
-        Guid? resolvedHomeAdminAreaId = request.HomeAdminAreaId;
-        if (resolvedHomeAdminAreaId.HasValue)
+        if (request.HomeBase is null)
         {
-            await EnsureAdminAreaExists(resolvedHomeAdminAreaId);
+            throw new InvalidOperationException("HomeBase la bat buoc.");
         }
-        else if (request.CurrentLocation is not null)
+
+        var homeAddress = NormalizeRequired(request.HomeBase.Address, nameof(request.HomeBase.Address));
+        var resolvedHomeAdminAreaId = await ResolveAdminAreaIdFromLocation(request.HomeBase.Location);
+        if (!resolvedHomeAdminAreaId.HasValue)
         {
-            resolvedHomeAdminAreaId = await ResolveAdminAreaIdFromLocation(request.CurrentLocation);
-            if (!resolvedHomeAdminAreaId.HasValue)
-            {
-                throw new InvalidOperationException("Khong the suy ra admin area tu toa do current location.");
-            }
+            throw new InvalidOperationException("Khong the suy ra admin area tu toa do home base.");
         }
 
         team.code = normalizedCode;
         team.name = normalizedName;
         team.leader_user_id = request.LeaderUserId;
-        team.home_admin_area_id = resolvedHomeAdminAreaId ?? team.home_admin_area_id;
+        team.home_admin_area_id = resolvedHomeAdminAreaId.Value;
         team.status_code = normalizedStatusCode;
         team.max_parallel_missions = maxParallelMissions;
-        team.current_location = ToPointOrNull(request.CurrentLocation);
-        team.notes = NormalizeOptional(request.Notes);
+        team.current_location = ToPointOrNull(request.HomeBase.Location);
+        team.notes = MergeTeamNotes(homeAddress, request.Notes);
 
         await dbContext.SaveChangesAsync();
 

@@ -17,12 +17,14 @@ import {
   Flag,
   Navigation,
   Warehouse,
+  FileText,
 } from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { ConfirmationModal } from "../../../shared/components/ConfirmationModal";
 import {
   getReliefHotspots,
   type ReliefHotspotItem,
+  type SampleLocation,
 } from "../../rescue-coordinator/services/incidentServices";
 import {
   createManagerReliefPoint,
@@ -84,6 +86,7 @@ interface CreateCampaignFormState {
   statusCode: string;
   description: string;
   selectedReliefPointIds: string[];
+  selectedReliefRequestIds: string[];
 }
 
 const buildInitialCreateForm = (): CreateReliefPointFormState => {
@@ -91,7 +94,7 @@ const buildInitialCreateForm = (): CreateReliefPointFormState => {
     code: "",
     name: "",
     addressText: "",
-    statusCode: "OPEN",
+    statusCode: "Đang mở",
   };
 };
 
@@ -107,10 +110,14 @@ const buildInitialCampaignForm = (): CreateCampaignFormState => {
     statusCode: "PLANNED",
     description: "",
     selectedReliefPointIds: [],
+    selectedReliefRequestIds: [],
   };
 };
 
-const getDistanceKm = (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
+const getDistanceKm = (
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+) => {
   const toRad = (value: number) => (value * Math.PI) / 180;
   const earthRadiusKm = 6371;
   const dLat = toRad(to.lat - from.lat);
@@ -163,8 +170,8 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     [],
   );
   const [isCreateCampaignOpen, setIsCreateCampaignOpen] = useState(false);
-  const [campaignForm, setCampaignForm] = useState<CreateCampaignFormState>(() =>
-    buildInitialCampaignForm(),
+  const [campaignForm, setCampaignForm] = useState<CreateCampaignFormState>(
+    () => buildInitialCampaignForm(),
   );
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
   const [campaignError, setCampaignError] = useState<string | null>(null);
@@ -179,7 +186,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
         throw new Error("Không có token xác thực.");
       }
 
-      const points = await getManagerReliefPoints(authSession.accessToken, "OPEN");
+      const points = await getManagerReliefPoints(
+        authSession.accessToken,
+        "OPEN",
+      );
       setReliefPoints(points);
     } catch (err) {
       console.error("Lỗi khi tải điểm cứu trợ:", err);
@@ -191,7 +201,9 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       const authSession = getAuthSession();
       if (!authSession?.accessToken) return;
 
-      const warehouseList = await getWarehouses(authSession.accessToken, { statusCode: "ACTIVE" });
+      const warehouseList = await getWarehouses(authSession.accessToken, {
+        statusCode: "ACTIVE",
+      });
       setWarehouses(warehouseList);
     } catch (err) {
       console.error("Lỗi khi tải kho:", err);
@@ -321,7 +333,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
         throw new Error("Không có token xác thực.");
       }
 
-      await deleteManagerReliefPoint(authSession.accessToken, selectedReliefPoint.id);
+      await deleteManagerReliefPoint(
+        authSession.accessToken,
+        selectedReliefPoint.id,
+      );
       setSelectedReliefPoint(null);
       setIsDeleteConfirmOpen(false);
       await fetchReliefPoints();
@@ -368,6 +383,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       statusCode: campaignForm.statusCode,
       description: campaignForm.description.trim() || undefined,
       reliefPointIds: campaignForm.selectedReliefPointIds,
+      reliefRequestIds: campaignForm.selectedReliefRequestIds,
     };
 
     setIsCreatingCampaign(true);
@@ -386,7 +402,9 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
   };
 
   const handleCampaignFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
   ) => {
     const { name, value } = e.target;
     setCampaignForm((prev) => ({ ...prev, [name]: value }));
@@ -412,11 +430,23 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       .map((p) => ({
         ...p,
         distanceKm: getDistanceKm(
-          { lat: selectedHotspot.center!.lat, lng: selectedHotspot.center!.lng },
+          {
+            lat: selectedHotspot.center!.lat,
+            lng: selectedHotspot.center!.lng,
+          },
           { lat: p.location.lat, lng: p.location.lng },
         ),
       }))
       .sort((a, b) => a.distanceKm - b.distanceKm);
+  };
+
+  const getStatusNameVi = (statusCode: string): string => {
+    const statusMap: Record<string, string> = {
+      OPEN: "Đang mở",
+      CLOSED: "Đã đóng",
+      SUSPENDED: "Tạm ngưng",
+    };
+    return statusMap[statusCode] || statusCode;
   };
 
   const fetchHotspots = React.useCallback(async () => {
@@ -656,8 +686,8 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
         `<div style="font-family:sans-serif;padding:4px;min-width:180px">
           <strong style="font-size:13px;color:#007399">${point.name}</strong><br/>
           <span style="font-size:11px;color:#6b7280">${point.addressText}</span><br/>
-          <span style="font-size:11px;color:#6b7280">Chiến dịch: <b>${point.campaign.name}</b></span><br/>
-          <span style="font-size:11px;color:#6b7280">Trạng thái: <b>${point.status.name}</b></span>
+          <span style="font-size:11px;color:#6b7280">Chiến dịch: <b>${point.campaign?.name || "N/A"}</b></span><br/>
+          <span style="font-size:11px;color:#6b7280">Trạng thái: <b>${getStatusNameVi(point.status?.code)}</b></span>
         </div>`,
       );
       marker.setPopup(popup);
@@ -753,7 +783,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     // Include warehouses in bounds
     if (warehouses.length > 0) {
       const validWarehouses = warehouses.filter(
-        (w) => w.location?.lat && w.location?.lng
+        (w) => w.location?.lat && w.location?.lng,
       );
       if (validWarehouses.length > 0 && viewMode === "both") {
         const bounds = new vietmapgl.LngLatBounds();
@@ -985,10 +1015,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
             </p>
             <div className="mt-2 flex items-center gap-2">
               <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-blue-50 text-blue-600">
-                {selectedReliefPoint.status.name}
+                {getStatusNameVi(selectedReliefPoint.status?.code)}
               </span>
               <span className="text-[10px] text-gray-500">
-                {selectedReliefPoint.campaign.name}
+                {selectedReliefPoint.campaign?.name || "N/A"}
               </span>
             </div>
             {deleteError && (
@@ -1342,7 +1372,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                         </div>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-green-100 text-green-600">
-                        {point.status.name}
+                        {getStatusNameVi(point.status?.code)}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 truncate">
@@ -1453,7 +1483,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                             </p>
                           </div>
                           <span className="text-xs font-bold text-green-600">
-                            {point.status.name}
+                            {getStatusNameVi(point.status?.code)}
                           </span>
                         </div>
                       </div>
@@ -1518,7 +1548,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                 >
                   {statusOptions.map((status) => (
                     <option key={status.code} value={status.code}>
-                      {status.name}
+                      {getStatusNameVi(status.code)}
                     </option>
                   ))}
                 </select>
@@ -1599,7 +1629,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                   Tạo chiến dịch cứu trợ
                 </h4>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Vùng: <span className="font-semibold">{selectedHotspot.areaName}</span>
+                  Vùng:{" "}
+                  <span className="font-semibold">
+                    {selectedHotspot.areaName}
+                  </span>
                 </p>
               </div>
               <button
@@ -1614,7 +1647,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleCreateCampaign} className="flex-1 overflow-y-auto px-5 py-4">
+            <form
+              onSubmit={handleCreateCampaign}
+              className="flex-1 overflow-y-auto px-5 py-4"
+            >
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-gray-600 block mb-1">
@@ -1703,7 +1739,10 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                   ) : (
                     <div className="divide-y divide-gray-100">
                       {getReliefPointsWithDistance().map((point) => {
-                        const isSelected = campaignForm.selectedReliefPointIds.includes(point.id);
+                        const isSelected =
+                          campaignForm.selectedReliefPointIds.includes(
+                            point.id,
+                          );
                         return (
                           <div
                             key={point.id}
@@ -1722,8 +1761,18 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                               }`}
                             >
                               {isSelected && (
-                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                <svg
+                                  className="w-3 h-3 text-white"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={3}
+                                    d="M5 13l4 4L19 7"
+                                  />
                                 </svg>
                               )}
                             </div>
@@ -1745,6 +1794,92 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Relief Requests Selection - from selectedHotspot */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+                    <FileText size={12} />
+                    Chọn yêu cầu cứu trợ (khu vực {selectedHotspot.areaName})
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {campaignForm.selectedReliefRequestIds.length} đã chọn / {selectedHotspot.sampleLocations.length} yêu cầu
+                  </span>
+                </div>
+                {selectedHotspot.sampleLocations.length === 0 ? (
+                  <div className="border border-slate-200 rounded-lg p-4 text-center text-sm text-gray-500">
+                    Không có yêu cầu cứu trợ nào trong khu vực này.
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-lg overflow-hidden max-h-[200px] overflow-y-auto">
+                    <div className="divide-y divide-gray-100">
+                      {selectedHotspot.sampleLocations.map((location) => {
+                        const isSelected = campaignForm.selectedReliefRequestIds.includes(
+                          location.reliefRequestId,
+                        );
+                        return (
+                          <div
+                            key={location.reliefRequestId}
+                            onClick={() => {
+                              setCampaignForm((prev) => ({
+                                ...prev,
+                                selectedReliefRequestIds: isSelected
+                                  ? prev.selectedReliefRequestIds.filter(
+                                      (id) => id !== location.reliefRequestId,
+                                    )
+                                  : [...prev.selectedReliefRequestIds, location.reliefRequestId],
+                              }));
+                            }}
+                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                              isSelected
+                                ? "bg-green-50 border-l-4 border-l-green-600"
+                                : "hover:bg-gray-50 border-l-4 border-l-transparent"
+                            }`}
+                          >
+                            <div
+                              className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                isSelected
+                                  ? "bg-green-600 border-green-600"
+                                  : "border-gray-300"
+                              }`}
+                            >
+                              {isSelected && (
+                                <svg
+                                  className="w-3 h-3 text-white"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={3}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">
+                                {location.requestCode}
+                              </p>
+                              <p className="text-xs text-gray-400 truncate">
+                                {location.addressText}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                              <span className="text-xs font-semibold text-gray-600">
+                                <MapPin size={10} className="inline mr-1" />
+                                {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {campaignError && (

@@ -80,6 +80,24 @@ public sealed class AuthController(IAuthService authService) : BaseApiController
     }
 
     /// <summary>
+    /// Dang ky tai khoan citizen.
+    /// </summary>
+    /// <param name="request">Thong tin citizen.</param>
+    /// <returns>Thong tin tai khoan citizen da tao.</returns>
+    [HttpPost("citizen/register")]
+    public async Task<ActionResult<ApiResponse<object>>> RegisterCitizen([FromBody] RegisterCitizenRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await authService.RegisterCitizen(request), "Dang ky citizen thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Dang xuat khoi he thong.
     /// </summary>
     /// <returns>Thong bao dang xuat thanh cong.</returns>

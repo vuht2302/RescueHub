@@ -14,6 +14,7 @@ import {
   Calendar,
   Home,
   FileText,
+  AlertCircle,
 } from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import {
@@ -23,8 +24,11 @@ import {
   type ReliefRequestDetail,
 } from "../../rescue-coordinator/services/incidentServices";
 import {
+  approveReliefRequest,
+  type ApproveReliefRequestPayload,
+  getAllItems,
+  type ItemListItem,
   getDistributions,
-  getDistribution,
   type DistributionListItem,
   type Distribution,
   type PagedResponse,
@@ -394,6 +398,7 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
             setRequestDetail(null);
             setSelectedRequestId(null);
           }}
+          onApproveSuccess={loadReliefRequests}
         />
       )}
       {viewDistId && (
@@ -426,31 +431,525 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
 interface ReliefRequestDetailModalProps {
   detail: ReliefRequestDetail;
   onClose: () => void;
+  onApproveSuccess?: () => void;
 }
 
 function ReliefRequestDetailModal({
   detail,
   onClose,
+  onApproveSuccess,
 }: ReliefRequestDetailModalProps) {
+  const [showApproveForm, setShowApproveForm] = useState(false);
+  const [approvalNote, setApprovalNote] = useState("");
+  const [approvedItems, setApprovedItems] = useState<
+    Record<string, { approvedQty: number; unitCode: string }>
+  >({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // State for added items from warehouse
+  const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [addedItems, setAddedItems] = useState<
+    Array<{
+      itemId: string;
+      itemName: string;
+      itemCode: string;
+      qty: number;
+      unitCode: string;
+    }>
+  >([]);
+
+  const token = getAuthSession()?.accessToken ?? "";
+
+  // Initialize approved quantities from detail
+  useEffect(() => {
+    if (detail.requestedItems) {
+      const initial: Record<string, { approvedQty: number; unitCode: string }> =
+        {};
+      detail.requestedItems.forEach((item) => {
+        initial[item.reliefRequestItemId] = {
+          approvedQty: item.defaultApprovedQty ?? item.requestedQty,
+          unitCode: item.unitCode,
+        };
+      });
+      setApprovedItems(initial);
+      setAddedItems([]);
+    }
+  }, [detail]);
+
+  const handleApprove = async () => {
+    // Build items from requestedItems - dùng supportTypeCode (itemCode)
+    const existingItems = detail.requestedItems
+      .map((item) => ({
+        supportTypeCode: item.supportTypeCode, // Là itemCode như "AO-PHAO", "MI-GOI"
+        approvedQty:
+          approvedItems[item.reliefRequestItemId]?.approvedQty ??
+          item.requestedQty ??
+          1,
+        unitCode:
+          approvedItems[item.reliefRequestItemId]?.unitCode ?? item.unitCode,
+      }))
+      .filter((item) => item.approvedQty > 0);
+
+    // Build items from added items (new items from warehouse)
+    const newItems = addedItems
+      .filter((item) => item.qty > 0)
+      .map((item) => ({
+        supportTypeCode: item.itemCode, // Dùng itemCode
+        approvedQty: item.qty,
+        unitCode: item.unitCode,
+      }));
+
+    const allItems = [...existingItems, ...newItems];
+
+    if (allItems.length === 0) {
+      setError(
+        "Vui lòng nhập số lượng phê duyệt lớn hơn 0 cho ít nhất 1 vật phẩm",
+      );
+      return;
+    }
+
+    const payload: ApproveReliefRequestPayload = {
+      decisionCode: "APPROVED",
+      note: approvalNote,
+      items: allItems,
+    };
+
+    console.log("Approval payload:", JSON.stringify(payload, null, 2));
+
+    try {
+      setIsSubmitting(true);
+      setError(null);
+      await approveReliefRequest(detail.reliefRequestId, payload, token);
+      setShowApproveForm(false);
+      onApproveSuccess?.();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lỗi không xác định");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const canApprove =
+    detail.status?.code === "PENDING" || detail.status?.code === "NEW";
+  const isApproved = detail.status?.code === "APPROVED";
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b flex items-start justify-between flex-shrink-0">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-gray-900">
-                {detail.requestCode}
-              </h2>
-              <span className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-bold bg-green-100 text-green-700">
-                <CheckCircle size={10} />
-                {REQUEST_STATUS[detail.status?.code || ""]?.label || "Đã duyệt"}
-              </span>
+    <>
+      <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="px-6 py-4 border-b flex items-start justify-between flex-shrink-0">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black text-gray-900">
+                  {detail.requestCode}
+                </h2>
+                <span
+                  className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-bold ${
+                    isApproved
+                      ? "bg-green-100 text-green-700"
+                      : canApprove
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  <CheckCircle size={10} />
+                  {REQUEST_STATUS[detail.status?.code || ""]?.label ||
+                    (canApprove ? "Chờ duyệt" : detail.status?.code)}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Nguồn: {detail.sourceTypeCode}
+              </p>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              Nguồn: {detail.sourceTypeCode}
-            </p>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-gray-100"
+            >
+              <X size={18} />
+            </button>
           </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="space-y-5">
+              {/* Người yêu cầu */}
+              <section>
+                <h3 className="text-xs uppercase tracking-widest font-bold text-gray-400 mb-3 flex items-center gap-1.5">
+                  <User size={12} /> Người yêu cầu
+                </h3>
+                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Họ tên</span>
+                    <span className="text-sm font-bold">
+                      {detail.requester.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">SĐT</span>
+                    <span className="text-sm font-bold text-blue-600">
+                      {detail.requester.phone}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Số hộ</span>
+                    <span className="text-sm font-bold">
+                      {detail.householdCount}
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              {/* Địa chỉ */}
+              <section>
+                <h3 className="text-xs uppercase tracking-widest font-bold text-gray-400 mb-3 flex items-center gap-1.5">
+                  <MapPin size={12} /> Địa chỉ
+                </h3>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-sm font-semibold">{detail.addressText}</p>
+                </div>
+              </section>
+
+              {/* Chiến dịch */}
+              {detail.campaign && (
+                <section>
+                  <h3 className="text-xs uppercase tracking-widest font-bold text-gray-400 mb-3 flex items-center gap-1.5">
+                    <FileText size={12} /> Chiến dịch
+                  </h3>
+                  <div className="bg-blue-50 rounded-xl p-4">
+                    <p className="text-sm font-bold text-blue-700">
+                      {detail.campaign.name}
+                    </p>
+                    <p className="text-xs text-blue-500 font-mono">
+                      {detail.campaign.code}
+                    </p>
+                  </div>
+                </section>
+              )}
+
+              {/* Vật phẩm */}
+              <section>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs uppercase tracking-widest font-bold text-gray-400 flex items-center gap-1.5">
+                    <Package size={12} />{" "}
+                    {showApproveForm ? "Số lượng duyệt" : "Vật phẩm được duyệt"}
+                  </h3>
+                  {showApproveForm && canApprove && (
+                    <button
+                      onClick={() => setShowAddItemModal(true)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
+                    >
+                      <Plus size={14} />
+                      Thêm vật phẩm
+                    </button>
+                  )}
+                </div>
+                <div className="bg-gray-50 rounded-xl overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="px-4 py-2 text-left font-bold text-gray-500">
+                          Vật phẩm
+                        </th>
+                        <th className="px-3 py-2 text-center font-bold text-gray-500">
+                          SL duyệt
+                        </th>
+                        <th className="px-3 py-2 text-center font-bold text-gray-500">
+                          ĐV
+                        </th>
+                        {showApproveForm && (
+                          <th className="px-3 py-2 w-10"></th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detail.requestedItems.map((item) => (
+                        <tr
+                          key={item.reliefRequestItemId}
+                          className="border-t border-gray-100"
+                        >
+                          <td className="px-4 py-2.5 font-semibold">
+                            {item.supportTypeName}
+                          </td>
+                          {showApproveForm ? (
+                            <>
+                              <td className="px-3 py-2.5 text-center">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={
+                                    approvedItems[item.reliefRequestItemId]
+                                      ?.approvedQty ?? 0
+                                  }
+                                  onChange={(e) =>
+                                    setApprovedItems((prev) => ({
+                                      ...prev,
+                                      [item.reliefRequestItemId]: {
+                                        ...prev[item.reliefRequestItemId],
+                                        approvedQty:
+                                          parseInt(e.target.value) || 0,
+                                      },
+                                    }))
+                                  }
+                                  className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:outline-none focus:border-blue-400"
+                                />
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-gray-500">
+                                {item.unitCode}
+                              </td>
+                              <td className="px-3 py-2.5"></td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-3 py-2.5 text-center text-green-700 font-bold">
+                                {approvedItems[item.reliefRequestItemId]
+                                  ?.approvedQty ??
+                                  item.requestedQty ??
+                                  0}
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-gray-500">
+                                {item.unitCode}
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                      {/* Added items from warehouse */}
+                      {addedItems.map((item, idx) => (
+                        <tr
+                          key={`added-${idx}`}
+                          className="border-t border-blue-200 bg-blue-50"
+                        >
+                          <td className="px-4 py-2.5 font-semibold text-blue-700">
+                            {item.itemName}
+                            <span className="ml-2 text-[10px] font-normal text-blue-500">
+                              ({item.itemCode})
+                            </span>
+                          </td>
+                          {showApproveForm ? (
+                            <>
+                              <td className="px-3 py-2.5 text-center">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={item.qty}
+                                  onChange={(e) => {
+                                    const newItems = [...addedItems];
+                                    newItems[idx].qty =
+                                      parseInt(e.target.value) || 0;
+                                    setAddedItems(newItems);
+                                  }}
+                                  className="w-16 px-2 py-1 border border-blue-300 rounded text-center text-sm focus:outline-none focus:border-blue-400"
+                                />
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-gray-500">
+                                {item.unitCode}
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                <button
+                                  onClick={() => {
+                                    const newItems = [...addedItems];
+                                    newItems.splice(idx, 1);
+                                    setAddedItems(newItems);
+                                  }}
+                                  className="text-red-500 hover:text-red-700 p-1"
+                                  title="Xóa"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-3 py-2.5 text-center text-blue-700 font-bold">
+                                {item.qty}
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-gray-500">
+                                {item.unitCode}
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {addedItems.length === 0 &&
+                    detail.requestedItems.length === 0 && (
+                      <div className="py-8 text-center text-gray-400 text-sm">
+                        Chưa có vật phẩm nào
+                      </div>
+                    )}
+                </div>
+              </section>
+
+              {/* Approval Form */}
+              {showApproveForm && (
+                <section>
+                  <h3 className="text-xs uppercase tracking-widest font-bold text-gray-400 mb-3 flex items-center gap-1.5">
+                    <FileText size={12} /> Ghi chú phê duyệt
+                  </h3>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">
+                        Ghi chú
+                      </label>
+                      <textarea
+                        value={approvalNote}
+                        onChange={(e) => setApprovalNote(e.target.value)}
+                        rows={3}
+                        placeholder="Nhập ghi chú phê duyệt (không bắt buộc)"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 resize-none"
+                      />
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+                  <AlertCircle size={16} className="text-red-500 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-red-800">Lỗi</p>
+                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t bg-gray-50 flex-shrink-0 flex gap-3">
+            {showApproveForm ? (
+              <>
+                <button
+                  onClick={() => setShowApproveForm(false)}
+                  className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 font-semibold text-sm text-gray-600 hover:bg-gray-100"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleApprove}
+                  disabled={isSubmitting}
+                  className="flex-1 py-2.5 rounded-xl bg-green-600 font-semibold text-sm text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  {isSubmitting ? "Đang xử lý..." : "Xác nhận duyệt"}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 font-semibold text-sm text-gray-600 hover:bg-gray-100"
+                >
+                  Đóng
+                </button>
+                {canApprove && (
+                  <button
+                    onClick={() => setShowApproveForm(true)}
+                    className="flex-1 py-2.5 rounded-xl bg-green-600 font-semibold text-sm text-white hover:bg-green-700"
+                  >
+                    Phê duyệt
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Add Item Modal */}
+      {showAddItemModal && (
+        <AddItemModal
+          onClose={() => setShowAddItemModal(false)}
+          onAddItem={(item) => {
+            // Check if item already exists in added items
+            const exists = addedItems.some((i) => i.itemId === item.itemId);
+            if (!exists) {
+              setAddedItems([...addedItems, item]);
+            }
+            setShowAddItemModal(false);
+          }}
+          existingItemIds={[
+            ...detail.requestedItems.map((i) => i.supportTypeCode),
+            ...addedItems.map((i) => i.itemId),
+          ]}
+        />
+      )}
+    </>
+  );
+}
+
+// Add Item Modal Component
+interface AddItemModalProps {
+  onClose: () => void;
+  onAddItem: (item: {
+    itemId: string;
+    itemName: string;
+    itemCode: string;
+    qty: number;
+    unitCode: string;
+  }) => void;
+  existingItemIds: string[];
+}
+
+function AddItemModal({
+  onClose,
+  onAddItem,
+  existingItemIds,
+}: AddItemModalProps) {
+  const [items, setItems] = useState<ItemListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selectedItem, setSelectedItem] = useState<ItemListItem | null>(null);
+  const [qty, setQty] = useState(1);
+  const token = getAuthSession()?.accessToken ?? "";
+
+  useEffect(() => {
+    const loadItems = async () => {
+      try {
+        const data = await getAllItems(token);
+        // Filter out items already in the request
+        const availableItems = data.filter(
+          (item) => !existingItemIds.includes(item.itemCode) && item.isActive,
+        );
+        setItems(availableItems);
+      } catch (err) {
+        console.error("Error loading items:", err);
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    void loadItems();
+  }, [token, existingItemIds]);
+
+  const filteredItems = items.filter(
+    (item) =>
+      item.itemName.toLowerCase().includes(search.toLowerCase()) ||
+      item.itemCode.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const handleAdd = () => {
+    if (selectedItem && qty > 0) {
+      onAddItem({
+        itemId: selectedItem.id,
+        itemName: selectedItem.itemName,
+        itemCode: selectedItem.itemCode,
+        qty: qty,
+        unitCode: selectedItem.unitCode,
+      });
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b flex items-center justify-between">
+          <h2 className="text-lg font-black text-gray-900">Thêm vật phẩm</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-gray-100"
@@ -460,119 +959,95 @@ function ReliefRequestDetailModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-5">
-            {/* Người yêu cầu */}
-            <section>
-              <h3 className="text-xs uppercase tracking-widest font-bold text-gray-400 mb-3 flex items-center gap-1.5">
-                <User size={12} /> Người yêu cầu
-              </h3>
-              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Họ tên</span>
-                  <span className="text-sm font-bold">
-                    {detail.requester.name}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">SĐT</span>
-                  <span className="text-sm font-bold text-blue-600">
-                    {detail.requester.phone}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Số hộ</span>
-                  <span className="text-sm font-bold">
-                    {detail.householdCount}
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            {/* Địa chỉ */}
-            <section>
-              <h3 className="text-xs uppercase tracking-widest font-bold text-gray-400 mb-3 flex items-center gap-1.5">
-                <MapPin size={12} /> Địa chỉ
-              </h3>
-              <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-sm font-semibold">{detail.addressText}</p>
-              </div>
-            </section>
-
-            {/* Chiến dịch */}
-            {detail.campaign && (
-              <section>
-                <h3 className="text-xs uppercase tracking-widest font-bold text-gray-400 mb-3 flex items-center gap-1.5">
-                  <FileText size={12} /> Chiến dịch
-                </h3>
-                <div className="bg-blue-50 rounded-xl p-4">
-                  <p className="text-sm font-bold text-blue-700">
-                    {detail.campaign.name}
-                  </p>
-                  <p className="text-xs text-blue-500 font-mono">
-                    {detail.campaign.code}
-                  </p>
-                </div>
-              </section>
-            )}
-
-            {/* Vật phẩm */}
-            <section>
-              <h3 className="text-xs uppercase tracking-widest font-bold text-gray-400 mb-3 flex items-center gap-1.5">
-                <Package size={12} /> Vật phẩm được duyệt
-              </h3>
-              <div className="bg-gray-50 rounded-xl overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="px-4 py-2 text-left font-bold text-gray-500">
-                        Vật phẩm
-                      </th>
-                      <th className="px-3 py-2 text-center font-bold text-gray-500">
-                        SL yêu cầu
-                      </th>
-                      <th className="px-3 py-2 text-center font-bold text-gray-500">
-                        SL duyệt
-                      </th>
-                      <th className="px-3 py-2 text-center font-bold text-gray-500">
-                        ĐV
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detail.requestedItems.map((item) => (
-                      <tr
-                        key={item.reliefRequestItemId}
-                        className="border-t border-gray-100"
-                      >
-                        <td className="px-4 py-2.5 font-semibold">
-                          {item.supportTypeName}
-                        </td>
-                        <td className="px-3 py-2.5 text-center text-gray-600">
-                          {item.requestedQty}
-                        </td>
-                        <td className="px-3 py-2.5 text-center text-green-700 font-bold">
-                          {item.defaultApprovedQty || item.requestedQty}
-                        </td>
-                        <td className="px-3 py-2.5 text-center text-gray-500">
-                          {item.unitCode}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+        <div className="p-6 space-y-4">
+          {/* Search */}
+          <div className="relative">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="text"
+              placeholder="Tìm kiếm vật phẩm..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400"
+            />
           </div>
+
+          {/* Items List */}
+          <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <div className="py-8 text-center text-gray-400 text-sm">
+                Không có vật phẩm nào
+              </div>
+            ) : (
+              filteredItems.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => setSelectedItem(item)}
+                  className={`px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-colors ${
+                    selectedItem?.id === item.id
+                      ? "bg-blue-50 border-l-4 border-l-blue-800"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {item.itemName}
+                      </p>
+                      <p className="text-[11px] text-gray-400">
+                        {item.itemCode} • {item.itemCategory.name}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      {item.unitCode}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Quantity Input */}
+          {selectedItem && (
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-semibold text-gray-600">
+                Số lượng:
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={qty}
+                onChange={(e) => setQty(parseInt(e.target.value) || 1)}
+                className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400"
+              />
+              <span className="text-sm text-gray-500">
+                {selectedItem.unitCode}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t bg-gray-50 flex-shrink-0">
+        <div className="px-6 py-4 border-t bg-gray-50 flex gap-3 justify-end">
           <button
             onClick={onClose}
-            className="w-full py-2.5 rounded-xl border-2 border-gray-200 font-semibold text-sm text-gray-600 hover:bg-gray-100"
+            className="px-5 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100"
           >
-            Đóng
+            Hủy
+          </button>
+          <button
+            onClick={handleAdd}
+            disabled={!selectedItem || qty <= 0}
+            className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            Thêm vật phẩm
           </button>
         </div>
       </div>

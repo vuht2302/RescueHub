@@ -1152,11 +1152,22 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             .GroupBy(x => x.campaignId)
             .ToDictionary(x => x.Key, x => x.Select(v => v.point).ToList());
 
+        var reliefRequestIdsByCampaign = await dbContext.relief_requests
+            .AsNoTracking()
+            .Where(x => x.campaign_id.HasValue && campaignIds.Contains(x.campaign_id.Value))
+            .GroupBy(x => x.campaign_id!.Value)
+            .ToDictionaryAsync(
+                x => x.Key,
+                x => x.Select(v => v.id).Distinct().ToArray());
+
         var items = campaigns.Select(x =>
         {
             var reliefPoints = reliefPointsByCampaign.TryGetValue(x.id, out var points)
                 ? points
                 : [];
+            var reliefRequestIds = reliefRequestIdsByCampaign.TryGetValue(x.id, out var requestIds)
+                ? requestIds
+                : Array.Empty<Guid>();
 
             return new
             {
@@ -1169,7 +1180,9 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 x.endAt,
                 x.description,
                 reliefPointCount = reliefPoints.Count,
-                reliefPoints
+                reliefPoints,
+                reliefRequestCount = reliefRequestIds.Length,
+                reliefRequestIds
             };
         });
 
@@ -1196,9 +1209,16 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 name = x.name,
                 statusCode = x.status_code,
                 addressText = x.address_text,
+                adminAreaId = x.admin_area_id,
                 adminArea = x.admin_area == null ? null : new { id = x.admin_area.id, code = x.admin_area.code, name = x.admin_area.name }
             })
             .ToListAsync();
+
+        var campaignAdminAreaIds = reliefPoints
+            .Where(x => x.adminAreaId.HasValue)
+            .Select(x => x.adminAreaId!.Value)
+            .Distinct()
+            .ToArray();
 
         var reliefRequests = await dbContext.relief_requests
             .AsNoTracking()
@@ -1206,7 +1226,11 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             .Include(x => x.linked_incident)
             .Include(x => x.relief_request_items)
             .ThenInclude(x => x.item)
-            .Where(x => x.campaign_id == campaignId)
+            .Where(x =>
+                x.campaign_id == campaignId
+                || (x.campaign_id == null
+                    && x.admin_area_id.HasValue
+                    && campaignAdminAreaIds.Contains(x.admin_area_id.Value)))
             .OrderByDescending(x => x.updated_at)
             .ThenByDescending(x => x.created_at)
             .Select(x => new
@@ -1299,10 +1323,19 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             })
             .ToListAsync();
 
+        var campaignAdminAreaIds = reliefPoints
+            .Where(x => x.admin_area_id.HasValue)
+            .Select(x => x.admin_area_id!.Value)
+            .Distinct()
+            .ToArray();
+
         var reliefRequests = await dbContext.relief_requests
             .AsNoTracking()
             .Where(x =>
-                x.campaign_id == campaignId &&
+                (x.campaign_id == campaignId
+                 || (x.campaign_id == null
+                     && x.admin_area_id.HasValue
+                     && campaignAdminAreaIds.Contains(x.admin_area_id.Value))) &&
                 x.linked_incident_id.HasValue &&
                 x.status_code != "REJECTED" &&
                 x.status_code != "FULFILLED")
@@ -1426,6 +1459,12 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
             throw new InvalidOperationException($"Ma chien dich da ton tai: {code}");
         }
 
+        var normalizedReliefRequestIds = NormalizeGuidArray(request.ReliefRequestIds);
+        if (normalizedReliefRequestIds.Length == 0)
+        {
+            throw new InvalidOperationException("Tao chien dich bat buoc phai co it nhat 1 relief request.");
+        }
+
         var entity = new relief_campaign
         {
             id = Guid.NewGuid(),
@@ -1441,9 +1480,17 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
 
         dbContext.relief_campaigns.Add(entity);
         await AssignCampaignReliefPoints(entity.id, request.ReliefPointIds);
+        await AssignCampaignReliefRequests(entity.id, request.AdminAreaId, normalizedReliefRequestIds, replaceExistingForCampaign: false);
         await dbContext.SaveChangesAsync();
 
-        return new { id = entity.id, code = entity.code, created = true };
+        return new
+        {
+            id = entity.id,
+            code = entity.code,
+            created = true,
+            reliefRequestCount = normalizedReliefRequestIds.Length,
+            reliefRequestIds = normalizedReliefRequestIds
+        };
     }
 
     public async Task<object> UpdateReliefCampaign(Guid campaignId, UpdateReliefCampaignRequest request)
@@ -1473,6 +1520,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         entity.description = NormalizeOptional(request.Description);
 
         await AssignCampaignReliefPoints(entity.id, request.ReliefPointIds);
+        await AssignCampaignReliefRequests(entity.id, request.AdminAreaId, NormalizeGuidArray(request.ReliefRequestIds), replaceExistingForCampaign: true);
         await dbContext.SaveChangesAsync();
 
         return new { id = entity.id, code = entity.code, updated = true };
@@ -2550,6 +2598,68 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         }
     }
 
+    private async Task AssignCampaignReliefRequests(Guid campaignId, Guid? campaignAdminAreaId, Guid[] reliefRequestIds, bool replaceExistingForCampaign)
+    {
+        if (reliefRequestIds.Length == 0)
+        {
+            return;
+        }
+
+        var reliefRequests = await dbContext.relief_requests
+            .Where(x => reliefRequestIds.Contains(x.id))
+            .ToListAsync();
+
+        if (reliefRequests.Count != reliefRequestIds.Length)
+        {
+            throw new InvalidOperationException("Co relief request khong hop le trong danh sach ReliefRequestIds.");
+        }
+
+        var assignedToOtherCampaign = reliefRequests
+            .Where(x => x.campaign_id.HasValue && x.campaign_id.Value != campaignId)
+            .Select(x => new { x.id, x.campaign_id })
+            .ToList();
+        if (assignedToOtherCampaign.Count > 0)
+        {
+            var conflictedIds = string.Join(", ", assignedToOtherCampaign.Select(x => x.id));
+            throw new InvalidOperationException($"Co relief request da thuoc campaign khac: {conflictedIds}");
+        }
+
+        if (campaignAdminAreaId.HasValue)
+        {
+            var invalidAdminAreas = reliefRequests
+                .Where(x => x.admin_area_id.HasValue && x.admin_area_id.Value != campaignAdminAreaId.Value)
+                .Select(x => x.id)
+                .ToArray();
+            if (invalidAdminAreas.Length > 0)
+            {
+                var ids = string.Join(", ", invalidAdminAreas);
+                throw new InvalidOperationException($"Co relief request khong thuoc khu vuc campaign: {ids}");
+            }
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var reliefRequest in reliefRequests)
+        {
+            reliefRequest.campaign_id = campaignId;
+            reliefRequest.updated_at = now;
+        }
+
+        if (!replaceExistingForCampaign)
+        {
+            return;
+        }
+
+        var selectedIds = reliefRequestIds.ToHashSet();
+        var toClear = await dbContext.relief_requests
+            .Where(x => x.campaign_id == campaignId && !selectedIds.Contains(x.id))
+            .ToListAsync();
+        foreach (var reliefRequest in toClear)
+        {
+            reliefRequest.campaign_id = null;
+            reliefRequest.updated_at = now;
+        }
+    }
+
     private async Task LinkReliefPointToCampaign(Guid campaignId, Guid reliefPointId)
     {
         var exists = await dbContext.campaign_relief_points
@@ -2632,6 +2742,11 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
 
     private static string NormalizeCode(string value)
         => NormalizeRequired(value, nameof(value)).ToUpperInvariant();
+
+    private static Guid[] NormalizeGuidArray(Guid[]? values)
+        => values is null
+            ? Array.Empty<Guid>()
+            : values.Where(x => x != Guid.Empty).Distinct().ToArray();
 
     private static string? NormalizeOptionalCode(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();

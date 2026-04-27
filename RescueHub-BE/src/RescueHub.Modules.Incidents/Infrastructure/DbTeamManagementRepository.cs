@@ -1435,11 +1435,13 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
         var areas = await dbContext.admin_areas
             .AsNoTracking()
             .Where(x => x.geom != null && x.geom.Contains(point))
-            .OrderBy(x => AdminAreaPriority(x.level_code))
-            .Select(x => (Guid?)x.id)
+            .Select(x => new { x.id, x.level_code })
             .ToListAsync();
 
-        return areas.FirstOrDefault();
+        return areas
+            .OrderBy(x => AdminAreaPriority(x.level_code))
+            .Select(x => (Guid?)x.id)
+            .FirstOrDefault();
     }
 
     private async Task EnsureAppUserExists(Guid? userId)

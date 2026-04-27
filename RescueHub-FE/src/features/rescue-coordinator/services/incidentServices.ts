@@ -298,6 +298,15 @@ export interface HotspotCenter {
   lng: number;
 }
 
+export interface SampleLocation {
+  reliefRequestId: string;
+  requestCode: string;
+  lat: number;
+  lng: number;
+  addressText: string;
+  requestedAt: string;
+}
+
 export interface ReliefHotspotItem {
   adminAreaId: string | null;
   areaCode: string;
@@ -309,6 +318,7 @@ export interface ReliefHotspotItem {
   cancelledCount: number;
   latestRequestedAt: string;
   center: HotspotCenter | null;
+  sampleLocations: SampleLocation[];
 }
 
 export interface ReliefHotspotFilters {

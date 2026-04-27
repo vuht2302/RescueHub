@@ -525,12 +525,30 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             throw new InvalidOperationException("TeamAssignments la bat buoc.");
         }
 
+        if (request.TeamAssignments.Count != 1)
+        {
+            throw new InvalidOperationException("Moi incident chi duoc gan 1 team.");
+        }
+
+        var hasActiveMission = await dbContext.missions
+            .AnyAsync(x =>
+                x.incident_id == incidentId &&
+                x.status_code != "COMPLETED" &&
+                x.status_code != "CANCELLED" &&
+                x.status_code != "REJECTED" &&
+                x.status_code != "ABORTED");
+        if (hasActiveMission)
+        {
+            throw new InvalidOperationException("Incident da co team dang xu ly. Khong the gan them team khac.");
+        }
+
         var now = DateTime.UtcNow;
         var missionPrefix = $"NV-{now:yyyyMMdd}";
         var missionCount = await dbContext.missions.CountAsync(x => x.code.StartsWith(missionPrefix));
         var missionCode = $"{missionPrefix}-{(missionCount + 1):000}";
 
-        var primaryTeamId = request.TeamAssignments.FirstOrDefault(x => x.IsPrimaryTeam)?.TeamId;
+        var teamAssignment = request.TeamAssignments.Single();
+        var primaryTeamId = teamAssignment.TeamId;
 
         var mission = new mission
         {
@@ -560,7 +578,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
                 id = Guid.NewGuid(),
                 mission_id = mission.id,
                 team_id = assignment.TeamId,
-                is_primary_team = assignment.IsPrimaryTeam,
+                is_primary_team = true,
                 assigned_at = now
             });
 

@@ -40,10 +40,18 @@ interface KpiCard {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const PIE_COLORS = ["#0f172a", "#334155", "#64748b", "#94a3b8"];
+const PIE_COLORS = ["#f59e0b", "#10b981"];
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat("vi-VN").format(value || 0);
+
+const getStatusNameVi = (statusCode: string): string => {
+  const code = statusCode.toUpperCase();
+  if (code === "COMPLETED") return "Đã hoàn thành";
+  if (code === "PENDING") return "Đang chờ xử lý";
+  if (code === "CANCELLED") return "Đã hủy";
+  return code;
+};
 
 const getStatusBadgeClass = (statusCode: string) => {
   const code = statusCode.toUpperCase();
@@ -87,25 +95,25 @@ export function ManagerOverviewPanel({
     return [
       {
         key: "warehouseActiveCount",
-        label: "Kho dang hoat dong",
+        label: "Kho đang hoạt động",
         value: dashboard.warehouseActiveCount,
         icon: Warehouse,
       },
       {
         key: "campaignActiveCount",
-        label: "Chien dich dang dien ra",
+        label: "Chiến dịch đang diễn ra",
         value: dashboard.campaignActiveCount,
         icon: HandHeart,
       },
       {
         key: "reliefPointOpenCount",
-        label: "Diem cuu tro dang mo",
+        label: "Điểm cứu trợ đang mở",
         value: dashboard.reliefPointOpenCount,
         icon: MapPin,
       },
       {
         key: "totalOnHandQty",
-        label: "Tong ton kho hien tai",
+        label: "Tổng tồn kho hiện tại",
         value: dashboard.totalOnHandQty,
         icon: Archive,
       },
@@ -257,7 +265,7 @@ export function ManagerOverviewPanel({
                   }}
                   formatter={(value) => [
                     formatNumber(Number(value)),
-                    "So luong",
+                    "Số lượng",
                   ]}
                 />
                 <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#334155" />
@@ -299,7 +307,7 @@ export function ManagerOverviewPanel({
                   }}
                   formatter={(value) => [
                     formatNumber(Number(value)),
-                    "So luong",
+                    "Số lượng",
                   ]}
                 />
               </PieChart>
@@ -379,7 +387,7 @@ export function ManagerOverviewPanel({
                         ) : (
                           <CheckCircle2 className="h-3.5 w-3.5" />
                         )}
-                        {distribution.status.name}
+                        {getStatusNameVi(distribution.status.code)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-600">

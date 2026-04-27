@@ -20,6 +20,51 @@ interface AddressAutocompleteProps {
 // Using Nominatim (OpenStreetMap) - free, no API key required
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 
+const LOCATION_HINTS = [
+  "ho chi minh",
+  "hcm",
+  "tp hcm",
+  "ha noi",
+  "hn",
+  "da nang",
+  "can tho",
+  "hai phong",
+];
+
+const removeDiacritics = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const hasLocationHint = (query: string) => {
+  const normalized = removeDiacritics(query);
+  return LOCATION_HINTS.some((hint) => normalized.includes(hint));
+};
+
+async function fetchNominatimSuggestions(query: string) {
+  const params = new URLSearchParams({
+    q: query,
+    format: "json",
+    addressdetails: "1",
+    limit: "8",
+    countrycodes: "vn",
+  });
+
+  const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
+    headers: {
+      "Accept-Language": "vi",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export function AddressAutocomplete({
   value,
   onChange,
@@ -69,54 +114,79 @@ export function AddressAutocomplete({
 
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        q: query,
-        format: "json",
-        addressdetails: "1",
-        limit: "8",
-        countrycodes: "vn", // Vietnam only
-      });
+      const primaryData = await fetchNominatimSuggestions(query);
 
-      const url = `${NOMINATIM_URL}?${params.toString()}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          "Accept-Language": "vi",
-        },
-      });
+      let combinedData: any[] = Array.isArray(primaryData) ? primaryData : [];
+      const normalizedQuery = removeDiacritics(query);
+      const shouldBoostHcm =
+        normalizedQuery.includes("fpt") && !hasLocationHint(normalizedQuery);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      if (shouldBoostHcm) {
+        const hcmData = await fetchNominatimSuggestions(`${query} Ho Chi Minh`);
+        if (Array.isArray(hcmData) && hcmData.length > 0) {
+          combinedData = [...combinedData, ...hcmData];
+        }
       }
 
-      const data = await response.json();
-
-      if (Array.isArray(data) && data.length > 0) {
-        const results: AddressSuggestion[] = data.map((item: any, index: number) => {
-          // Build formatted address from components
-          const addr = item.address || {};
-          const parts = [
-            item.house_number,
-            addr.road || addr.pedestrian || addr.footway || addr.cycleway,
-            addr.neighbourhood || addr.suburb || addr.quarter,
-            addr.village || addr.town || addr.city_district || addr.city || addr.municipality,
-            addr.county,
-            addr.state,
-          ].filter(Boolean);
-
-          const displayAddress = parts.length > 0 ? parts.join(", ") : item.display_name;
-          const shortAddress = displayAddress.split(", ").slice(0, 3).join(", ");
-
-          return {
-            id: item.place_id?.toString() ?? String(index),
-            display: shortAddress,
-            address: shortAddress,
-            lat: parseFloat(item.lat) || 0,
-            lng: parseFloat(item.lon) || 0,
-          };
+      if (combinedData.length > 0) {
+        const uniqueByPlaceId = new Map<string, any>();
+        combinedData.forEach((item: any, index: number) => {
+          const key =
+            item?.place_id != null ? String(item.place_id) : `${index}`;
+          if (!uniqueByPlaceId.has(key)) {
+            uniqueByPlaceId.set(key, item);
+          }
         });
 
-        setSuggestions(results);
+        const dedupedData = Array.from(uniqueByPlaceId.values());
+
+        const results: AddressSuggestion[] = dedupedData.map(
+          (item: any, index: number) => {
+            // Build formatted address from components
+            const addr = item.address || {};
+            const parts = [
+              item.house_number,
+              addr.road || addr.pedestrian || addr.footway || addr.cycleway,
+              addr.neighbourhood || addr.suburb || addr.quarter,
+              addr.village ||
+                addr.town ||
+                addr.city_district ||
+                addr.city ||
+                addr.municipality,
+              addr.county,
+              addr.state,
+            ].filter(Boolean);
+
+            const displayAddress =
+              parts.length > 0 ? parts.join(", ") : item.display_name;
+            const shortAddress = displayAddress
+              .split(", ")
+              .slice(0, 5)
+              .join(", ");
+
+            return {
+              id: item.place_id?.toString() ?? String(index),
+              display: shortAddress,
+              address: shortAddress,
+              lat: parseFloat(item.lat) || 0,
+              lng: parseFloat(item.lon) || 0,
+            };
+          },
+        );
+
+        if (shouldBoostHcm) {
+          const hcmKeywords = ["ho chi minh", "hcm", "sai gon", "thu duc"];
+          results.sort((a, b) => {
+            const aNorm = removeDiacritics(a.address);
+            const bNorm = removeDiacritics(b.address);
+            const aHasHcm = hcmKeywords.some((k) => aNorm.includes(k));
+            const bHasHcm = hcmKeywords.some((k) => bNorm.includes(k));
+            if (aHasHcm === bHasHcm) return 0;
+            return aHasHcm ? -1 : 1;
+          });
+        }
+
+        setSuggestions(results.slice(0, 8));
         if (results.length > 0) {
           setIsOpen(true);
         }
@@ -208,7 +278,7 @@ export function AddressAutocomplete({
               className="w-full px-3 py-2.5 text-left hover:bg-green-50 transition-colors border-b border-gray-50 last:border-b-0"
             >
               <div className="flex items-start gap-2">
-                <MapPin size={14} className="text-green-600 flex-shrink-0 mt-0.5" />
+                <MapPin size={14} className="text-green-600 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800">
                     {suggestion.address}

@@ -183,6 +183,7 @@ export interface PublicVerifyTrackingOtpResponse {
 
 export interface PublicTrackingHistoryItem {
   time: string;
+  statusCode?: string;
   statusName: string;
   note?: string;
 }
@@ -201,6 +202,17 @@ export interface PublicTrackingRescueResponse {
     needed: boolean;
     status: string;
   };
+  imageUrls?: string[];
+  media?: Array<{
+    id: string;
+    mediaTypeCode: string;
+    fileUrl: string;
+    thumbnailUrl?: string;
+    aiOptimizedUrl?: string;
+    width?: number;
+    height?: number;
+    uploadedAt?: string;
+  }>;
 }
 
 export interface PublicTrackingReliefItem {
@@ -281,8 +293,8 @@ export interface PublicTrackingMyPagedResponse<TItem> {
 export interface PublicTrackingMyHistoryResponse extends PublicTrackingMyPagedResponse<PublicTrackingMyHistoryItem> {}
 
 export interface PublicMeHistoryStatus {
-  code?: string;
-  name?: string;
+  code: string;
+  name: string;
   color?: string | null;
 }
 
@@ -299,6 +311,17 @@ export interface PublicMeHistoryRescueItem {
     addressText?: string;
     landmark?: string;
   };
+  imageUrls?: string[];
+  media?: Array<{
+    id?: string;
+    mediaTypeCode?: string;
+    fileUrl?: string;
+    thumbnailUrl?: string;
+    aiOptimizedUrl?: string;
+    width?: number;
+    height?: number;
+    uploadedAt?: string;
+  }>;
   reportedAt?: string;
   updatedAt?: string;
   [key: string]: unknown;

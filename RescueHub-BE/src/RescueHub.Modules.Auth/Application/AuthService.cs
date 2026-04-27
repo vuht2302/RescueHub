@@ -254,10 +254,20 @@ public sealed class AuthService(
 
         var citizenRole = await GetOrCreateCitizenRole();
 
-        var existingByPhone = await dbContext.app_users
+        var existingUsers = await dbContext.app_users
             .Include(x => x.app_user_roles)
             .ThenInclude(x => x.role)
-            .FirstOrDefaultAsync(x => x.phone == normalizedPhone);
+            .Where(x =>
+                x.phone == normalizedPhone ||
+                x.username == normalizedPhone ||
+                (x.phone != null && x.phone.EndsWith(normalizedPhone)) ||
+                (x.username != null && x.username.EndsWith(normalizedPhone)))
+            .ToListAsync();
+
+        var existingByPhone = existingUsers
+            .FirstOrDefault(x =>
+                string.Equals(NormalizePhoneForOtp(x.phone ?? string.Empty), normalizedPhone, StringComparison.Ordinal) ||
+                string.Equals(NormalizePhoneForOtp(x.username), normalizedPhone, StringComparison.Ordinal));
 
         if (existingByPhone is not null)
         {
@@ -266,27 +276,7 @@ public sealed class AuthService(
                 throw new InvalidOperationException("So dien thoai da ton tai nhung tai khoan dang bi vo hieu hoa.");
             }
 
-            var alreadyCitizen = existingByPhone.app_user_roles
-                .Any(x => string.Equals(x.role.code, "CITIZEN", StringComparison.OrdinalIgnoreCase));
-            if (alreadyCitizen)
-            {
-                return new
-                {
-                    citizenId = existingByPhone.id,
-                    displayName = existingByPhone.display_name,
-                    phone = existingByPhone.phone,
-                    username = existingByPhone.username,
-                    registered = false,
-                    message = "So dien thoai da co tai khoan citizen."
-                };
-            }
-
-            throw new InvalidOperationException("So dien thoai da duoc su dung cho tai khoan khac.");
-        }
-
-        if (await dbContext.app_users.AnyAsync(x => x.username == normalizedPhone))
-        {
-            throw new InvalidOperationException("So dien thoai da duoc su dung lam username.");
+            throw new InvalidOperationException("So dien thoai da ton tai.");
         }
 
         var now = DateTime.UtcNow;

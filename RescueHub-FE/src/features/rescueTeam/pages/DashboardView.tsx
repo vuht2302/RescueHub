@@ -13,6 +13,7 @@ import { TeamDashboardData } from "../services/teamDashboardService";
 const mapBackendStatusToVietnamese = (statusCode: string): string => {
   const statusMap: Record<string, string> = {
     EN_ROUTE: "Đang di chuyển",
+    ASSIGNED: "Đã phân công",
     COMPLETED: "Đã hoàn tất",
     RESCUING: "Đang xử lý",
     ON_SITE: "Đang xử lý",
@@ -30,6 +31,7 @@ const mapBackendStatusToVietnamese = (statusCode: string): string => {
 const mapBackendStatusToColor = (statusCode: string): string => {
   const colorMap: Record<string, string> = {
     EN_ROUTE: "#3B82F6",
+    ASSIGNED: "#14B8A6",
     COMPLETED: "#10B981",
     RESCUING: "#F59E0B",
     ON_SITE: "#F59E0B",

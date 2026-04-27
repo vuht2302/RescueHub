@@ -23,8 +23,9 @@ import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { ConfirmationModal } from "../../../shared/components/ConfirmationModal";
 import {
   getReliefHotspots,
+  getReliefRequests,
   type ReliefHotspotItem,
-  type SampleLocation,
+  type ReliefRequestItem as IncidentReliefRequestItem,
 } from "../../rescue-coordinator/services/incidentServices";
 import {
   createManagerReliefPoint,
@@ -64,6 +65,8 @@ const TOP_OPTIONS = [
   { value: 15, label: "Top 15" },
   { value: 20, label: "Top 20" },
 ];
+
+const VERIFIED_RELIEF_REQUEST_STATUS = "APPROVED";
 
 type ViewMode = "hotspots" | "relief-points" | "both";
 
@@ -130,6 +133,57 @@ const getDistanceKm = (
       Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return earthRadiusKm * c;
+};
+
+const buildReliefRequestLookup = (
+  requests: IncidentReliefRequestItem[],
+): globalThis.Map<string, IncidentReliefRequestItem> => {
+  const lookup = new globalThis.Map<string, IncidentReliefRequestItem>();
+  requests.forEach((request) => {
+    lookup.set(request.reliefRequestId, request);
+  });
+  return lookup;
+};
+
+const isCampaignEligibleRequest = (
+  request: IncidentReliefRequestItem | undefined,
+): boolean => {
+  if (!request) return false;
+  return (
+    request.status?.code === VERIFIED_RELIEF_REQUEST_STATUS && !request.campaign
+  );
+};
+
+const normalizeHotspotsForCampaign = (
+  hotspots: ReliefHotspotItem[],
+  requestLookup: globalThis.Map<string, IncidentReliefRequestItem>,
+): ReliefHotspotItem[] => {
+  return hotspots
+    .map((hotspot) => {
+      const sampleLocations = hotspot.sampleLocations.filter((location) =>
+        isCampaignEligibleRequest(requestLookup.get(location.reliefRequestId)),
+      );
+
+      if (sampleLocations.length === 0) return null;
+
+      const latestRequestedAt = sampleLocations.reduce(
+        (latest, location) =>
+          location.requestedAt > latest ? location.requestedAt : latest,
+        sampleLocations[0].requestedAt,
+      );
+
+      return {
+        ...hotspot,
+        requestCount: sampleLocations.length,
+        pendingCount: sampleLocations.length,
+        fulfilledCount: 0,
+        rejectedCount: 0,
+        cancelledCount: 0,
+        latestRequestedAt,
+        sampleLocations,
+      };
+    })
+    .filter((hotspot): hotspot is ReliefHotspotItem => hotspot !== null);
 };
 
 const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
@@ -389,6 +443,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     setIsCreatingCampaign(true);
     try {
       await createReliefCampaign(payload, authSession.accessToken);
+      await fetchHotspots();
       setIsCreateCampaignOpen(false);
       setCampaignForm(buildInitialCampaignForm());
       setSelectedHotspot(null);
@@ -459,11 +514,31 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
         throw new Error("Không có token xác thực.");
       }
 
-      const data = await getReliefHotspots(authSession.accessToken, {
-        days,
-        top,
+      const [hotspotData, reliefRequestData] = await Promise.all([
+        getReliefHotspots(authSession.accessToken, {
+          days,
+          top,
+        }),
+        getReliefRequests(authSession.accessToken),
+      ]);
+
+      const requestLookup = buildReliefRequestLookup(reliefRequestData.items);
+      const normalizedHotspots = normalizeHotspotsForCampaign(
+        hotspotData.items,
+        requestLookup,
+      );
+
+      setHotspots(normalizedHotspots);
+      setSelectedHotspot((prev) => {
+        if (!prev) return null;
+        return (
+          normalizedHotspots.find(
+            (hotspot) =>
+              hotspot.areaCode === prev.areaCode &&
+              hotspot.adminAreaId === prev.adminAreaId,
+          ) ?? null
+        );
       });
-      setHotspots(data.items);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Lỗi khi tải dữ liệu vùng cứu trợ",
@@ -472,6 +547,23 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       setIsLoading(false);
     }
   }, [days, top]);
+
+  useEffect(() => {
+    if (!isCreateCampaignOpen || !selectedHotspot) return;
+
+    const selectableRequestIds = new Set(
+      selectedHotspot.sampleLocations.map(
+        (location) => location.reliefRequestId,
+      ),
+    );
+
+    setCampaignForm((prev) => ({
+      ...prev,
+      selectedReliefRequestIds: prev.selectedReliefRequestIds.filter((id) =>
+        selectableRequestIds.has(id),
+      ),
+    }));
+  }, [isCreateCampaignOpen, selectedHotspot]);
 
   useEffect(() => {
     void fetchHotspots();

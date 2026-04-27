@@ -9,4 +9,6 @@ public interface IAuthService
     Task<object> RequestOtp(RequestOtpRequest request);
 
     Task<object> VerifyOtp(VerifyOtpRequest request);
+
+    Task<object> RegisterCitizen(RegisterCitizenRequest request);
 }

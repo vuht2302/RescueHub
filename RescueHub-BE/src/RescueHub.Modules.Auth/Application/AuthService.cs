@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using RescueHub.Persistence;
+using RescueHub.Persistence.Entities.Scaffolded;
 using Twilio;
 using Twilio.Rest.Verify.V2.Service;
 
@@ -49,11 +50,6 @@ public sealed class AuthService(
             .Select(x => x.role.code)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-
-        if (roles.Contains("CITIZEN", StringComparer.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Citizen khong dang nhap bang mat khau. Vui long dung OTP khi can luu du lieu.");
-        }
 
         if (string.IsNullOrWhiteSpace(user.password_hash) || !VerifyPassword(request.Password, user.password_hash))
         {
@@ -227,6 +223,128 @@ public sealed class AuthService(
                 phone = user.phone,
                 roles
             }
+        };
+    }
+
+    public async Task<object> RegisterCitizen(RegisterCitizenRequest request)
+    {
+        var displayName = request.DisplayName?.Trim();
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            throw new InvalidOperationException("DisplayName la bat buoc.");
+        }
+
+        var password = request.Password?.Trim();
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            throw new InvalidOperationException("Password la bat buoc.");
+        }
+
+        if (password.Length < 6)
+        {
+            throw new InvalidOperationException("Password phai co it nhat 6 ky tu.");
+        }
+
+        var normalizedPhone = NormalizePhoneForOtp(request.Phone);
+        if (string.IsNullOrWhiteSpace(normalizedPhone))
+        {
+            throw new InvalidOperationException("Phone la bat buoc.");
+        }
+
+        var normalizedEmail = string.IsNullOrWhiteSpace(request.Email)
+            ? null
+            : request.Email.Trim();
+
+        var citizenRole = await dbContext.app_roles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.code == "CITIZEN")
+            ?? throw new InvalidOperationException("He thong chua cau hinh role CITIZEN.");
+
+        var existingByPhone = await dbContext.app_users
+            .Include(x => x.app_user_roles)
+            .ThenInclude(x => x.role)
+            .FirstOrDefaultAsync(x => x.phone == normalizedPhone);
+
+        if (existingByPhone is not null)
+        {
+            if (!existingByPhone.is_active)
+            {
+                throw new InvalidOperationException("So dien thoai da ton tai nhung tai khoan dang bi vo hieu hoa.");
+            }
+
+            var alreadyCitizen = existingByPhone.app_user_roles
+                .Any(x => string.Equals(x.role.code, "CITIZEN", StringComparison.OrdinalIgnoreCase));
+            if (alreadyCitizen)
+            {
+                return new
+                {
+                    citizenId = existingByPhone.id,
+                    displayName = existingByPhone.display_name,
+                    phone = existingByPhone.phone,
+                    email = existingByPhone.email,
+                    username = existingByPhone.username,
+                    registered = false,
+                    message = "So dien thoai da co tai khoan citizen."
+                };
+            }
+
+            throw new InvalidOperationException("So dien thoai da duoc su dung cho tai khoan khac.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(normalizedEmail))
+        {
+            var emailExists = await dbContext.app_users.AnyAsync(x => x.email == normalizedEmail);
+            if (emailExists)
+            {
+                throw new InvalidOperationException("Email da duoc su dung.");
+            }
+        }
+
+        var usernameBase = $"citizen_{normalizedPhone}";
+        var username = usernameBase;
+        var suffix = 1;
+        while (await dbContext.app_users.AnyAsync(x => x.username == username))
+        {
+            suffix++;
+            username = $"{usernameBase}_{suffix}";
+        }
+
+        var now = DateTime.UtcNow;
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
+
+        var user = new app_user
+        {
+            id = Guid.NewGuid(),
+            username = username,
+            display_name = displayName,
+            phone = normalizedPhone,
+            email = normalizedEmail,
+            password_hash = passwordHash,
+            password_hash_algo = "BCRYPT",
+            is_active = true,
+            last_login_at = null,
+            created_at = now,
+            updated_at = now
+        };
+
+        dbContext.app_users.Add(user);
+        dbContext.app_user_roles.Add(new app_user_role
+        {
+            user_id = user.id,
+            role_id = citizenRole.id,
+            assigned_at = now
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            citizenId = user.id,
+            displayName = user.display_name,
+            phone = user.phone,
+            email = user.email,
+            username = user.username,
+            registered = true
         };
     }
 

@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { useSearchParams } from "react-router-dom";
 import {
   CheckCircle,
   AlertTriangle,
   ShieldCheck,
   LoaderCircle,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   ackPublicTrackingRelief,
@@ -27,6 +30,48 @@ import { getAuthSession } from "../../auth/services/authStorage";
 const TRACKING_TOKEN_STORAGE_KEY = "rescuehub.public.trackingToken";
 const TRACKING_PHONE_STORAGE_KEY = "rescuehub.public.trackingPhone";
 
+const RESCUE_STATUS_MAP: Record<string, string> = {
+  NEW: "Mới tiếp nhận",
+  VERIFIED: "Đã xác minh",
+  ASSESSED: "Đã đánh giá",
+  PENDING: "Chờ tiếp nhận",
+  ASSIGNED: "Đã phân công",
+  DISPATCHED: "Đã điều động",
+  EN_ROUTE: "Đang trên đường",
+  ARRIVED: "Đã đến hiện trường",
+  IN_PROGRESS: "Đang thực hiện",
+  RESCUED: "Đã cứu hộ thành công",
+  COMPLETED: "Hoàn thành",
+  CANCELLED: "Đã hủy",
+  REJECTED: "Từ chối",
+  REPORTED: "Đã báo cáo",
+};
+
+const RELIEF_STATUS_MAP: Record<string, string> = {
+  PENDING: "Chờ xử lý",
+  APPROVED: "Đã duyệt",
+  IN_PROGRESS: "Đang phân phối",
+  DISTRIBUTED: "Đã phân phối",
+  COMPLETED: "Hoàn tất",
+  CANCELLED: "Đã hủy",
+};
+
+const getRescueStatusLabel = (code: string): string => {
+  return RESCUE_STATUS_MAP[code] ?? code;
+};
+
+const getReliefStatusLabel = (code: string): string => {
+  return RELIEF_STATUS_MAP[code] ?? code;
+};
+
+const getBestImageUrl = (media?: {
+  aiOptimizedUrl?: string;
+  thumbnailUrl?: string;
+  fileUrl?: string;
+}): string | undefined => {
+  return media?.aiOptimizedUrl || media?.thumbnailUrl || media?.fileUrl;
+};
+
 const getStoredTrackingToken = (): string => {
   if (typeof window === "undefined") {
     return "";
@@ -47,8 +92,17 @@ type TrackingListItem = {
   id: string;
   code: string;
   title: string;
+  statusCode: string;
   statusName: string;
   createdAt: string;
+  imageUrls?: string[];
+  media?: Array<{
+    id?: string;
+    mediaTypeCode?: string;
+    fileUrl?: string;
+    thumbnailUrl?: string;
+    aiOptimizedUrl?: string;
+  }>;
 };
 
 export const RescueTrack: React.FC = () => {
@@ -80,6 +134,12 @@ export const RescueTrack: React.FC = () => {
   const [isLoggedInUser, setIsLoggedInUser] = useState(false);
   const [isMeHistoryLoading, setIsMeHistoryLoading] = useState(false);
 
+  // Image modal state
+  const [imageModal, setImageModal] = useState<{
+    images: string[];
+    currentIndex: number;
+  } | null>(null);
+
   const normalizeTrackingListItem = (
     item: PublicTrackingMyHistoryItem,
     kind: "rescue" | "relief",
@@ -95,9 +155,8 @@ export const RescueTrack: React.FC = () => {
     const fallbackTitle =
       kind === "rescue" ? "Yêu cầu cứu hộ" : "Yêu cầu cứu trợ";
 
-    const statusName = String(
-      item.status?.name ?? item.statusName ?? "Đang xử lý",
-    );
+    const statusCode = String(item.status?.code ?? "");
+    const statusName = String(item.status?.name ?? "Đang xử lý");
 
     const createdAt = String(
       item.reportedAt ?? item.createdAt ?? item.updatedAt ?? "",
@@ -117,8 +176,11 @@ export const RescueTrack: React.FC = () => {
           (kind === "rescue" ? item.description : item.note) ??
           fallbackTitle,
       ),
+      statusCode,
       statusName,
       createdAt,
+      imageUrls: (item as any).imageUrls,
+      media: (item as any).media,
     };
   };
 
@@ -470,12 +532,13 @@ export const RescueTrack: React.FC = () => {
               item.incidentCode ?? item.trackingCode ?? item.code ?? "",
             ),
             title: String(item.description ?? item.title ?? "Yêu cầu cứu hộ"),
-            statusName: String(
-              item.status?.name ?? item.statusName ?? "Đang xử lý",
-            ),
+            statusCode: String(item.status?.code ?? ""),
+            statusName: String(item.status?.name ?? "Đang xử lý"),
             createdAt: String(
               item.reportedAt ?? item.createdAt ?? item.updatedAt ?? "",
             ),
+            imageUrls: item.imageUrls,
+            media: item.media,
           }));
 
           // Convert relief requests to TrackingListItem
@@ -485,8 +548,9 @@ export const RescueTrack: React.FC = () => {
             id: String(item.id ?? item.code ?? `relief-${Math.random()}`),
             code: String(item.code ?? ""),
             title: String(item.title ?? "Yêu cầu cứu trợ"),
-            statusName: String(item.statusName ?? "Đang xử lý"),
-            createdAt: String(item.createdAt ?? item.updatedAt ?? ""),
+            statusCode: String(item.status?.code ?? ""),
+            statusName: String(item.status?.name ?? "Đang xử lý"),
+            createdAt: String(item.requestedAt ?? item.updatedAt ?? ""),
           }));
 
           setMyRescues(rescueItems);
@@ -559,9 +623,7 @@ export const RescueTrack: React.FC = () => {
 
         {trackingToken ? (
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-green-700">
-              Đã có tracking token hợp lệ.
-            </p>
+            <p className="text-xs text-green-700">Đã xác thực thành công.</p>
             <button
               type="button"
               onClick={handleClearTrackingAuth}
@@ -585,106 +647,67 @@ export const RescueTrack: React.FC = () => {
             Đang tải lịch sử...
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <article className="rounded-xl bg-surface-container-low p-4 border border-outline-variant/20">
-              <h4 className="font-bold text-on-surface mb-3">Lịch sử cứu hộ</h4>
-              <div className="space-y-3">
-                {myRescues.length === 0 ? (
-                  <p className="text-sm text-on-surface-variant">
-                    Chưa có lịch sử cứu hộ.
+          <div className="space-y-3">
+            {myRescues.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">
+                Chưa có lịch sử cứu hộ.
+              </p>
+            ) : (
+              myRescues.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-lg bg-surface-container-lowest p-3 border border-outline-variant/20"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold text-on-surface">
+                      {item.title}
+                    </p>
+                  </div>
+                  {item.code ? (
+                    <p className="mt-1 text-xs text-on-surface-variant">
+                      Mã: {item.code}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-xs font-medium text-blue-700">
+                    {getRescueStatusLabel(item.statusCode) || item.statusName}
                   </p>
-                ) : (
-                  myRescues.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-lg bg-surface-container-lowest p-3 border border-outline-variant/20"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-semibold text-on-surface">
-                          {item.title}
-                        </p>
-                        {item.code ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTrackingCode(item.code);
-                              void fetchTrackingData(item.code);
-                            }}
-                            className="rounded-md bg-primary text-on-primary px-3 py-1 text-xs font-bold"
-                          >
-                            Xem
-                          </button>
-                        ) : null}
-                      </div>
-                      {item.code ? (
-                        <p className="mt-1 text-xs text-on-surface-variant">
-                          Mã: {item.code}
-                        </p>
-                      ) : null}
-                      <p className="mt-1 text-xs text-on-surface-variant">
-                        {item.statusName}
-                      </p>
-                      {item.createdAt ? (
-                        <p className="mt-1 text-xs text-on-surface-variant">
-                          {new Date(item.createdAt).toLocaleString("vi-VN")}
-                        </p>
-                      ) : null}
+                  {item.createdAt ? (
+                    <p className="mt-1 text-xs text-on-surface-variant">
+                      {new Date(item.createdAt).toLocaleString("vi-VN")}
+                    </p>
+                  ) : null}
+                  {item.imageUrls && item.imageUrls.length > 0 && (
+                    <div className="mt-2 flex gap-2 overflow-x-auto">
+                      {item.imageUrls.slice(0, 3).map((url, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() =>
+                            setImageModal({
+                              images: item.imageUrls!,
+                              currentIndex: idx,
+                            })
+                          }
+                          className="flex-shrink-0"
+                        >
+                          <img
+                            src={url}
+                            alt={`Hình ảnh ${idx + 1}`}
+                            className="w-16 h-16 object-cover rounded-lg border border-outline-variant/20 hover:opacity-80 cursor-pointer"
+                            loading="lazy"
+                          />
+                        </button>
+                      ))}
+                      {item.imageUrls.length > 3 && (
+                        <span className="flex items-center text-xs text-on-surface-variant">
+                          +{item.imageUrls.length - 3}
+                        </span>
+                      )}
                     </div>
-                  ))
-                )}
-              </div>
-            </article>
-
-            <article className="rounded-xl bg-surface-container-low p-4 border border-outline-variant/20">
-              <h4 className="font-bold text-on-surface mb-3">
-                Lịch sử cứu trợ
-              </h4>
-              <div className="space-y-3">
-                {myReliefs.length === 0 ? (
-                  <p className="text-sm text-on-surface-variant">
-                    Chưa có lịch sử cứu trợ.
-                  </p>
-                ) : (
-                  myReliefs.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-lg bg-surface-container-lowest p-3 border border-outline-variant/20"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-semibold text-on-surface">
-                          {item.title}
-                        </p>
-                        {item.code ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTrackingCode(item.code);
-                              void fetchTrackingData(item.code);
-                            }}
-                            className="rounded-md bg-primary text-on-primary px-3 py-1 text-xs font-bold"
-                          >
-                            Xem
-                          </button>
-                        ) : null}
-                      </div>
-                      {item.code ? (
-                        <p className="mt-1 text-xs text-on-surface-variant">
-                          Mã: {item.code}
-                        </p>
-                      ) : null}
-                      <p className="mt-1 text-xs text-on-surface-variant">
-                        {item.statusName}
-                      </p>
-                      {item.createdAt ? (
-                        <p className="mt-1 text-xs text-on-surface-variant">
-                          {new Date(item.createdAt).toLocaleString("vi-VN")}
-                        </p>
-                      ) : null}
-                    </div>
-                  ))
-                )}
-              </div>
-            </article>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         )}
         {errorMessage ? (
@@ -721,7 +744,7 @@ export const RescueTrack: React.FC = () => {
             ></div>
           </div>
           <span className="text-sm font-semibold">
-            {trackingData?.status?.name ?? "Cho nhập mã theo dõi"}
+            {getRescueStatusLabel(trackingData?.status?.code ?? "")}
           </span>
         </div>
       </div>
@@ -738,7 +761,9 @@ export const RescueTrack: React.FC = () => {
                   <CheckCircle size={18} />
                 </div>
                 <div>
-                  <p className="font-bold text-on-surface">{step.statusName}</p>
+                  <p className="font-bold text-on-surface">
+                    {getRescueStatusLabel(step.statusCode ?? step.statusName)}
+                  </p>
                   <p className="text-xs text-on-surface-variant">
                     {new Date(step.time).toLocaleString("vi-VN")}
                   </p>
@@ -772,9 +797,67 @@ export const RescueTrack: React.FC = () => {
               <div className="rounded-xl bg-surface-container-low p-4">
                 <p className="text-xs text-on-surface-variant">Trạng thái</p>
                 <p className="font-bold text-on-surface mt-1">
-                  {trackingData.status.name}
+                  {getRescueStatusLabel(trackingData.status.code)}
                 </p>
               </div>
+              {trackingData.imageUrls && trackingData.imageUrls.length > 0 && (
+                <div className="rounded-xl bg-surface-container-low p-4">
+                  <p className="text-xs text-on-surface-variant mb-2">
+                    Hình ảnh sự cố
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {trackingData.imageUrls.map((url, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() =>
+                          setImageModal({
+                            images: trackingData.imageUrls!,
+                            currentIndex: idx,
+                          })
+                        }
+                        className="block rounded-lg overflow-hidden border border-outline-variant/20 hover:opacity-90 transition-opacity cursor-pointer"
+                      >
+                        <img
+                          src={url}
+                          alt={`Hình ảnh sự cố ${idx + 1}`}
+                          className="w-full h-32 object-cover"
+                          loading="lazy"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {trackingData.media && trackingData.media.length > 0 && (
+                <div className="rounded-xl bg-surface-container-low p-4">
+                  <p className="text-xs text-on-surface-variant mb-2">
+                    Hình ảnh hiện trường
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {trackingData.media.map((mediaItem, idx) => (
+                      <button
+                        key={mediaItem.id}
+                        type="button"
+                        onClick={() => {
+                          const urls = trackingData
+                            .media!.map((m) => getBestImageUrl(m))
+                            .filter(Boolean) as string[];
+                          setImageModal({ images: urls, currentIndex: idx });
+                        }}
+                        className="block rounded-lg overflow-hidden border border-outline-variant/20 hover:opacity-90 transition-opacity cursor-pointer"
+                      >
+                        <img
+                          src={getBestImageUrl(mediaItem)}
+                          alt="Hình ảnh hiện trường"
+                          className="w-full h-32 object-cover"
+                          loading="lazy"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="rounded-xl bg-surface-container-low p-4">
                 <p className="text-xs text-on-surface-variant">
                   Cứu trợ liên quan
@@ -826,151 +909,84 @@ export const RescueTrack: React.FC = () => {
         </aside>
       </div>
 
-      {/* CUU TRO SECTION */}
-      <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-5 md:p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-on-surface">
-            Theo dõi cứu trợ
-          </h3>
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-3">
-          <input
-            value={trackingCode}
-            onChange={(event) => setTrackingCode(event.target.value)}
-            placeholder="Nhập mã cứu trợ (RT-YYYYMMDD-XXX)"
-            className="flex-1 bg-surface-container-low rounded-xl px-4 py-3 outline-none text-on-surface"
-          />
-          <button
-            onClick={() => void fetchReliefTrackingData(trackingCode)}
-            disabled={isReliefLoading || !trackingToken}
-            className="h-12 px-6 rounded-xl bg-secondary text-on-secondary font-bold disabled:opacity-60"
+      {/* Image Modal */}
+      <AnimatePresence>
+        {imageModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={() => setImageModal(null)}
           >
-            {isReliefLoading ? "Đang tải..." : "Tra cứu cứu trợ"}
-          </button>
-        </div>
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setImageModal(null)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
+            >
+              <X size={24} />
+            </button>
 
-        {reliefErrorMessage ? (
-          <p className="text-sm text-error">{reliefErrorMessage}</p>
-        ) : null}
-
-        {reliefTrackingData ? (
-          <div className="space-y-4">
-            {/* Relief Info */}
-            <div className="rounded-xl bg-surface-container-low p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-on-surface-variant">Mã yêu cầu</p>
-                  <p className="font-bold text-on-surface">
-                    {reliefTrackingData.requestCode}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-on-surface-variant">Trạng thái</p>
-                  <p className="font-bold text-on-surface">
-                    {reliefTrackingData.status?.name ?? "Đang xử lý"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Relief Items */}
-            {reliefTrackingData.items &&
-              reliefTrackingData.items.length > 0 && (
-                <div className="rounded-xl bg-surface-container-low p-4">
-                  <p className="text-xs text-on-surface-variant mb-2">
-                    Vật phẩm cứu trợ
-                  </p>
-                  <div className="space-y-2">
-                    {reliefTrackingData.items.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="flex justify-between items-center"
-                      >
-                        <span className="text-sm text-on-surface">
-                          {item.itemCode ?? "Vật phẩm"}
-                        </span>
-                        <span className="text-sm font-medium text-on-surface">
-                          {item.fulfilledQty ?? 0}/{item.requestedQty}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            {/* Distributions */}
-            {reliefTrackingData.distributions &&
-              reliefTrackingData.distributions.length > 0 && (
-                <div className="rounded-xl bg-surface-container-low p-4">
-                  <p className="text-xs text-on-surface-variant mb-2">
-                    Lịch sử phân phối
-                  </p>
-                  <div className="space-y-2">
-                    {reliefTrackingData.distributions.map((dist, idx) => (
-                      <div
-                        key={idx}
-                        className="flex justify-between items-center text-sm"
-                      >
-                        <span className="text-on-surface">
-                          {dist.distribution_code}
-                        </span>
-                        <span className="text-on-surface-variant">
-                          {dist.distributed_at
-                            ? new Date(dist.distributed_at).toLocaleString(
-                                "vi-VN",
-                              )
-                            : ""}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            {/* Ack Relief Button */}
-            {reliefTrackingData.canAckRelief ? (
-              <div className="space-y-3">
-                <textarea
-                  value={reliefAckNote}
-                  onChange={(e) => setReliefAckNote(e.target.value)}
-                  placeholder="Ghi chú (tùy chọn): ví dụ: Đã nhận đầy đủ, Thiếu 1 thùng mì..."
-                  className="w-full bg-surface-container-low rounded-xl px-4 py-3 outline-none text-on-surface resize-none"
-                  rows={2}
-                />
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleAckRelief}
-                  disabled={isReliefAcking}
-                  className="w-full bg-green-600 text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+            {/* Navigation buttons */}
+            {imageModal.images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setImageModal({
+                      ...imageModal,
+                      currentIndex:
+                        (imageModal.currentIndex -
+                          1 +
+                          imageModal.images.length) %
+                        imageModal.images.length,
+                    });
+                  }}
+                  className="absolute left-4 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
                 >
-                  {isReliefAcking ? (
-                    <LoaderCircle className="animate-spin" size={20} />
-                  ) : (
-                    <CheckCircle size={20} />
-                  )}
-                  <span>Xác nhận đã nhận cứu trợ</span>
-                </motion.button>
-              </div>
-            ) : (
-              <div className="rounded-xl bg-green-50 border border-green-200 p-4 text-center">
-                <CheckCircle
-                  size={24}
-                  className="mx-auto text-green-600 mb-2"
-                />
-                <p className="text-sm font-medium text-green-800">
-                  Bạn đã xác nhận nhận cứu trợ
-                </p>
+                  <ChevronLeft size={32} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setImageModal({
+                      ...imageModal,
+                      currentIndex:
+                        (imageModal.currentIndex + 1) %
+                        imageModal.images.length,
+                    });
+                  }}
+                  className="absolute right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
+                >
+                  <ChevronRight size={32} />
+                </button>
+              </>
+            )}
+
+            {/* Image */}
+            <motion.img
+              key={imageModal.currentIndex}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              src={imageModal.images[imageModal.currentIndex]}
+              alt={`Hình ảnh ${imageModal.currentIndex + 1}`}
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+
+            {/* Image counter */}
+            {imageModal.images.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-black/50 text-white text-sm">
+                {imageModal.currentIndex + 1} / {imageModal.images.length}
               </div>
             )}
-          </div>
-        ) : !reliefErrorMessage && !isReliefLoading ? (
-          <p className="text-sm text-on-surface-variant text-center py-4">
-            Nhập mã cứu trợ để xem thông tin và xác nhận đã nhận hàng
-          </p>
-        ) : null}
-      </section>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

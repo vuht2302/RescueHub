@@ -2024,6 +2024,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             "IN_PROGRESS" => "RESCUING",
             "FIELD_REPORT" => "RESCUING",
             "NEED_SUPPORT" => "NEED_SUPPORT",
+            "RESCUED" => "COMPLETED",
             "COMPLETE" => "COMPLETED",
             "COMPLETED" => "COMPLETED",
             "ABORTED" => "ABORTED",
@@ -2083,6 +2084,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             "ON_SCENE" => "ON_SITE",
             "START_RESCUE" => "RESCUING",
             "IN_PROGRESS" => "RESCUING",
+            "RESCUED" => "COMPLETED",
             "COMPLETE" => "COMPLETED",
             "COMPLETED" => "COMPLETED",
             "ABORTED" => "ABORTED",
@@ -2105,7 +2107,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         string? targetIncidentStatus = mission.status_code switch
         {
             "EN_ROUTE" or "ON_SITE" or "RESCUING" or "NEED_SUPPORT" or "ABORT_PENDING" => "IN_PROGRESS",
-            "COMPLETED" => incident.need_relief ? "RELIEF_REQUIRED" : "RESCUED",
+            "COMPLETED" or "RESCUED" => incident.need_relief ? "RELIEF_REQUIRED" : "RESCUED",
             _ => null
         };
 

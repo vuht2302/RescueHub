@@ -463,12 +463,25 @@ public sealed class DbTeamManagementRepository(RescueHubDbContext dbContext) : I
         }
 
         await EnsureLeaderUserExists(request.LeaderUserId);
-        await EnsureAdminAreaExists(request.HomeAdminAreaId);
+
+        Guid? resolvedHomeAdminAreaId = request.HomeAdminAreaId;
+        if (resolvedHomeAdminAreaId.HasValue)
+        {
+            await EnsureAdminAreaExists(resolvedHomeAdminAreaId);
+        }
+        else if (request.CurrentLocation is not null)
+        {
+            resolvedHomeAdminAreaId = await ResolveAdminAreaIdFromLocation(request.CurrentLocation);
+            if (!resolvedHomeAdminAreaId.HasValue)
+            {
+                throw new InvalidOperationException("Khong the suy ra admin area tu toa do current location.");
+            }
+        }
 
         team.code = normalizedCode;
         team.name = normalizedName;
         team.leader_user_id = request.LeaderUserId;
-        team.home_admin_area_id = request.HomeAdminAreaId;
+        team.home_admin_area_id = resolvedHomeAdminAreaId ?? team.home_admin_area_id;
         team.status_code = normalizedStatusCode;
         team.max_parallel_missions = maxParallelMissions;
         team.current_location = ToPointOrNull(request.CurrentLocation);

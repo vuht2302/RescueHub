@@ -8,6 +8,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { TeamDashboardData } from "../services/teamDashboardService";
+import { TeamMissionListItem } from "../services/teamMissionService";
 
 // Map backend status codes to Vietnamese display names
 const mapBackendStatusToVietnamese = (statusCode: string): string => {
@@ -47,6 +48,7 @@ const mapBackendStatusToColor = (statusCode: string): string => {
 
 interface DashboardViewProps {
   dashboard: TeamDashboardData | null;
+  recentMissions: TeamMissionListItem[];
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
@@ -56,13 +58,19 @@ interface DashboardViewProps {
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   dashboard,
+  recentMissions,
   isLoading,
   error,
   onRetry,
   onReloadData,
   isReloadingData,
 }) => {
-  const recentMissions = dashboard?.recentMissions ?? [];
+  const sortedRecentMissions = [...recentMissions]
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    )
+    .slice(0, 10);
 
   return (
     <div className="col-span-1 xl:col-span-2 space-y-4 overflow-auto">
@@ -173,16 +181,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   Nhiệm vụ gần đây
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  5 nhiệm vụ mới nhất từ dashboard team.
+                  {sortedRecentMissions.length} nhiệm vụ mới nhất từ danh sách
+                  nhiệm vụ của đội.
                 </p>
               </div>
               <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                {recentMissions.length} mục
+                {sortedRecentMissions.length} mục
               </span>
             </div>
 
             <div className="mt-4 space-y-3">
-              {recentMissions.map((mission) => (
+              {sortedRecentMissions.map((mission) => (
                 <div
                   key={mission.missionId}
                   className="rounded-xl border border-gray-100 bg-gray-50 p-4 hover:bg-gray-100 transition-colors"
@@ -200,11 +209,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       className="shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase text-white"
                       style={{
                         backgroundColor: mapBackendStatusToColor(
-                          mission.status.name,
+                          mission.status.code,
                         ),
                       }}
                     >
-                      {mapBackendStatusToVietnamese(mission.status.name)}
+                      {mapBackendStatusToVietnamese(mission.status.code)}
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-gray-500">
@@ -214,7 +223,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               ))}
 
-              {recentMissions.length === 0 && (
+              {sortedRecentMissions.length === 0 && (
                 <p className="text-sm text-gray-500 text-center py-6">
                   Chưa có nhiệm vụ gần đây.
                 </p>

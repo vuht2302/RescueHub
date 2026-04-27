@@ -36,16 +36,29 @@ const mapBackendStatusToUiStatus = (
   const normalizedStatusCode = statusCode?.toUpperCase();
   const normalizedResponseStatus = teamResponseStatus?.toUpperCase();
 
+  if (
+    normalizedStatusCode === "ABORTED" ||
+    normalizedStatusCode === "CANCELLED" ||
+    normalizedStatusCode === "ABORT_PENDING"
+  ) {
+    return "Tạm dừng";
+  }
+
   if (normalizedStatusCode === "COMPLETED") {
     return "Đã hoàn tất";
   }
 
-  if (normalizedStatusCode === "RESCUING") {
+  if (
+    normalizedStatusCode === "RESCUING" ||
+    normalizedStatusCode === "IN_PROGRESS" ||
+    normalizedStatusCode === "ON_SITE"
+  ) {
     return "Đang xử lý";
   }
 
   if (
-    normalizedStatusCode === "ON_SITE" ||
+    normalizedStatusCode === "ASSIGNED" ||
+    normalizedStatusCode === "DISPATCHED" ||
     normalizedStatusCode === "ARRIVED" ||
     normalizedStatusCode === "EN_ROUTE"
   ) {
@@ -54,6 +67,10 @@ const mapBackendStatusToUiStatus = (
 
   if (normalizedResponseStatus === "ACCEPTED") {
     return "Đang di chuyển";
+  }
+
+  if (normalizedResponseStatus === "REJECTED") {
+    return "Tạm dừng";
   }
 
   return "Chờ nhận";

@@ -1,9 +1,5 @@
 import React from "react";
-import {
-  Bell,
-  ChevronDown,
-  Search,
-} from "lucide-react";
+import { Bell, ChevronDown, Search } from "lucide-react";
 import { useManager } from "../../../shared/context/ManagerContext";
 import { InventorySection } from "../components/InventorySection";
 import { ImportExportSection } from "../components/ImportExportSection";
@@ -14,6 +10,7 @@ import { RescueTeamManagementSection } from "../components/RescueTeamManagementS
 import { ReliefRequestsPage } from "../../rescue-coordinator/pages/ReliefRequestsPage";
 import { ReliefDistributionPage } from "../pages/ReliefDistributionPage";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
+import { ManagerOverviewPanel } from "../components/ManagerOverviewPanel";
 
 export default function ManagerDashboard() {
   const { activeMenu } = useManager();
@@ -62,7 +59,12 @@ export default function ManagerDashboard() {
             {(() => {
               const session = getAuthSession();
               return session?.accessToken ? (
-                <PendingVerificationSection accessToken={session.accessToken} />
+                <>
+                  <ManagerOverviewPanel accessToken={session.accessToken} />
+                  <PendingVerificationSection
+                    accessToken={session.accessToken}
+                  />
+                </>
               ) : null;
             })()}
           </>

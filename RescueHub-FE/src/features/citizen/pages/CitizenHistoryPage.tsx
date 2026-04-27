@@ -160,26 +160,45 @@ export const CitizenHistoryPage: React.FC = () => {
     item: PublicTrackingMyHistoryItem,
   ): RescueHistoryItem => {
     const trackingCode = String(
-      item.code ??
-        (item as any).trackingCode ??
-        (item as any).incidentCode ??
-        "",
+      item.code ?? item.trackingCode ?? item.incidentCode ?? "",
     ).trim();
 
-    const statusCode = String(item.statusCode ?? "IN_PROGRESS");
-    const statusName = String(item.statusName ?? statusCode ?? "IN_PROGRESS");
+    const statusCode = String(
+      item.status?.code ?? item.statusCode ?? "IN_PROGRESS",
+    );
+    const statusName = String(
+      item.status?.name ?? item.statusName ?? statusCode ?? "IN_PROGRESS",
+    );
+
+    const priorityName = String(
+      item.priority?.name ?? (item as any).priorityName ?? "UNKNOWN",
+    );
+
+    const locationText = String(
+      item.location?.addressText ?? item.addressText ?? "Chưa có địa chỉ",
+    );
+
+    const landmark = String(
+      item.location?.landmark ?? (item as any).landmark ?? "",
+    );
 
     return {
-      id: String(item.id ?? trackingCode ?? `rescue-${Math.random()}`),
+      id: String(
+        item.id ?? item.incidentId ?? trackingCode ?? `rescue-${Math.random()}`,
+      ),
       trackingCode,
-      incidentCode: trackingCode,
-      incidentTypeCode: String((item as any).incidentTypeCode ?? "UNKNOWN"),
-      priorityName: String((item as any).priority?.name ?? "UNKNOWN"),
+      incidentCode: String(item.incidentCode ?? trackingCode),
+      incidentTypeCode: String(item.incidentTypeCode ?? "UNKNOWN"),
+      priorityName,
       description: String(item.description ?? "Không có mô tả."),
-      locationText: String(item.addressText ?? "Chưa có địa chỉ"),
-      landmark: String((item as any).landmark ?? ""),
-      reportedAt: String(item.createdAt ?? item.updatedAt ?? ""),
-      updatedAt: String(item.updatedAt ?? item.createdAt ?? ""),
+      locationText,
+      landmark,
+      reportedAt: String(
+        item.reportedAt ?? item.createdAt ?? item.updatedAt ?? "",
+      ),
+      updatedAt: String(
+        item.updatedAt ?? item.reportedAt ?? item.createdAt ?? "",
+      ),
       statusCode,
       statusName,
     };

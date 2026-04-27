@@ -27,6 +27,9 @@ const getStatusLabel = (code: string): string => {
   return statusLabels[code] ?? code;
 };
 
+const isTerminalDistributionStatus = (statusCode: string) =>
+  statusCode === "COMPLETED" || statusCode === "CANCELLED";
+
 const DISTRIBUTION_STATUS_OPTIONS = [
   {
     code: "COMPLETED",
@@ -94,6 +97,10 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
   const PAGE_SIZE = 10;
 
   const handleOpenStatusModal = (item: DistributionHistoryItem) => {
+    if (isTerminalDistributionStatus(item.status.code)) {
+      return;
+    }
+
     setSelectedDistribution(item);
     setSelectedStatus(item.status.code);
     setStatusNote(item.note || "");
@@ -103,6 +110,13 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
 
   const handleSubmitStatus = async () => {
     if (!selectedDistribution) return;
+
+    if (isTerminalDistributionStatus(selectedDistribution.status.code)) {
+      setSubmitError(
+        "Phân phối đã hoàn tất hoặc đã hủy, không thể cập nhật thêm.",
+      );
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmitError(null);
@@ -512,20 +526,34 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedItem(item)}
-                              className="text-xs bg-blue-950 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-900 transition-colors"
-                            >
-                              Chi tiết
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenStatusModal(item)}
-                              className="text-xs border border-blue-200 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-100 transition-colors"
-                            >
-                              Cập nhật
-                            </button>
+                            {(() => {
+                              const isTerminal = isTerminalDistributionStatus(
+                                item.status.code,
+                              );
+
+                              return (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedItem(item)}
+                                    className="text-xs bg-blue-950 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-900 transition-colors"
+                                  >
+                                    Chi tiết
+                                  </button>
+                                  {!isTerminal && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleOpenStatusModal(item)
+                                      }
+                                      className="text-xs px-3 py-1.5 rounded-lg font-bold transition-colors border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                    >
+                                      Cập nhật
+                                    </button>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         </td>
                       </tr>

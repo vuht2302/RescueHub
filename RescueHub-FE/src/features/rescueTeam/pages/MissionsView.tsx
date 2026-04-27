@@ -66,7 +66,7 @@ const getPriority = (etaMinutes: number): string => {
 };
 
 interface MissionsViewProps {
-  onViewMission?: (missionId: string, status: MissionStatus) => void;
+  onViewMission?: (mission: TeamMissionListItem, status: MissionStatus) => void;
   onMissionAccepted?: (missionId: string) => void;
 }
 
@@ -609,10 +609,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                                     type="button"
                                     onClick={(event) => {
                                       event.stopPropagation();
-                                      onViewMission(
-                                        mission.missionId,
-                                        missionStatus,
-                                      );
+                                      onViewMission(mission, missionStatus);
                                       setOpenActionMenuMissionId(null);
                                     }}
                                     className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold text-gray-700 hover:bg-gray-100"

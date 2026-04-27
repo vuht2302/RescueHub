@@ -210,7 +210,7 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
           }}
         >
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="relative bg-gradient-to-br from-blue-950 to-blue-800 px-6 py-5 text-white">
+            <div className="relative bg-black px-6 py-5 text-white">
               <button
                 type="button"
                 onClick={() => setSelectedItem(null)}
@@ -339,7 +339,7 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
       <div className="col-span-1 xl:col-span-2 rounded-xl bg-white border border-gray-200 p-6 overflow-auto shadow-sm">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-2xl font-black text-blue-950 font-primary flex items-center gap-2">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Package size={24} />
               Lịch sử cứu trợ
             </h2>

@@ -262,7 +262,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
       <div className="col-span-1 xl:col-span-2 rounded-xl bg-white border border-gray-200 p-6 overflow-auto shadow-sm">
         <div className="mb-6 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-black text-blue-950 font-primary flex items-center gap-2">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Users size={24} />
               Trạng thái đội ngũ
             </h2>

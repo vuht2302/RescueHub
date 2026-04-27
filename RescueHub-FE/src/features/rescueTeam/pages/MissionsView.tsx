@@ -402,9 +402,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
     <div className="col-span-1 xl:col-span-2 rounded-xl bg-white border border-gray-200 p-6 overflow-auto shadow-sm">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-2xl font-black text-blue-950 font-primary">
-            Nhiệm vụ của đội
-          </h2>
+          <h2 className="text-xl font-bold text-slate-900">Nhiệm vụ của đội</h2>
           <p className="text-sm text-gray-500 mt-1">
             Xem nhanh mục tiêu, vị trí, mô tả hiện trường, nhân sự và phương
             tiện được gán cho từng nhiệm vụ.

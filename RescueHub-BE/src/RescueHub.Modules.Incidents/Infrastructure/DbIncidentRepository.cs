@@ -1245,7 +1245,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
 
         var campaignOptions = await dbContext.relief_campaigns
             .AsNoTracking()
-            .Where(x => x.status_code == "PLANNED" || x.status_code == "ACTIVE")
+            .Where(x => x.status_code == "PENDING" || x.status_code == "PLANNED" || x.status_code == "ACTIVE")
             .OrderByDescending(x => x.start_at)
             .Take(50)
             .Select(x => new
@@ -2594,19 +2594,20 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             throw new InvalidOperationException("Request khong duoc de trong.");
         }
 
-        var statusCode = request.StatusCode?.Trim().ToUpperInvariant();
-        if (string.IsNullOrWhiteSpace(statusCode))
+        var requestedStatusCode = request.StatusCode?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(requestedStatusCode))
         {
             throw new InvalidOperationException("StatusCode la bat buoc.");
         }
 
-        statusCode = statusCode switch
+        requestedStatusCode = requestedStatusCode switch
         {
             "FULFILLED" or "FULLFILED" => "COMPLETED",
-            _ => statusCode
+            "CANCEL" or "CANNCEL" => "CANCELLED",
+            _ => requestedStatusCode
         };
 
-        if (statusCode is not ("PENDING" or "COMPLETED" or "CANCELLED"))
+        if (requestedStatusCode is not ("PENDING" or "COMPLETED" or "CANCELLED"))
         {
             throw new InvalidOperationException("StatusCode khong hop le. Chi nhan PENDING, COMPLETED, FULFILLED, CANCELLED.");
         }
@@ -2622,16 +2623,31 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             throw new InvalidOperationException("Khong tim thay phieu phan phoi.");
         }
 
+        var statusCode = requestedStatusCode;
+
+        if (distribution.status_code == "COMPLETED" && statusCode != "COMPLETED")
+        {
+            throw new InvalidOperationException("Khong the huy/doi trang thai phieu da COMPLETED.");
+        }
+
         var now = DateTime.UtcNow;
         distribution.status_code = statusCode;
 
         var note = NormalizeOptionalText(request.Note);
+        if (requestedStatusCode == "CANCELLED")
+        {
+            note = note is null
+                ? "TEAM_CANCELLED"
+                : $"TEAM_CANCELLED; {note}";
+        }
+
         if (note is not null)
         {
             distribution.note = MergeDistributionNote(distribution.note, note);
         }
 
         relief_request? fulfilledReliefRequest = null;
+        relief_campaign? updatedCampaign = null;
         if (statusCode == "COMPLETED")
         {
             var ack = distribution.distribution_ack;
@@ -2665,6 +2681,27 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
                     fulfilledReliefRequest.note = note;
                 }
             }
+
+            if (distribution.campaign_id.HasValue)
+            {
+                updatedCampaign = await dbContext.relief_campaigns
+                    .FirstOrDefaultAsync(x => x.id == distribution.campaign_id.Value);
+
+                if (updatedCampaign is not null && updatedCampaign.status_code is not "CLOSED" and not "CANCELLED")
+                {
+                    updatedCampaign.status_code = "CLOSED";
+                }
+            }
+        }
+        else if (statusCode == "CANCELLED" && distribution.campaign_id.HasValue)
+        {
+            updatedCampaign = await dbContext.relief_campaigns
+                .FirstOrDefaultAsync(x => x.id == distribution.campaign_id.Value);
+
+            if (updatedCampaign is not null && updatedCampaign.status_code is not "CLOSED" and not "CANCELLED")
+            {
+                updatedCampaign.status_code = "CANCELLED";
+            }
         }
 
         await dbContext.SaveChangesAsync();
@@ -2674,6 +2711,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             distributionId = distribution.id,
             distributionCode = distribution.code,
             statusCode = distribution.status_code,
+            requestedStatusCode,
             updatedAt = now,
             reliefRequest = fulfilledReliefRequest is null
                 ? null
@@ -2683,6 +2721,14 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
                     reliefRequestCode = fulfilledReliefRequest.code,
                     statusCode = fulfilledReliefRequest.status_code,
                     statusName = "Da nhan"
+                },
+            campaign = updatedCampaign is null
+                ? null
+                : new
+                {
+                    campaignId = updatedCampaign.id,
+                    campaignCode = updatedCampaign.code,
+                    statusCode = updatedCampaign.status_code
                 }
         };
     }

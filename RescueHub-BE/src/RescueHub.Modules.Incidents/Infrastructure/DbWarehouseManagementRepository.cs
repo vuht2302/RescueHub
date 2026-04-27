@@ -17,7 +17,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
     private static readonly HashSet<string> StockTransactionTypeCodes = ["RECEIPT", "ISSUE"];
     private static readonly HashSet<string> DistributionStatusCodes = ["PENDING", "COMPLETED", "CANCELLED"];
     private static readonly HashSet<string> ReliefPointStatusCodes = ["OPEN", "CLOSED", "PAUSED"];
-    private static readonly HashSet<string> CampaignStatusCodes = ["PLANNED", "ACTIVE", "CLOSED", "CANCELLED"];
+    private static readonly HashSet<string> CampaignStatusCodes = ["PENDING", "PLANNED", "ACTIVE", "CLOSED", "CANCELLED"];
     private static readonly HashSet<string> AckMethodCodes = ["OTP", "MANUAL"];
 
     public async Task<object> GetManagerDashboard()
@@ -30,7 +30,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
 
         var campaignActiveCount = await dbContext.relief_campaigns
             .AsNoTracking()
-            .CountAsync(x => x.status_code == "ACTIVE" || x.status_code == "PLANNED");
+            .CountAsync(x => x.status_code == "ACTIVE" || x.status_code == "PLANNED" || x.status_code == "PENDING");
 
         var reliefPointOpenCount = await dbContext.relief_points
             .AsNoTracking()
@@ -1576,7 +1576,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
     {
         var campaigns = await dbContext.relief_campaigns
             .AsNoTracking()
-            .Where(x => x.status_code == "PLANNED" || x.status_code == "ACTIVE")
+            .Where(x => x.status_code == "PENDING" || x.status_code == "PLANNED" || x.status_code == "ACTIVE")
             .OrderByDescending(x => x.start_at)
             .Select(x => new
             {
@@ -2036,6 +2036,79 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
         };
     }
 
+    public async Task<object> UpdateDistribution(Guid distributionId, UpdateDistributionRequest request)
+    {
+        var distribution = await dbContext.distributions
+            .Include(x => x.distribution_ack)
+            .FirstOrDefaultAsync(x => x.id == distributionId)
+            ?? throw new InvalidOperationException("Khong tim thay phieu phan phoi.");
+
+        if (distribution.status_code != "CANCELLED")
+        {
+            throw new InvalidOperationException("Chi cho phep cap nhat lai phieu dang CANCELLED.");
+        }
+
+        var team = await dbContext.teams
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.id == request.TeamId)
+            ?? throw new InvalidOperationException("Khong tim thay team duoc phan cong.");
+
+        var ackMethodCode = string.IsNullOrWhiteSpace(request.AckMethodCode)
+            ? distribution.ack_method_code
+            : NormalizeCode(request.AckMethodCode);
+        EnsureAllowed(ackMethodCode, AckMethodCodes, nameof(request.AckMethodCode));
+
+        var note = NormalizeOptional(request.Note);
+        distribution.ack_method_code = ackMethodCode;
+        distribution.status_code = "PENDING";
+        distribution.note = note is { Length: > 0 }
+            ? $"TEAM:{team.id}; {note}"
+            : $"TEAM:{team.id}";
+
+        var ack = distribution.distribution_ack;
+        if (ack is not null)
+        {
+            ack.ack_method_code = ackMethodCode;
+            ack.ack_note = note;
+            ack.ack_code = ackMethodCode == "OTP" ? GenerateAckCode() : null;
+            ack.ack_at = DateTime.UtcNow;
+        }
+
+        relief_campaign? updatedCampaign = null;
+        if (distribution.campaign_id.HasValue)
+        {
+            updatedCampaign = await dbContext.relief_campaigns.FirstOrDefaultAsync(x => x.id == distribution.campaign_id.Value);
+            if (updatedCampaign is not null && updatedCampaign.status_code is not "CLOSED")
+            {
+                updatedCampaign.status_code = "PLANNED";
+            }
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        return new
+        {
+            distributionId = distribution.id,
+            distributionCode = distribution.code,
+            statusCode = distribution.status_code,
+            ackMethodCode = distribution.ack_method_code,
+            team = new
+            {
+                id = team.id,
+                code = team.code,
+                name = team.name
+            },
+            campaign = updatedCampaign is null
+                ? null
+                : new
+                {
+                    id = updatedCampaign.id,
+                    code = updatedCampaign.code,
+                    statusCode = updatedCampaign.status_code
+                }
+        };
+    }
+
     public async Task<object> AckDistribution(Guid distributionId, DistributionAckRequest request)
     {
         var distribution = await dbContext.distributions.FirstOrDefaultAsync(x => x.id == distributionId)
@@ -2054,9 +2127,32 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
 
         distribution.status_code = "COMPLETED";
 
+        relief_campaign? completedCampaign = null;
+        if (distribution.campaign_id.HasValue)
+        {
+            completedCampaign = await dbContext.relief_campaigns.FirstOrDefaultAsync(x => x.id == distribution.campaign_id.Value);
+            if (completedCampaign is not null && completedCampaign.status_code is not "CLOSED" and not "CANCELLED")
+            {
+                completedCampaign.status_code = "CLOSED";
+            }
+        }
+
         await dbContext.SaveChangesAsync();
 
-        return new { id = distributionId, statusCode = distribution.status_code, ackAt = ack.ack_at };
+        return new
+        {
+            id = distributionId,
+            statusCode = distribution.status_code,
+            ackAt = ack.ack_at,
+            campaign = completedCampaign is null
+                ? null
+                : new
+                {
+                    id = completedCampaign.id,
+                    code = completedCampaign.code,
+                    statusCode = completedCampaign.status_code
+                }
+        };
     }
 
     private async Task<List<stock_transaction_line>> ApplyStockMovement(
@@ -2467,7 +2563,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
 
         campaign = await dbContext.relief_campaigns
             .AsNoTracking()
-            .Where(x => x.status_code == "PLANNED" || x.status_code == "ACTIVE")
+            .Where(x => x.status_code == "PENDING" || x.status_code == "PLANNED" || x.status_code == "ACTIVE")
             .OrderByDescending(x => x.status_code == "ACTIVE")
             .ThenByDescending(x => x.start_at)
             .FirstOrDefaultAsync();

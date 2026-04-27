@@ -11,8 +11,10 @@ import {
 } from "lucide-react";
 import {
   getDispatchTeams,
+  getTeamVehicles,
   dispatchMission,
   type Team as ApiTeam,
+  type TeamVehicle,
   type DispatchMissionRequest,
 } from "../services/dispatchService";
 import { getAuthSession } from "@/src/features/auth/services/authStorage";
@@ -20,6 +22,7 @@ import { toastSuccess, toastError } from "@/src/shared/utils/toast";
 
 interface Team {
   id: string;
+  code: string;
   name: string;
   members: number;
   vehicle: string;
@@ -61,10 +64,16 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
   const [dispatching, setDispatching] = useState(false);
   const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [vehicles, setVehicles] = useState<TeamVehicle[]>([]);
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState("");
 
   useEffect(() => {
     if (!isOpen) {
       setIsSuccess(false);
+      setSelectedTeamId(null);
+      setVehicles([]);
+      setSelectedVehicleId("");
       return;
     }
 
@@ -89,6 +98,7 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
 
             return {
               id: team.id,
+              code: team.code,
               name: team.name,
               members: team.memberCount,
               vehicle: `Xe ${team.code}`,
@@ -106,7 +116,7 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
         setTeams(mappedTeams);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Co loi khi tai danh sach team",
+          err instanceof Error ? err.message : "Có lỗi khi tải danh sách team",
         );
       } finally {
         setLoading(false);
@@ -117,6 +127,55 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
   }, [isOpen]);
 
   const selectedTeam = teams.find((t) => t.id === selectedTeamId);
+  const hasAvailableVehicle = vehicles.some(
+    (vehicle) => vehicle.status?.code === "AVAILABLE",
+  );
+
+  useEffect(() => {
+    if (!isOpen || !selectedTeamId) {
+      setVehicles([]);
+      setSelectedVehicleId("");
+      return;
+    }
+
+    const fetchVehicles = async () => {
+      setIsLoadingVehicles(true);
+      setDispatchError(null);
+      try {
+        const session = getAuthSession();
+        if (!session?.accessToken) {
+          setDispatchError("Khong co quyen truy cap");
+          return;
+        }
+
+        const teamVehicles = await getTeamVehicles(
+          session.accessToken,
+          selectedTeamId,
+        );
+        const filteredVehicles = teamVehicles.filter(
+          (vehicle) => vehicle.team?.id === selectedTeamId,
+        );
+        setVehicles(filteredVehicles);
+
+        const firstAvailable = filteredVehicles.find(
+          (vehicle) => vehicle.status?.code === "AVAILABLE",
+        );
+        setSelectedVehicleId(firstAvailable?.id ?? "");
+      } catch (err) {
+        setVehicles([]);
+        setSelectedVehicleId("");
+        setDispatchError(
+          err instanceof Error
+            ? err.message
+            : "Có lỗi khi tải danh sách phương tiện",
+        );
+      } finally {
+        setIsLoadingVehicles(false);
+      }
+    };
+
+    void fetchVehicles();
+  }, [isOpen, selectedTeamId]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -159,6 +218,11 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
         return;
       }
 
+      if (hasAvailableVehicle && !selectedVehicleId) {
+        setDispatchError("Vui lòng chọn phương tiện cho đội được điều phối");
+        return;
+      }
+
       const missionPayload: DispatchMissionRequest = {
         objective: requestTitle,
         priorityCode: priorityCode ?? "HIGH",
@@ -167,7 +231,7 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
             teamId: selectedTeamId,
             isPrimaryTeam: true,
             memberIds: [],
-            vehicleIds: [],
+            vehicleIds: selectedVehicleId ? [selectedVehicleId] : [],
           },
         ],
         etaMinutes: selectedTeamData.estimatedTime,
@@ -389,6 +453,9 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                               <p className="text-gray-900 font-semibold">
                                 {team.vehicle}
                               </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Team code: {team.code}
+                              </p>
                             </div>
                           </div>
                         ))
@@ -432,6 +499,61 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                         />
                         Thông tin khác
                       </h4>
+                      <div className="mb-4">
+                        <p className="text-xs font-semibold text-gray-600 uppercase mb-2">
+                          Chọn phương tiện
+                        </p>
+                        {isLoadingVehicles ? (
+                          <p className="text-sm text-gray-500">
+                            Đang tải danh sách phương tiện...
+                          </p>
+                        ) : vehicles.length === 0 ? (
+                          <p className="text-sm text-gray-500">
+                            Đội này chưa có phương tiện.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                            {vehicles.map((vehicle) => {
+                              const isAvailable =
+                                vehicle.status?.code === "AVAILABLE";
+                              return (
+                                <label
+                                  key={vehicle.id}
+                                  className={`flex items-start gap-2 rounded border p-2 text-sm ${
+                                    isAvailable
+                                      ? "border-gray-200 bg-white"
+                                      : "border-gray-100 bg-gray-50 opacity-70"
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="dispatch-vehicle"
+                                    value={vehicle.id}
+                                    checked={selectedVehicleId === vehicle.id}
+                                    onChange={() =>
+                                      setSelectedVehicleId(vehicle.id)
+                                    }
+                                    disabled={!isAvailable}
+                                    className="mt-0.5"
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-gray-900 truncate">
+                                      {vehicle.displayName || vehicle.code}
+                                    </p>
+                                    <p className="text-xs text-gray-600 truncate">
+                                      {vehicle.plateNo} -{" "}
+                                      {vehicle.vehicleType?.name}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      Trạng thái: {vehicle.status?.name}
+                                    </p>
+                                  </div>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-gray-600">

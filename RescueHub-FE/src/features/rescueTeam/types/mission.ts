@@ -185,6 +185,10 @@ export interface TeamMissionListItem {
 
 export interface TeamMissionListData {
   items: TeamMissionListItem[];
+  page?: number;
+  pageSize?: number;
+  totalItems?: number;
+  totalPages?: number;
 }
 
 export interface TeamMissionIncidentDetail {

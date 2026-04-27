@@ -162,6 +162,7 @@ export const RescueTeamMission: React.FC = () => {
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [teamMissions, setTeamMissions] = useState<TeamMissionListItem[]>([]);
+  const [teamMissionsTotalItems, setTeamMissionsTotalItems] = useState(0);
   const [missionDetailsById, setMissionDetailsById] = useState<
     Record<string, TeamMissionDetail>
   >({});
@@ -211,6 +212,7 @@ export const RescueTeamMission: React.FC = () => {
     try {
       const response = await getTeamMissions();
       setTeamMissions(response.items);
+      setTeamMissionsTotalItems(response.totalItems ?? response.items.length);
     } catch (error) {
       setTeamMissionsError(
         error instanceof Error
@@ -586,17 +588,17 @@ export const RescueTeamMission: React.FC = () => {
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_430px] gap-4 p-4 md:p-6 h-[calc(100vh-4rem)]">
           {activeMenu === "dashboard" && (
             <DashboardView
-              dashboard={dashboard}
+              totalMissionCount={teamMissionsTotalItems}
               recentMissions={teamMissions}
-              isLoading={isDashboardLoading}
-              error={dashboardError}
+              isLoading={isTeamMissionsLoading}
+              error={teamMissionsError}
               onRetry={() => {
-                void reloadDashboardData();
+                void loadTeamMissions();
               }}
               onReloadData={() => {
-                void reloadDashboardData();
+                void loadTeamMissions();
               }}
-              isReloadingData={isDashboardLoading || isTeamMissionsLoading}
+              isReloadingData={isTeamMissionsLoading}
             />
           )}
 

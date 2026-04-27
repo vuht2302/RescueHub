@@ -197,11 +197,11 @@ export function CurrentMissionsSection() {
 
   function getAbortReasonLabel(reasonCode: string): string {
     const labels: Record<string, string> = {
-      RESOURCE_LIMIT: "Thieu nguon luc",
-      SAFETY_RISK: "Rui ro an toan",
-      ACCESS_BLOCKED: "Khong tiep can duoc",
-      EQUIPMENT_FAILURE: "Su co thiet bi",
-      OTHER: "Ly do khac",
+      RESOURCE_LIMIT: "Thiếu nguồn lực",
+      SAFETY_RISK: "Rủi ro an toàn",
+      ACCESS_BLOCKED: "Không tiếp cận được",
+      EQUIPMENT_FAILURE: "Sự cố thiết bị",
+      OTHER: "Lý do khác",
     };
     return labels[reasonCode] || reasonCode;
   }

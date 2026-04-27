@@ -1,11 +1,29 @@
 import React, { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { getAuthSession } from "@/src/features/auth/services/authStorage";
+import {
+  AddressAutocomplete,
+  type AddressSuggestion,
+} from "../../../shared/components/AddressAutocomplete";
 
 const DEFAULT_API_BASE_URL = "https://rescuehub.onrender.com";
 
 const getApiBaseUrl = () =>
   (import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL).trim();
+
+const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+
+const CAPABILITY_LABELS_VI: Record<string, string> = {
+  HEAVY_RELIEF_LOAD: "Chở hàng cứu trợ nặng",
+  NIGHT_OPERATION: "Hoạt động ban đêm",
+  WATER_ACCESS: "Tiếp cận đường thủy",
+};
+
+const CAPABILITY_NAME_FALLBACK_VI: Record<string, string> = {
+  "heavy relief load": "Chở hàng cứu trợ nặng",
+  "night operation": "Hoạt động ban đêm",
+  "water access": "Tiếp cận đường thủy",
+};
 
 interface VehicleFormModalProps {
   isOpen: boolean;
@@ -31,6 +49,44 @@ interface VehicleOptions {
   vehicleStatusCodes: { code: string; name: string; color: string | null }[];
 }
 
+async function geocodeAddress(
+  address: string,
+): Promise<{ lat: number; lng: number }> {
+  const params = new URLSearchParams({
+    q: address,
+    format: "json",
+    limit: "1",
+    countrycodes: "vn",
+  });
+
+  const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
+    headers: {
+      "Accept-Language": "vi",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Không thể lấy tọa độ từ địa chỉ đã nhập");
+  }
+
+  const data = (await response.json()) as Array<{ lat?: string; lon?: string }>;
+  const firstResult = data[0];
+  const lat = Number(firstResult?.lat);
+  const lng = Number(firstResult?.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new Error("Không tìm thấy tọa độ phù hợp cho địa chỉ này");
+  }
+  return { lat, lng };
+}
+
+function getCapabilityDisplayName(capability: { code: string; name: string }) {
+  const codeLabel = CAPABILITY_LABELS_VI[capability.code?.toUpperCase()];
+  if (codeLabel) return codeLabel;
+  const nameLabel =
+    CAPABILITY_NAME_FALLBACK_VI[capability.name?.trim().toLowerCase()];
+  return nameLabel || capability.name;
+}
+
 export function VehicleFormModal({
   isOpen,
   onClose,
@@ -41,6 +97,8 @@ export function VehicleFormModal({
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [selectedAddressSuggestion, setSelectedAddressSuggestion] =
+    useState<AddressSuggestion | null>(null);
 
   const isEditMode = !!editData;
 
@@ -53,6 +111,7 @@ export function VehicleFormModal({
     statusCode: "",
     capacityPerson: 0,
     capacityWeightKg: 0,
+    addressText: "",
     lat: 0,
     lng: 0,
     capabilityIds: [] as string[],
@@ -71,11 +130,28 @@ export function VehicleFormModal({
           statusCode: editData.status?.code || "",
           capacityPerson: editData.capacityPerson || 0,
           capacityWeightKg: editData.capacityWeightKg || 0,
+          addressText: editData.currentLocation?.addressText || "",
           lat: editData.currentLocation?.lat || 0,
           lng: editData.currentLocation?.lng || 0,
           capabilityIds: editData.capabilityIds || [], // Fallback, later map capabilities if editData has them
           notes: editData.notes || "",
         });
+
+        if (
+          editData.currentLocation?.lat != null &&
+          editData.currentLocation?.lng != null &&
+          editData.currentLocation?.addressText
+        ) {
+          setSelectedAddressSuggestion({
+            id: `${editData.id}-location`,
+            display: String(editData.currentLocation.addressText),
+            address: String(editData.currentLocation.addressText),
+            lat: Number(editData.currentLocation.lat),
+            lng: Number(editData.currentLocation.lng),
+          });
+        } else {
+          setSelectedAddressSuggestion(null);
+        }
       } else {
         setFormData({
           code: "",
@@ -86,11 +162,13 @@ export function VehicleFormModal({
           statusCode: "",
           capacityPerson: 0,
           capacityWeightKg: 0,
+          addressText: "",
           lat: 0,
           lng: 0,
           capabilityIds: [],
           notes: "",
         });
+        setSelectedAddressSuggestion(null);
       }
       fetchOptions();
     }
@@ -176,7 +254,8 @@ export function VehicleFormModal({
       !formData.vehicleTypeId ||
       !formData.displayName ||
       !formData.plateNo ||
-      !formData.statusCode
+      !formData.statusCode ||
+      !formData.addressText.trim()
     ) {
       setError("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
@@ -188,6 +267,15 @@ export function VehicleFormModal({
       const session = getAuthSession();
       if (!session?.accessToken) throw new Error("Vui lòng đăng nhập lại");
 
+      const trimmedAddress = formData.addressText.trim();
+      const location =
+        selectedAddressSuggestion?.address.trim() === trimmedAddress
+          ? {
+              lat: selectedAddressSuggestion.lat,
+              lng: selectedAddressSuggestion.lng,
+            }
+          : await geocodeAddress(trimmedAddress);
+
       const payload = {
         code: formData.code,
         vehicleTypeId: formData.vehicleTypeId,
@@ -198,8 +286,8 @@ export function VehicleFormModal({
         capacityPerson: formData.capacityPerson,
         capacityWeightKg: formData.capacityWeightKg,
         currentLocation: {
-          lat: formData.lat,
-          lng: formData.lng,
+          lat: location.lat,
+          lng: location.lng,
         },
         capabilityIds: formData.capabilityIds,
         notes: formData.notes,
@@ -235,11 +323,13 @@ export function VehicleFormModal({
         statusCode: "",
         capacityPerson: 0,
         capacityWeightKg: 0,
+        addressText: "",
         lat: 0,
         lng: 0,
         capabilityIds: [],
         notes: "",
       });
+      setSelectedAddressSuggestion(null);
       onSuccess();
       onClose();
     } catch (err) {
@@ -420,37 +510,31 @@ export function VehicleFormModal({
               </select>
             </div>
 
-            {/* Coordinates */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-900 mb-1">
-                  Vĩ độ (Lat)
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  name="lat"
-                  value={formData.lat}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-900 mb-1">
-                  Kinh độ (Lng)
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  name="lng"
-                  value={formData.lng}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-1">
+                Địa chỉ hiện tại <span className="text-red-500">*</span>
+              </label>
+              <AddressAutocomplete
+                value={formData.addressText}
+                onChange={(address) => {
+                  setFormData((prev) => ({ ...prev, addressText: address }));
+                  setSelectedAddressSuggestion(null);
+                  setError("");
+                }}
+                onSelect={(suggestion) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    addressText: suggestion.address,
+                  }));
+                  setSelectedAddressSuggestion(suggestion);
+                  setError("");
+                }}
+                placeholder="Nhập địa chỉ phương tiện"
+                disabled={isSubmitting}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Hệ thống sẽ tự động lấy kinh độ/vĩ độ từ địa chỉ khi lưu.
+              </p>
             </div>
 
             {/* Capabilities */}
@@ -470,7 +554,7 @@ export function VehicleFormModal({
                       checked={formData.capabilityIds.includes(cap.id)}
                       onChange={() => handleCapabilityToggle(cap.id)}
                     />
-                    <span>{cap.name}</span>
+                    <span>{getCapabilityDisplayName(cap)}</span>
                   </label>
                 ))}
               </div>

@@ -27,6 +27,8 @@ import {
   approveReliefRequest,
   type ApproveReliefRequestPayload,
   getAllItems,
+  getInventoryItems,
+  type InventoryItemResponse,
   type ItemListItem,
   getDistributions,
   type DistributionListItem,
@@ -952,27 +954,45 @@ interface AddItemModalProps {
   existingItemIds: string[];
 }
 
+// Item for modal display (normalized from inventory)
+interface InventoryItemDisplay {
+  id: string;
+  itemCode: string;
+  itemName: string;
+  unitCode: string;
+  warehouseName: string;
+  qtyOnHand: number;
+}
+
 function AddItemModal({
   onClose,
   onAddItem,
   existingItemIds,
 }: AddItemModalProps) {
-  const [items, setItems] = useState<ItemListItem[]>([]);
+  const [items, setItems] = useState<InventoryItemDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [selectedItem, setSelectedItem] = useState<ItemListItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<InventoryItemDisplay | null>(null);
   const [qty, setQty] = useState(1);
   const token = getAuthSession()?.accessToken ?? "";
 
   useEffect(() => {
     const loadItems = async () => {
       try {
-        const data = await getAllItems(token);
-        // Filter out items already in the request
-        const availableItems = data.filter(
-          (item) => !existingItemIds.includes(item.itemCode) && item.isActive,
-        );
-        setItems(availableItems);
+        const data = await getInventoryItems(token);
+        // Normalize inventory data to display format
+        const displayItems: InventoryItemDisplay[] = data
+          .filter((item) => item.qtyOnHand > 0) // Only show items with stock
+          .map((item) => ({
+            id: item.item.id,
+            itemCode: item.item.code,
+            itemName: item.item.name,
+            unitCode: item.item.unitCode,
+            warehouseName: item.warehouse.name,
+            qtyOnHand: item.qtyOnHand,
+          }))
+          .filter((item) => !existingItemIds.includes(item.itemCode)); // Filter existing
+        setItems(displayItems);
       } catch (err) {
         console.error("Error loading items:", err);
         setItems([]);
@@ -1059,7 +1079,10 @@ function AddItemModal({
                         {item.itemName}
                       </p>
                       <p className="text-[11px] text-gray-400">
-                        {item.itemCode} • {item.itemCategory.name}
+                        {item.itemCode} • Kho: {item.warehouseName}
+                      </p>
+                      <p className="text-[11px] text-emerald-600 font-medium">
+                        Còn {item.qtyOnHand} {item.unitCode}
                       </p>
                     </div>
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
@@ -1080,12 +1103,13 @@ function AddItemModal({
               <input
                 type="number"
                 min={1}
+                max={selectedItem.qtyOnHand}
                 value={qty}
                 onChange={(e) => setQty(parseInt(e.target.value) || 1)}
                 className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400"
               />
               <span className="text-sm text-gray-500">
-                {selectedItem.unitCode}
+                / {selectedItem.qtyOnHand} {selectedItem.unitCode}
               </span>
             </div>
           )}

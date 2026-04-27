@@ -230,6 +230,33 @@ export interface ItemListResponse {
   items: ItemListItem[];
 }
 
+// Inventory response with nested data.items structure
+export interface InventoryItemResponse {
+  id: string;
+  warehouse: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  item: {
+    id: string;
+    code: string;
+    name: string;
+    unitCode: string;
+  };
+  qtyOnHand: number;
+}
+
+export interface InventoryResponse {
+  data: {
+    items: InventoryItemResponse[];
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
+}
+
 export interface ItemListItem {
   id: string;
   itemCode: string;
@@ -250,6 +277,48 @@ export async function getAllItems(token: string): Promise<ItemListItem[]> {
     headers: authHeaders(token),
   });
   return data.items ?? [];
+}
+
+// Get inventory items (available items from warehouses)
+export async function getInventoryItems(token: string): Promise<InventoryItemResponse[]> {
+  const response = await apiFetch<InventoryResponse>(`${BASE}/inventories`, {
+    headers: authHeaders(token),
+  });
+  return response.data?.items ?? [];
+}
+
+// Get items from inventory for dropdown (compatible format with ItemWithLots)
+export interface InventoryItemForDropdown {
+  id: string;
+  itemCode: string;
+  itemName: string;
+  unitCode: string;
+  totalQtyAvailable: number;
+  lots: Array<{
+    id: string;
+    lotNo: string;
+    expDate: string | null;
+    statusCode: string;
+  }>;
+  isActive: boolean;
+}
+
+export async function getInventoryItemsForDropdown(token: string): Promise<InventoryItemForDropdown[]> {
+  const response = await apiFetch<InventoryResponse>(`${BASE}/inventories`, {
+    headers: authHeaders(token),
+  });
+  const items = response.data?.items ?? [];
+  return items
+    .filter((i) => i.qtyOnHand > 0)
+    .map((i) => ({
+      id: i.item.id,
+      itemCode: i.item.code,
+      itemName: i.item.name,
+      unitCode: i.item.unitCode,
+      totalQtyAvailable: i.qtyOnHand,
+      lots: [],
+      isActive: true,
+    }));
 }
 
 // Item with embedded lots (from /api/v1/manager/items with lots detail)

@@ -18,13 +18,13 @@ import { getAuthSession } from "../../../features/auth/services/authStorage";
 import {
   getDistributionOptions,
   getManagerTeams,
-  getItemsWithLots,
+  getInventoryItemsForDropdown,
   createDistribution,
   getReliefCampaign,
   getWarehouses,
   getStocks,
   type ManagerTeam,
-  type ItemWithLots,
+  type InventoryItemForDropdown,
   type Warehouse,
   type ReliefCampaignDetail,
   type ReliefRequestDetail,
@@ -244,7 +244,7 @@ export function CreateReliefDistributionModal({
     Array<{ code: string; name: string }>
   >([]);
   const [teams, setTeams] = useState<TeamOption[]>([]);
-  const [itemsWithLots, setItemsWithLots] = useState<ItemWithLots[]>([]);
+  const [itemsWithLots, setItemsWithLots] = useState<InventoryItemForDropdown[]>([]);
   const [allWarehouses, setAllWarehouses] = useState<Warehouse[]>([]);
   const [allWarehouseStocks, setAllWarehouseStocks] = useState<
     Map<string, Map<string, number>>
@@ -410,40 +410,23 @@ export function CreateReliefDistributionModal({
       });
       const stocks = stockResponse.items ?? [];
 
-      // Transform stocks to items with lots
-      const itemMap = new Map<string, ItemWithLots>();
+      // Transform stocks to inventory items for dropdown
+      const itemMap = new Map<string, InventoryItemForDropdown>();
       for (const stock of stocks) {
         if (!itemMap.has(stock.item.id)) {
           itemMap.set(stock.item.id, {
             id: stock.item.id,
             itemCode: stock.item.code,
             itemName: stock.item.name,
-            itemCategoryCode: "",
-            itemCategory: { id: "", code: "", name: "" },
             unitCode: stock.item.unitCode ?? "",
-            requiresLotTracking: true,
-            requiresExpiryTracking: false,
-            issuePolicyCode: "FIFO",
-            isActive: true,
-            expDate: null,
-            receivedAt: "",
-            lotCount: 0,
+            totalQtyAvailable: stock.qtyOnHand ?? 0,
             lots: [],
-            totalQtyAvailable: 0,
+            isActive: true,
           });
-        }
-
-        const item = itemMap.get(stock.item.id)!;
-        // item.totalQtyAvailable += stock.qtyOnHand ?? 0;
-
-        if (stock.lot) {
-          item.lots.push({
-            id: stock.lot.id,
-            lotNo: stock.lot.lotNo ?? "",
-            expDate: stock.lot.expDate ?? null,
-            statusCode: stock.lot.statusCode ?? "ACTIVE",
-          });
-          item.lotCount++;
+        } else {
+          // Aggregate quantity for same item
+          const item = itemMap.get(stock.item.id)!;
+          item.totalQtyAvailable += stock.qtyOnHand ?? 0;
         }
       }
 
@@ -573,9 +556,9 @@ export function CreateReliefDistributionModal({
     if (newWarehouseId) {
       await loadWarehouseStocks(newWarehouseId);
     } else {
-      // Load all items if no warehouse selected
+      // Load all items from inventory if no warehouse selected
       const token = getAuthSession()?.accessToken ?? "";
-      const items = await getItemsWithLots(token);
+      const items = await getInventoryItemsForDropdown(token);
       setItemsWithLots(items);
     }
   };

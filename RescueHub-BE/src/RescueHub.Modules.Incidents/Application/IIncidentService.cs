@@ -34,6 +34,8 @@ public interface IIncidentService
 
     Task<object> GetTeamMissions();
 
+    Task<object> GetMyMissions(Guid leaderUserId, Guid? teamId, string? statusCode, int page, int pageSize);
+
     Task<object> GetMyTeamMembers(Guid leaderUserId);
 
     Task<object> GetMissionActionCodes();

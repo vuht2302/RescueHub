@@ -25,6 +25,36 @@ public sealed class TeamController(IIncidentService service) : BaseApiController
         => OkResponse<object>(await service.GetTeamMissions(), "Lay danh sach nhiem vu team thanh cong");
 
     /// <summary>
+    /// Danh sach nhiem vu cua team dang dang nhap.
+    /// </summary>
+    [HttpGet("my-missions")]
+    public async Task<ActionResult<ApiResponse<object>>> GetMyMissions(
+        [FromQuery] Guid? teamId,
+        [FromQuery] string? statusCode,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (!Guid.TryParse(userIdValue, out var leaderUserId))
+        {
+            return BadRequestResponse<object>("Khong xac dinh duoc user dang nhap.");
+        }
+
+        try
+        {
+            return OkResponse<object>(
+                await service.GetMyMissions(leaderUserId, teamId, statusCode, page, pageSize),
+                "Lay danh sach nhiem vu cua team thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Danh sach actionCode chuan cho mission status update.
     /// </summary>
     [HttpGet("missions/action-codes")]

@@ -1645,6 +1645,102 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
         return new { items };
     }
 
+    public async Task<object> GetMyMissions(Guid leaderUserId, Guid? teamId, string? statusCode, int page, int pageSize)
+    {
+        var teams = await dbContext.teams
+            .AsNoTracking()
+            .Where(x =>
+                x.leader_user_id == leaderUserId ||
+                x.team_members.Any(m => m.user_id == leaderUserId && m.is_team_leader))
+            .OrderBy(x => x.code)
+            .Select(x => new { x.id, x.code, x.name })
+            .ToListAsync();
+
+        if (teams.Count == 0)
+        {
+            throw new InvalidOperationException("Tai khoan hien tai khong la leader cua team nao.");
+        }
+
+        var targetTeam = teamId.HasValue
+            ? teams.FirstOrDefault(x => x.id == teamId.Value)
+            : teams.Count == 1
+                ? teams[0]
+                : null;
+
+        if (targetTeam is null)
+        {
+            throw new InvalidOperationException("Tai khoan dang la leader cua nhieu team. Vui long cung cap teamId.");
+        }
+
+        var normalizedStatusCode = string.IsNullOrWhiteSpace(statusCode)
+            ? null
+            : statusCode.Trim().ToUpperInvariant();
+
+        var normalizedPage = page <= 0 ? 1 : page;
+        var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 200);
+
+        var query = dbContext.missions
+            .AsNoTracking()
+            .Include(x => x.incident)
+            .Include(x => x.mission_teams)
+            .ThenInclude(x => x.team)
+            .Where(x => x.mission_teams.Any(mt => mt.team_id == targetTeam.id))
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(normalizedStatusCode))
+        {
+            query = query.Where(x => x.status_code == normalizedStatusCode);
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(x => x.created_at)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(x => new
+            {
+                missionId = x.id,
+                missionCode = x.code,
+                incidentId = x.incident_id,
+                incidentCode = x.incident.code,
+                objective = x.objective,
+                etaMinutes = x.eta_minutes,
+                status = new
+                {
+                    code = x.status_code,
+                    name = x.status_code,
+                    color = "#3B82F6"
+                },
+                teams = x.mission_teams
+                    .Select(a => new
+                    {
+                        teamId = a.team_id,
+                        teamName = a.team.name,
+                        isPrimary = a.is_primary_team,
+                        responseStatus = a.accepted_at != null ? "ACCEPTED" : a.rejected_at != null ? "REJECTED" : "ASSIGNED",
+                        respondedAt = a.accepted_at ?? a.rejected_at
+                    })
+                    .OrderByDescending(t => t.isPrimary)
+                    .ThenBy(t => t.teamName)
+                    .ToList(),
+                createdAt = x.created_at,
+                updatedAt = x.updated_at
+            })
+            .ToListAsync();
+
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)normalizedPageSize);
+
+        return new
+        {
+            team = new { id = targetTeam.id, code = targetTeam.code, name = targetTeam.name },
+            items,
+            page = normalizedPage,
+            pageSize = normalizedPageSize,
+            totalItems,
+            totalPages
+        };
+    }
+
     public async Task<object> GetMyTeamMembers(Guid leaderUserId)
     {
         var teams = await dbContext.teams

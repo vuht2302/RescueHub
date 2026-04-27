@@ -13,17 +13,15 @@ public sealed record CreateTeamRequest(
     TeamHomeRequest HomeBase,
     string StatusCode,
     int? MaxParallelMissions,
-    GeoPointRequest? CurrentLocation,
     string? Notes);
 
 public sealed record UpdateTeamRequest(
     string Code,
     string Name,
     Guid? LeaderUserId,
-    Guid? HomeAdminAreaId,
+    TeamHomeRequest HomeBase,
     string StatusCode,
     int? MaxParallelMissions,
-    GeoPointRequest? CurrentLocation,
     string? Notes);
 
 public sealed record CreateTeamMemberRequest(

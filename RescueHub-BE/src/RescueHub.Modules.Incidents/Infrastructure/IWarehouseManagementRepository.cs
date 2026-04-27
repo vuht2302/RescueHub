@@ -88,5 +88,7 @@ public interface IWarehouseManagementRepository
 
     Task<object> CreateDistribution(CreateDistributionRequest request);
 
+    Task<object> UpdateDistribution(Guid distributionId, UpdateDistributionRequest request);
+
     Task<object> AckDistribution(Guid distributionId, DistributionAckRequest request);
 }

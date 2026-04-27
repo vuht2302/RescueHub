@@ -566,6 +566,25 @@ public sealed class ManagerWarehousesController(IWarehouseManagementService serv
     }
 
     /// <summary>
+    /// Cap nhat lai phieu phan phoi da huy de phan cong team moi.
+    /// </summary>
+    /// <param name="distributionId">Dinh danh phieu phan phoi.</param>
+    /// <param name="request">Thong tin team/ack method/note moi.</param>
+    /// <returns>Phieu phan phoi sau khi cap nhat.</returns>
+    [HttpPut("distributions/{distributionId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> UpdateDistribution([FromRoute] Guid distributionId, [FromBody] UpdateDistributionRequest request)
+    {
+        try
+        {
+            return OkResponse<object>(await service.UpdateDistribution(distributionId, request), "Cap nhat phan phoi thanh cong");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse<object>(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Xac nhan da nhan phan phoi.
     /// </summary>
     /// <param name="distributionId">Dinh danh phieu phan phoi.</param>

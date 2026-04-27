@@ -107,6 +107,11 @@ public sealed record CreateDistributionRequest(
     string AckMethodCode,
     string? Note);
 
+public sealed record UpdateDistributionRequest(
+    Guid TeamId,
+    string? AckMethodCode,
+    string? Note);
+
 public sealed record DistributionAckRequest(
     string? Note);
 

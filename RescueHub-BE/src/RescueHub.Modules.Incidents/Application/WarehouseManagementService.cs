@@ -99,6 +99,9 @@ public sealed class WarehouseManagementService(IWarehouseManagementRepository re
 
     public Task<object> CreateDistribution(CreateDistributionRequest request) => repository.CreateDistribution(request);
 
+    public Task<object> UpdateDistribution(Guid distributionId, UpdateDistributionRequest request)
+        => repository.UpdateDistribution(distributionId, request);
+
     public Task<object> AckDistribution(Guid distributionId, DistributionAckRequest request)
         => repository.AckDistribution(distributionId, request);
 }

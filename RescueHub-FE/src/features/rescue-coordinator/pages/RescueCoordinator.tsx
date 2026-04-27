@@ -457,16 +457,12 @@ const RescueCoordinatorPage: React.FC = () => {
 
       setRequests((prev) =>
         prev.map((req) =>
-          req.id === incidentId
-            ? { ...req, status: "assessed" as const }
-            : req,
+          req.id === incidentId ? { ...req, status: "assessed" as const } : req,
         ),
       );
 
       setAssessmentSuccess(true);
-      toastSuccess(
-        "Đánh giá mức độ thành công!",
-      );
+      toastSuccess("Đánh giá mức độ thành công!");
 
       setTimeout(() => {
         setShowAssessmentModal(false);
@@ -499,7 +495,7 @@ const RescueCoordinatorPage: React.FC = () => {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-black text-gray-900">Tổng quan</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Tổng quan</h1>
             <p className="text-gray-600 text-sm mt-1">
               Quản lý và điều phối cứu hộ
             </p>
@@ -559,7 +555,10 @@ const RescueCoordinatorPage: React.FC = () => {
             )}
 
             {activeMenu === "overview" && (
-              <div className="col-span-2 flex flex-col" style={{ maxHeight: "calc(100vh - 140px)" }}>
+              <div
+                className="col-span-2 flex flex-col"
+                style={{ maxHeight: "calc(100vh - 140px)" }}
+              >
                 {/* Stats */}
                 <div className="grid grid-cols-4 gap-4 mb-6 flex-shrink-0">
                   <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-red-500">

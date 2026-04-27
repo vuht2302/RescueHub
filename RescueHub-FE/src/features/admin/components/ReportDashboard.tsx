@@ -180,7 +180,7 @@ const ReportDashboard = () => {
     <div className="space-y-6">
       {/* HEADER */}
       <div>
-        <h1 className="text-2xl font-black">Dashboard báo cáo</h1>
+        <h1 className="text-xl font-bold">Dashboard báo cáo</h1>
         <p className="text-gray-600 text-sm">Tổng quan hệ thống cứu hộ</p>
       </div>
 

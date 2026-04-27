@@ -252,10 +252,6 @@ public sealed class AuthService(
             throw new InvalidOperationException("Phone la bat buoc.");
         }
 
-        var normalizedEmail = string.IsNullOrWhiteSpace(request.Email)
-            ? null
-            : request.Email.Trim();
-
         var citizenRole = await GetOrCreateCitizenRole();
 
         var existingByPhone = await dbContext.app_users
@@ -279,7 +275,6 @@ public sealed class AuthService(
                     citizenId = existingByPhone.id,
                     displayName = existingByPhone.display_name,
                     phone = existingByPhone.phone,
-                    email = existingByPhone.email,
                     username = existingByPhone.username,
                     registered = false,
                     message = "So dien thoai da co tai khoan citizen."
@@ -287,15 +282,6 @@ public sealed class AuthService(
             }
 
             throw new InvalidOperationException("So dien thoai da duoc su dung cho tai khoan khac.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(normalizedEmail))
-        {
-            var emailExists = await dbContext.app_users.AnyAsync(x => x.email == normalizedEmail);
-            if (emailExists)
-            {
-                throw new InvalidOperationException("Email da duoc su dung.");
-            }
         }
 
         if (await dbContext.app_users.AnyAsync(x => x.username == normalizedPhone))
@@ -312,7 +298,7 @@ public sealed class AuthService(
             username = normalizedPhone,
             display_name = displayName,
             phone = normalizedPhone,
-            email = normalizedEmail,
+            email = null,
             password_hash = passwordHash,
             password_hash_algo = "BCRYPT",
             is_active = true,
@@ -336,7 +322,6 @@ public sealed class AuthService(
             citizenId = user.id,
             displayName = user.display_name,
             phone = user.phone,
-            email = user.email,
             username = user.username,
             registered = true
         };

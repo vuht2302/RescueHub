@@ -11,5 +11,4 @@ public sealed record VerifyOtpRequest(string Phone, string OtpCode, string Purpo
 public sealed record RegisterCitizenRequest(
     string DisplayName,
     string Phone,
-    string? Email,
     string Password);

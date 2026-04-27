@@ -149,9 +149,12 @@ export const requestMissionAbort = async (
 };
 
 // Lấy lịch sử phân phối cứu trợ của đội
-export const getDistributionHistory = async (): Promise<DistributionHistoryResponse> => {
-  return requestTeamApi<DistributionHistoryResponse>("/api/v1/team/distributions/history");
-};
+export const getDistributionHistory =
+  async (): Promise<DistributionHistoryResponse> => {
+    return requestTeamApi<DistributionHistoryResponse>(
+      "/api/v1/team/distributions/history",
+    );
+  };
 
 // Cập nhật trạng thái phân phối cứu trợ
 export const updateDistributionStatus = async (
@@ -160,7 +163,7 @@ export const updateDistributionStatus = async (
 ): Promise<DistributionStatusUpdateResponse> => {
   return requestTeamApiWithBody<DistributionStatusUpdateResponse>(
     `/api/v1/team/distributions/${distributionId}/status`,
-    "PATCH",
+    "POST",
     {
       statusCode: request.statusCode,
       note: request.note,

@@ -33,7 +33,7 @@ export const AdminSidebar = ({ active, setActive }) => {
 
     setIsLoggingOut(true);
     try {
-        await performLogout();
+      await performLogout();
       localStorage.removeItem("rescuehub.auth.session");
 
       localStorage.removeItem("accessToken");
@@ -49,12 +49,8 @@ export const AdminSidebar = ({ active, setActive }) => {
     <aside className="fixed left-0 top-0 w-64 h-screen bg-white shadow-lg flex flex-col border-r">
       {/* LOGO */}
       <div className="p-6 border-b">
-        <h1 className="text-2xl font-black text-blue-950">
-          RescueHub
-        </h1>
-        <p className="text-xs text-gray-600">
-          Quản trị hệ thống
-        </p>
+        <h1 className="text-2xl font-black text-blue-950">RescueHub</h1>
+        <p className="text-xs text-gray-600">Quản trị hệ thống</p>
       </div>
 
       {/* MENU */}
@@ -68,22 +64,16 @@ export const AdminSidebar = ({ active, setActive }) => {
               key={item.id}
               onClick={() => setActive(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                isActive
-                  ? "bg-blue-50 shadow-sm"
-                  : "hover:bg-gray-50"
+                isActive ? "bg-blue-50 shadow-sm" : "hover:bg-gray-50"
               }`}
             >
               <Icon
                 size={20}
-                className={
-                  isActive ? "text-blue-600" : "text-gray-600"
-                }
+                className={isActive ? "text-blue-600" : "text-gray-600"}
               />
               <span
                 className={`text-sm font-semibold flex-1 text-left ${
-                  isActive
-                    ? "text-blue-950"
-                    : "text-gray-700"
+                  isActive ? "text-blue-950" : "text-gray-700"
                 }`}
               >
                 {item.label}

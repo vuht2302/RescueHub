@@ -330,10 +330,7 @@ export function CreateReliefDistributionModal({
           for (const stock of stockResponse.items ?? []) {
             // Use stock.item.code (supportTypeCode) as key for matching with aggregated items
             const current = itemStockMap.get(stock.item.code) ?? 0;
-            itemStockMap.set(
-              stock.item.code,
-              current + (stock.qtyAvailable ?? 0),
-            );
+            itemStockMap.set(stock.item.code, current + (stock.qtyOnHand ?? 0));
           }
           warehouseStockMap.set(wh.id, itemStockMap);
         } catch (e) {
@@ -437,7 +434,7 @@ export function CreateReliefDistributionModal({
         }
 
         const item = itemMap.get(stock.item.id)!;
-        item.totalQtyAvailable += stock.qtyAvailable ?? 0;
+        // item.totalQtyAvailable += stock.qtyOnHand ?? 0;
 
         if (stock.lot) {
           item.lots.push({
@@ -729,7 +726,7 @@ export function CreateReliefDistributionModal({
     }
   };
 
-  // Get available items (items loaded from stock API have qtyAvailable)
+  // Get available items (items loaded from stock API use qtyOnHand)
   const availableItems = itemsWithLots.filter(
     (item) => item.isActive && (item.totalQtyAvailable ?? 0) > 0,
   );

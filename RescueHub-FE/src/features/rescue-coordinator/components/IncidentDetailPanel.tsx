@@ -238,6 +238,9 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
   const hasHandlingTeams = handlingTeams && handlingTeams.length > 0;
   const isInProgress = requestStatus === "in-progress";
   const isFinalized = requestStatus === "completed" || requestStatus === "rescued";
+  const canVerify = requestStatus === "pending";
+  const canAssess = requestStatus === "verified";
+  const canDispatch = requestStatus === "assessed";
 
   return (
     <div className="flex flex-col h-full overflow-y-auto" style={{ gap: 0 }}>
@@ -479,28 +482,31 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
             </button>
           )
         ) : (
-          /* Show all action buttons for other statuses */
           <>
-            <button
-              onClick={onVerify}
-              className="w-full bg-gray-800 text-white font-medium py-2.5 rounded text-sm transition-all hover:bg-gray-700"
-            >
-              Xác minh thông tin
-            </button>
-            <div className="grid grid-cols-2 gap-2">
+            {canVerify && (
+              <button
+                onClick={onVerify}
+                className="w-full bg-gray-800 text-white font-medium py-2.5 rounded text-sm transition-all hover:bg-gray-700"
+              >
+                Xác minh thông tin
+              </button>
+            )}
+            {canAssess && (
               <button
                 onClick={onAssess}
                 className="w-full bg-gray-600 hover:bg-gray-500 text-white font-medium py-2.5 rounded text-sm transition-all"
               >
                 Đánh giá mức độ
               </button>
+            )}
+            {canDispatch && (
               <button
                 onClick={onDispatch}
                 className="w-full bg-gray-600 hover:bg-gray-500 text-white font-medium py-2.5 rounded text-sm transition-all"
               >
                 Điều phối ngay
               </button>
-            </div>
+            )}
           </>
         )}
       </div>

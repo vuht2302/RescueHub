@@ -290,11 +290,13 @@ const RescueCoordinatorPage: React.FC = () => {
     }
 
     if (selectedRequest) {
-      const exists = requests.some(
+      const matchedRequest = requests.find(
         (request) => request.id === selectedRequest.id,
       );
-      if (!exists) {
+      if (!matchedRequest) {
         setSelectedRequest(requests[0] ?? null);
+      } else if (matchedRequest !== selectedRequest) {
+        setSelectedRequest(matchedRequest);
       }
     }
   }, [requests, selectedRequest]);
@@ -456,14 +458,14 @@ const RescueCoordinatorPage: React.FC = () => {
       setRequests((prev) =>
         prev.map((req) =>
           req.id === incidentId
-            ? { ...req, status: "dispatched" as const }
+            ? { ...req, status: "assessed" as const }
             : req,
         ),
       );
 
       setAssessmentSuccess(true);
       toastSuccess(
-        "Đánh giá mức độ thành công! Đang chuyển sang bước điều phối...",
+        "Đánh giá mức độ thành công!",
       );
 
       setTimeout(() => {
@@ -610,6 +612,7 @@ const RescueCoordinatorPage: React.FC = () => {
                       <option value="">Tất cả trạng thái</option>
                       <option value="pending">Chờ xác minh</option>
                       <option value="verified">Đã xác minh</option>
+                      <option value="assessed">Đã đánh giá</option>
                       <option value="dispatched">Đã điều phối</option>
                       <option value="in-progress">Đang xử lý</option>
                       <option value="completed">Hoàn thành</option>
@@ -999,7 +1002,7 @@ const RescueCoordinatorPage: React.FC = () => {
           }}
           incidentId={selectedRequest.id}
           incidentCode={selectedRequest.title}
-          onAssessed={(result) => handleAssessmentConfirm(selectedRequest.id)}
+          onAssessed={() => handleAssessmentConfirm(selectedRequest.id)}
           accessToken={getAuthSession()?.accessToken || ""}
           isLoading={isAssessing}
         />

@@ -44,6 +44,38 @@ export interface DispatchTeamsResponse {
   items: Team[];
 }
 
+export interface VehicleStatus {
+  code: string;
+  name: string;
+  color: string | null;
+}
+
+export interface VehicleType {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface TeamVehicle {
+  id: string;
+  code: string;
+  displayName: string;
+  plateNo: string;
+  status: VehicleStatus;
+  vehicleType: VehicleType;
+  team: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  capacityPerson: number;
+  capacityWeightKg: number;
+}
+
+interface TeamVehiclesResponse {
+  items: TeamVehicle[];
+}
+
 export interface TeamAssignment {
   teamId: string;
   isPrimaryTeam: boolean;
@@ -113,4 +145,33 @@ export const dispatchMission = async (
     const backendError = result.errors?.[0] ?? result.message;
     throw new Error(backendError || "Khong the dieu phoi team");
   }
+};
+
+export const getTeamVehicles = async (
+  accessToken: string,
+  teamId: string,
+): Promise<TeamVehicle[]> => {
+  const query = new URLSearchParams();
+  query.set("teamId", teamId);
+
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/v1/manager/vehicles?${query.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  const result = (await response.json()) as ApiResponse<TeamVehiclesResponse>;
+
+  if (!response.ok || !result.success) {
+    const backendError = result.errors?.[0] ?? result.message;
+    throw new Error(backendError || "Khong the lay danh sach phuong tien");
+  }
+
+  return result.data?.items ?? [];
 };

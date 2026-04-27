@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Loader2, Users, MapPin, Clock, Shield } from "lucide-react";
+import { Loader2, MapPin, Clock, Shield } from "lucide-react";
 import { getIncidents, type IncidentItem } from "../services/incidentServices";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { DispatchModal } from "./DispatchModal";
@@ -77,7 +77,10 @@ export function CurrentMissionsSection() {
           incidentCode: incident.incidentCode,
           location: incident.location?.addressText || "Chua co vi tri",
           reportedAt: incident.reportedAt,
-          handlingTeams: incident.handlingTeams || [],
+          // Clone each team object to avoid cross-mission reference side effects.
+          handlingTeams: (incident.handlingTeams || []).map((team) => ({
+            ...team,
+          })),
           status: incident.status?.code || "UNKNOWN",
         }),
       );
@@ -455,7 +458,10 @@ export function CurrentMissionsSection() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
+                <div
+                  key={selectedMission.id}
+                  className="bg-white rounded-lg shadow-sm p-5 border border-gray-200"
+                >
                   <h4 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">
                     Đội được phân công ({selectedMission.handlingTeams.length})
                   </h4>
@@ -467,7 +473,7 @@ export function CurrentMissionsSection() {
                       );
                       return (
                         <div
-                          key={team.teamId}
+                          key={`${selectedMission.id}-${team.missionId}-${team.teamId}`}
                           className="rounded-lg border border-gray-200 bg-white p-4 hover:shadow-md transition"
                         >
                           <div className="flex items-start justify-between mb-3">

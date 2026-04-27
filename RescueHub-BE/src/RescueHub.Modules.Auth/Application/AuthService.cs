@@ -30,6 +30,7 @@ public sealed class AuthService(
     public async Task<object> Login(LoginRequest request)
     {
         var identity = request.Username.Trim();
+        var normalizedPhoneIdentity = NormalizePhoneForOtp(identity);
         var user = await dbContext.app_users
             .Include(x => x.app_user_roles)
             .ThenInclude(x => x.role)
@@ -37,7 +38,7 @@ public sealed class AuthService(
                 x.is_active &&
                 (
                     (x.username != null && x.username == identity) ||
-                    (x.phone != null && x.phone == identity) ||
+                    (x.phone != null && (x.phone == identity || x.phone == normalizedPhoneIdentity)) ||
                     (x.email != null && x.email == identity)
                 ));
 
@@ -255,10 +256,7 @@ public sealed class AuthService(
             ? null
             : request.Email.Trim();
 
-        var citizenRole = await dbContext.app_roles
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.code == "CITIZEN")
-            ?? throw new InvalidOperationException("He thong chua cau hinh role CITIZEN.");
+        var citizenRole = await GetOrCreateCitizenRole();
 
         var existingByPhone = await dbContext.app_users
             .Include(x => x.app_user_roles)
@@ -300,13 +298,9 @@ public sealed class AuthService(
             }
         }
 
-        var usernameBase = $"citizen_{normalizedPhone}";
-        var username = usernameBase;
-        var suffix = 1;
-        while (await dbContext.app_users.AnyAsync(x => x.username == username))
+        if (await dbContext.app_users.AnyAsync(x => x.username == normalizedPhone))
         {
-            suffix++;
-            username = $"{usernameBase}_{suffix}";
+            throw new InvalidOperationException("So dien thoai da duoc su dung lam username.");
         }
 
         var now = DateTime.UtcNow;
@@ -315,7 +309,7 @@ public sealed class AuthService(
         var user = new app_user
         {
             id = Guid.NewGuid(),
-            username = username,
+            username = normalizedPhone,
             display_name = displayName,
             phone = normalizedPhone,
             email = normalizedEmail,
@@ -346,6 +340,26 @@ public sealed class AuthService(
             username = user.username,
             registered = true
         };
+    }
+
+    private async Task<app_role> GetOrCreateCitizenRole()
+    {
+        var citizenRole = await dbContext.app_roles.FirstOrDefaultAsync(x => x.code == "CITIZEN");
+        if (citizenRole is not null)
+        {
+            return citizenRole;
+        }
+
+        citizenRole = new app_role
+        {
+            id = Guid.NewGuid(),
+            code = "CITIZEN",
+            name = "Citizen",
+            description = "Citizen account"
+        };
+
+        dbContext.app_roles.Add(citizenRole);
+        return citizenRole;
     }
 
     private string GenerateAccessToken(Guid userId, string displayName, string? phone, IReadOnlyCollection<string> roles)

@@ -7,11 +7,18 @@ import {
   getMissionByStatus,
   getReliefByStatus,
   getHotspots,
-  type HotspotItem,
+  getRescueReliefVolumes,
 } from "@/src/shared/services/report.service";
 import { DonutChart } from "@/src/shared/components/DonutChart";
+import { BarChart } from "@/src/shared/components/BarChart";
 import { IncidentHotspotMap } from "./IncidentHotspotMap";
-import { AlertTriangle, MapPin, TrendingUp, Flame } from "lucide-react";
+import {
+  AlertTriangle,
+  MapPin,
+  TrendingUp,
+  Flame,
+  BarChart3,
+} from "lucide-react";
 
 const ReportDashboard = () => {
   const [overview, setOverview] = useState<any>(null);
@@ -19,6 +26,7 @@ const ReportDashboard = () => {
   const [mission, setMission] = useState<any>(null);
   const [relief, setRelief] = useState<any>(null);
   const [hotspots, setHotspots] = useState<any>(null);
+  const [rescueReliefVolumes, setRescueReliefVolumes] = useState<any>(null);
 
   const [loading, setLoading] = useState(false);
 
@@ -26,20 +34,28 @@ const ReportDashboard = () => {
     try {
       setLoading(true);
 
-      const [overviewRes, incidentRes, missionRes, reliefRes, hotspotRes] =
-        await Promise.all([
-          getReportOverview(),
-          getIncidentByStatus(),
-          getMissionByStatus(),
-          getReliefByStatus(),
-          getHotspots(),
-        ]);
+      const [
+        overviewRes,
+        incidentRes,
+        missionRes,
+        reliefRes,
+        hotspotRes,
+        rescueReliefVolumesRes,
+      ] = await Promise.all([
+        getReportOverview(),
+        getIncidentByStatus(),
+        getMissionByStatus(),
+        getReliefByStatus(),
+        getHotspots(),
+        getRescueReliefVolumes(),
+      ]);
 
       setOverview(overviewRes);
       setIncident(incidentRes);
       setMission(missionRes);
       setRelief(reliefRes);
       setHotspots(hotspotRes);
+      setRescueReliefVolumes(rescueReliefVolumesRes);
     } catch (err) {
       console.error(err);
       alert("Load report thất bại");
@@ -80,6 +96,26 @@ const ReportDashboard = () => {
     { name: "Chờ duyệt", amount: overview.relief.pending, color: "#F97316" },
     { name: "Đã duyệt", amount: overview.relief.approved, color: "#0891B2" },
   ].filter((item) => item.amount > 0);
+
+  const rescueReliefVolumeChartData = rescueReliefVolumes
+    ? [
+        {
+          period: "Tháng này",
+          "Cứu hộ": rescueReliefVolumes.monthly.rescueCount,
+          "Cứu trợ": rescueReliefVolumes.monthly.reliefCount,
+        },
+        {
+          period: "Quý này",
+          "Cứu hộ": rescueReliefVolumes.quarterly.rescueCount,
+          "Cứu trợ": rescueReliefVolumes.quarterly.reliefCount,
+        },
+        {
+          period: "Năm nay",
+          "Cứu hộ": rescueReliefVolumes.yearly.rescueCount,
+          "Cứu trợ": rescueReliefVolumes.yearly.reliefCount,
+        },
+      ]
+    : [];
 
   // ===== CUSTOM LEGEND COMPONENT =====
   const ChartLegend = ({ data, total }: { data: any[]; total: number }) => (
@@ -146,6 +182,26 @@ const ReportDashboard = () => {
       <div>
         <h1 className="text-2xl font-black">Dashboard báo cáo</h1>
         <p className="text-gray-600 text-sm">Tổng quan hệ thống cứu hộ</p>
+      </div>
+
+      {/* RESCUE & RELIEF VOLUME CHART */}
+      <div className="bg-white p-6 rounded-xl shadow">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="w-6 h-6 text-blue-700" />
+          <h2 className="text-xl font-bold">
+            Báo cáo cứu hộ và cứu trợ theo tháng/quý/năm
+          </h2>
+        </div>
+        <BarChart
+          data={rescueReliefVolumeChartData}
+          className="h-72"
+          index="period"
+          categories={["Cứu hộ", "Cứu trợ"]}
+          colors={["#1D4ED8", "#F97316"]}
+          valueFormatter={(number: number) =>
+            `${Intl.NumberFormat("vi-VN").format(number)}`
+          }
+        />
       </div>
 
       {/* CHARTS - Using DonutChart with side legends */}

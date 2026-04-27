@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import vietmapgl from "@vietmap/vietmap-gl-js/dist/vietmap-gl";
 import "@vietmap/vietmap-gl-js/dist/vietmap-gl.css";
 import { MapPin, RefreshCw, AlertCircle } from "lucide-react";
@@ -29,6 +29,54 @@ const IncidentHotspotMap: React.FC<IncidentHotspotMapProps> = ({
 
   const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
   const canUseVietmap = vietmapApiKey.length > 0;
+
+  const aggregatedHotspots = useMemo<HotspotItem[]>(() => {
+    const grouped = new Map<
+      string,
+      HotspotItem & { _latCount: number; _lngCount: number }
+    >();
+
+    hotspots.forEach((hotspot) => {
+      const groupKey =
+        hotspot.adminAreaName?.trim().toLowerCase() ||
+        hotspot.adminAreaId ||
+        hotspot.adminAreaCode ||
+        hotspot.fallbackAddress ||
+        "unknown-area";
+
+      const existing = grouped.get(groupKey);
+
+      if (!existing) {
+        grouped.set(groupKey, {
+          ...hotspot,
+          incidentCount: hotspot.incidentCount || 0,
+          _latCount: typeof hotspot.lat === "number" ? 1 : 0,
+          _lngCount: typeof hotspot.lng === "number" ? 1 : 0,
+        });
+        return;
+      }
+
+      existing.incidentCount += hotspot.incidentCount || 0;
+
+      if (typeof hotspot.lat === "number") {
+        existing.lat =
+          ((existing.lat || 0) * existing._latCount + hotspot.lat) /
+          (existing._latCount + 1);
+        existing._latCount += 1;
+      }
+
+      if (typeof hotspot.lng === "number") {
+        existing.lng =
+          ((existing.lng || 0) * existing._lngCount + hotspot.lng) /
+          (existing._lngCount + 1);
+        existing._lngCount += 1;
+      }
+    });
+
+    return Array.from(grouped.values())
+      .map(({ _latCount, _lngCount, ...item }) => item)
+      .sort((a, b) => b.incidentCount - a.incidentCount);
+  }, [hotspots]);
 
   // Initialize Map
   useEffect(() => {
@@ -62,7 +110,9 @@ const IncidentHotspotMap: React.FC<IncidentHotspotMapProps> = ({
     markersRef.current = [];
 
     // Filter hotspots with valid coordinates
-    const validHotspots = hotspots.filter((h) => h.lat && h.lng);
+    const validHotspots = aggregatedHotspots.filter(
+      (h) => typeof h.lat === "number" && typeof h.lng === "number",
+    );
 
     if (validHotspots.length === 0) return;
 
@@ -138,14 +188,21 @@ const IncidentHotspotMap: React.FC<IncidentHotspotMapProps> = ({
     if (validHotspots.length > 0) {
       const bounds = new vietmapgl.LngLatBounds();
       validHotspots.forEach((h) => {
-        if (h.lng && h.lat) bounds.extend([h.lng, h.lat]);
+        if (typeof h.lng === "number" && typeof h.lat === "number") {
+          bounds.extend([h.lng, h.lat]);
+        }
       });
       map.fitBounds(bounds, { padding: 50, maxZoom: 13, duration: 600 });
     }
-  }, [hotspots]);
+  }, [aggregatedHotspots]);
 
-  const totalIncidents = hotspots.reduce((sum, h) => sum + h.incidentCount, 0);
-  const validLocationCount = hotspots.filter((h) => h.lat && h.lng).length;
+  const totalIncidents = aggregatedHotspots.reduce(
+    (sum, h) => sum + h.incidentCount,
+    0,
+  );
+  const validLocationCount = aggregatedHotspots.filter(
+    (h) => typeof h.lat === "number" && typeof h.lng === "number",
+  ).length;
 
   return (
     <div
@@ -169,7 +226,9 @@ const IncidentHotspotMap: React.FC<IncidentHotspotMapProps> = ({
         )}
 
         {/* Minimal Info Overlay */}
-        {selectedHotspot && selectedHotspot.lat && selectedHotspot.lng && (
+        {selectedHotspot &&
+          typeof selectedHotspot.lat === "number" &&
+          typeof selectedHotspot.lng === "number" && (
           <div className="absolute top-4 left-4 bg-white rounded-lg px-3 py-2 shadow-sm border border-gray-200 max-w-xs z-10">
             <p className="text-xs font-medium text-gray-900 truncate">
               {selectedHotspot.adminAreaName ||
@@ -212,7 +271,7 @@ const IncidentHotspotMap: React.FC<IncidentHotspotMapProps> = ({
               Khu vực sự cố
             </h3>
             <p className="text-xs text-gray-500">
-              {hotspots.length} khu vực · {totalIncidents} sự cố
+              {aggregatedHotspots.length} khu vực · {totalIncidents} sự cố
             </p>
           </div>
           {onRefresh && (
@@ -242,25 +301,28 @@ const IncidentHotspotMap: React.FC<IncidentHotspotMapProps> = ({
 
         {/* Hotspot List - Minimal */}
         <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg bg-white">
-          {isLoading && hotspots.length === 0 ? (
+          {isLoading && aggregatedHotspots.length === 0 ? (
             <div className="flex items-center justify-center p-8">
               <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
             </div>
-          ) : hotspots.length === 0 && !error ? (
+          ) : aggregatedHotspots.length === 0 && !error ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <MapPin size={20} className="text-gray-300 mb-2" />
               <p className="text-xs text-gray-500">Chưa có dữ liệu</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {hotspots.map((hotspot, idx) => {
+              {aggregatedHotspots.map((hotspot, idx) => {
                 const isSelected =
-                  selectedHotspot?.adminAreaCode === hotspot.adminAreaCode;
-                const hasLocation = hotspot.lat && hotspot.lng;
+                  (selectedHotspot?.adminAreaId || selectedHotspot?.adminAreaCode || selectedHotspot?.adminAreaName) ===
+                  (hotspot.adminAreaId || hotspot.adminAreaCode || hotspot.adminAreaName);
+                const hasLocation =
+                  typeof hotspot.lat === "number" &&
+                  typeof hotspot.lng === "number";
 
                 return (
                   <div
-                    key={`${hotspot.adminAreaCode || idx}-${idx}`}
+                    key={`${hotspot.adminAreaId || hotspot.adminAreaCode || hotspot.adminAreaName || idx}-${idx}`}
                     onClick={() => {
                       setSelectedHotspot(hotspot);
                       if (mapRef.current && hasLocation) {
@@ -326,7 +388,7 @@ const IncidentHotspotMap: React.FC<IncidentHotspotMapProps> = ({
 
         {/* Summary footer */}
         <div className="text-xs text-gray-500 text-center">
-          {validLocationCount}/{hotspots.length} khu vực có tọa độ bản đồ
+          {validLocationCount}/{aggregatedHotspots.length} khu vực có tọa độ bản đồ
         </div>
       </div>
     </div>

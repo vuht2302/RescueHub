@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Send, X, MapPin } from "lucide-react";
 import { toast } from "react-toastify";
 import { createPublicReliefRequest } from "../../../shared/services/publicApi";
+import { getAuthSession } from "../../auth/services/authStorage";
 
 type Coordinate = {
   lat: number;
@@ -200,7 +201,8 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
     };
 
     try {
-      const response = await createPublicReliefRequest(payload);
+      const accessToken = getAuthSession()?.accessToken?.trim();
+      const response = await createPublicReliefRequest(payload, accessToken);
       setSubmitSuccess(
         `Đã tạo yêu cầu cứu trợ thành công. Mã theo dõi: ${response.requestCode}`,
       );

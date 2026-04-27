@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import vietmapgl from "@vietmap/vietmap-gl-js/dist/vietmap-gl";
 import "@vietmap/vietmap-gl-js/dist/vietmap-gl.css";
-import { AlertCircle, MapPin, Search } from "lucide-react";
+import { AlertCircle, MapPin } from "lucide-react";
 import { getAuthSession } from "../../auth/services/authStorage";
 import { getIncidents, IncidentItem } from "../services/incidentServices";
 

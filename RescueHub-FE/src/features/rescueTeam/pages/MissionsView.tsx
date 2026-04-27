@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  AlertCircle,
-  Ban,
-  Eye,
-  FileText,
-  Loader,
-  RefreshCw,
-  X,
-} from "lucide-react";
+import { AlertCircle, Loader, RefreshCw, X } from "lucide-react";
 import { DetailsMission } from "../components/DetailsMission";
 import {
   getTeamMissions,
@@ -94,6 +86,9 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedMissionId, setSelectedMissionId] = useState<string>("");
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [openActionMenuMissionId, setOpenActionMenuMissionId] = useState<
+    string | null
+  >(null);
   const [acceptingMissionId, setAcceptingMissionId] = useState<string | null>(
     null,
   );
@@ -118,58 +113,58 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
     setSupportError(null);
     setIsSupportModalOpen(true);
   };
-    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-const [reportMissionId, setReportMissionId] = useState<string | null>(null);
-const [reportLoading, setReportLoading] = useState(false);
-const [reportError, setReportError] = useState<string | null>(null);
-const [reportData, setReportData] = useState({
-reportTypeCode: "PROGRESS",
-  summary: "",
-  victimRescuedCount: 0,
-  victimUnreachableCount: 0,
-  casualtyCount: 0,
-  nextActionNote: "",
-});
-const openReportModal = (missionId: string) => {
-  setReportMissionId(missionId);
-  setReportError(null);
-  setIsReportModalOpen(true);
-};
-const handleSubmitReport = async () => {
-  if (!reportMissionId) return;
-
-  if (!reportData.summary.trim()) {
-    setReportError("Vui lòng nhập mô tả báo cáo");
-    return;
-  }
-
-  try {
-    setReportLoading(true);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportMissionId, setReportMissionId] = useState<string | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportData, setReportData] = useState({
+    reportTypeCode: "PROGRESS",
+    summary: "",
+    victimRescuedCount: 0,
+    victimUnreachableCount: 0,
+    casualtyCount: 0,
+    nextActionNote: "",
+  });
+  const openReportModal = (missionId: string) => {
+    setReportMissionId(missionId);
     setReportError(null);
+    setIsReportModalOpen(true);
+  };
+  const handleSubmitReport = async () => {
+    if (!reportMissionId) return;
 
-    await createFieldReport(reportMissionId, {
-      ...reportData,
-  
-      sceneDetails: [
-        {
-          factorCode: "GENERAL",
-          valueText: reportData.summary,
-        },
-      ],
-      fileIds: [],
-    });
+    if (!reportData.summary.trim()) {
+      setReportError("Vui lòng nhập mô tả báo cáo");
+      return;
+    }
 
-    alert("Gửi báo cáo thành công");
+    try {
+      setReportLoading(true);
+      setReportError(null);
 
-    setIsReportModalOpen(false);
-    setReportMissionId(null);
-  } catch (err: any) {
-    console.log(err); 
-    setReportError(err.message || "Gửi báo cáo thất bại");
-  } finally {
-    setReportLoading(false);
-  }
-};
+      await createFieldReport(reportMissionId, {
+        ...reportData,
+
+        sceneDetails: [
+          {
+            factorCode: "GENERAL",
+            valueText: reportData.summary,
+          },
+        ],
+        fileIds: [],
+      });
+
+      alert("Gửi báo cáo thành công");
+
+      setIsReportModalOpen(false);
+      setReportMissionId(null);
+    } catch (err: any) {
+      console.log(err);
+      setReportError(err.message || "Gửi báo cáo thất bại");
+    } finally {
+      setReportLoading(false);
+    }
+  };
   const handleSubmitSupportRequest = async () => {
     if (!supportMissionId) return;
 
@@ -402,7 +397,7 @@ const handleSubmitReport = async () => {
       setIsAbortSubmitting(false);
     }
   };
-const toNumber = (val: string) => (val ? Number(val) : 0);
+  const toNumber = (val: string) => (val ? Number(val) : 0);
   return (
     <div className="col-span-1 xl:col-span-2 rounded-xl bg-white border border-gray-200 p-6 overflow-auto shadow-sm">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -507,7 +502,10 @@ const toNumber = (val: string) => (val ? Number(val) : 0);
                   return (
                     <tr
                       key={mission.missionId}
-                      onClick={() => setSelectedMissionId(mission.missionId)}
+                      onClick={() => {
+                        setSelectedMissionId(mission.missionId);
+                        setOpenActionMenuMissionId(null);
+                      }}
                       className={`border-t border-gray-200 cursor-pointer ${
                         isSelected ? "bg-blue-50" : "hover:bg-gray-50"
                       }`}
@@ -541,117 +539,91 @@ const toNumber = (val: string) => (val ? Number(val) : 0);
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          {missionStatus === "Chờ nhận" ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void handleAcceptMissionClick(
-                                    mission.missionId,
-                                  );
-                                }}
-                                disabled={
-                                  acceptingMissionId === mission.missionId
-                                }
-                                className="text-xs bg-blue-950 text-white px-2.5 py-1.5 rounded-lg font-bold hover:bg-blue-900 disabled:bg-gray-400 flex items-center gap-1 transition-colors whitespace-nowrap"
+                        {missionStatus === "Chờ nhận" ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleAcceptMissionClick(mission.missionId);
+                            }}
+                            disabled={acceptingMissionId === mission.missionId}
+                            className="text-xs bg-blue-950 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-900 disabled:bg-gray-400 inline-flex items-center gap-1 transition-colors whitespace-nowrap"
+                          >
+                            {acceptingMissionId === mission.missionId ? (
+                              <>
+                                <Loader size={12} className="animate-spin" />
+                                <span className="hidden sm:inline">
+                                  Đang xử lý...
+                                </span>
+                              </>
+                            ) : (
+                              "Nhận nhiệm vụ"
+                            )}
+                          </button>
+                        ) : (
+                          <div className="relative inline-block">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setOpenActionMenuMissionId((prev) =>
+                                  prev === mission.missionId
+                                    ? null
+                                    : mission.missionId,
+                                );
+                              }}
+                              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+                            >
+                              Thao tác
+                            </button>
+
+                            {openActionMenuMissionId === mission.missionId && (
+                              <div
+                                className="absolute right-0 mt-2 w-44 rounded-lg border border-gray-200 bg-white shadow-lg z-20 p-1"
+                                onClick={(event) => event.stopPropagation()}
                               >
-                                {acceptingMissionId === mission.missionId ? (
-                                  <>
-                                    <Loader
-                                      size={12}
-                                      className="animate-spin"
-                                    />
-                                    <span className="hidden sm:inline">
-                                      Đang...
-                                    </span>
-                                  </>
-                                ) : (
-                                  "Nhận"
-                                )}
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openSupportModal(mission.missionId);
-                                }}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-50 text-yellow-700 hover:bg-yellow-100 flex-shrink-0"
-                                title="Yêu cầu hỗ trợ"
-                              >
-                                ⚠️
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openAbortModal(mission.missionId);
-                                }}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-700 hover:bg-red-100 flex-shrink-0"
-                                aria-label="Hủy nhiệm vụ"
-                                title="Hủy nhiệm vụ"
-                              >
-                                <Ban size={14} />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              {onViewMission && (
                                 <button
                                   type="button"
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    onViewMission(
-                                      mission.missionId,
-                                      missionStatus,
-                                    );
+                                    openSupportModal(mission.missionId);
+                                    setOpenActionMenuMissionId(null);
                                   }}
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 flex-shrink-0"
-                                  aria-label="Xem bản đồ"
-                                  title="Xem bản đồ"
+                                  className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold text-yellow-700 hover:bg-yellow-50"
                                 >
-                                  <Eye size={14} />
+                                  Yêu cầu hỗ trợ
                                 </button>
-                              )}
-                               <button
-  onClick={(e) => {
-    e.stopPropagation();
-    openReportModal(mission.missionId);
-  }}
-  className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-green-50 text-green-700 hover:bg-green-100"
-  title="Báo cáo hiện trường"
->
-  📝
-</button>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openDetail(mission.missionId);
-                                }}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-950 text-white hover:bg-blue-900 flex-shrink-0"
-                                aria-label="Xem chi tiết nhiệm vụ"
-                                title="Xem chi tiết"
-                              >
-                                <FileText size={14} />
-                              </button>
-                              {missionStatus !== "Đã hoàn tất" && (
                                 <button
                                   type="button"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     openAbortModal(mission.missionId);
+                                    setOpenActionMenuMissionId(null);
                                   }}
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-700 hover:bg-red-100 flex-shrink-0"
-                                  aria-label="Hủy nhiệm vụ"
-                                  title="Hủy nhiệm vụ"
+                                  className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold text-red-700 hover:bg-red-50"
                                 >
-                                  <Ban size={14} />
+                                  Yêu cầu hủy
                                 </button>
-                              )}
-                            </>
-                          )}
-                        </div>
+                                {onViewMission && (
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      onViewMission(
+                                        mission.missionId,
+                                        missionStatus,
+                                      );
+                                      setOpenActionMenuMissionId(null);
+                                    }}
+                                    className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                                  >
+                                    Xem bản đồ
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -880,140 +852,141 @@ const toNumber = (val: string) => (val ? Number(val) : 0);
         </div>
       )}
       {isReportModalOpen && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-    <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl">
-      
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-bold">Báo cáo hiện trường</h3>
-        <button onClick={() => setIsReportModalOpen(false)}>
-          <X size={18} />
-        </button>
-      </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl">
+            {/* HEADER */}
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold">Báo cáo hiện trường</h3>
+              <button onClick={() => setIsReportModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
 
-      <div className="mt-4 space-y-4">
+            <div className="mt-4 space-y-4">
+              {/* SUMMARY */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700">
+                  Mô tả hiện trường
+                </label>
+                <textarea
+                  value={reportData.summary}
+                  onChange={(e) =>
+                    setReportData({ ...reportData, summary: e.target.value })
+                  }
+                  className="mt-1 w-full border rounded-lg p-2"
+                  rows={3}
+                />
+              </div>
 
-        {/* SUMMARY */}
-        <div>
-          <label className="text-sm font-semibold text-gray-700">
-            Mô tả hiện trường
-          </label>
-          <textarea
-            value={reportData.summary}
-            onChange={(e) =>
-              setReportData({ ...reportData, summary: e.target.value })
-            }
-            className="mt-1 w-full border rounded-lg p-2"
-            rows={3}
-          />
+              <div>
+                <label className="text-sm font-semibold text-gray-700">
+                  Loại báo cáo
+                </label>
+                <select
+                  value={reportData.reportTypeCode}
+                  onChange={(e) =>
+                    setReportData({
+                      ...reportData,
+                      reportTypeCode: e.target.value,
+                    })
+                  }
+                  className="mt-1 w-full border rounded-lg p-2"
+                >
+                  <option value="PROGRESS">Đang xử lý</option>
+                  <option value="ON_SITE">Đã có mặt</option>
+                  <option value="FINAL">Hoàn tất</option>
+                </select>
+              </div>
+
+              {/* RESCUED */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700">
+                  Số người cứu được
+                </label>
+                <input
+                  type="number"
+                  value={reportData.victimRescuedCount}
+                  onChange={(e) =>
+                    setReportData({
+                      ...reportData,
+                      victimRescuedCount: toNumber(e.target.value),
+                    })
+                  }
+                  className="mt-1 w-full border rounded-lg p-2"
+                />
+              </div>
+
+              {/* UNREACHABLE */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700">
+                  Số người chưa tiếp cận
+                </label>
+                <input
+                  type="number"
+                  value={reportData.victimUnreachableCount}
+                  onChange={(e) =>
+                    setReportData({
+                      ...reportData,
+                      victimUnreachableCount: Number(e.target.value),
+                    })
+                  }
+                  className="mt-1 w-full border rounded-lg p-2"
+                />
+              </div>
+
+              {/* CASUALTY */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700">
+                  Số thương vong
+                </label>
+                <input
+                  type="number"
+                  value={reportData.casualtyCount}
+                  onChange={(e) =>
+                    setReportData({
+                      ...reportData,
+                      casualtyCount: Number(e.target.value),
+                    })
+                  }
+                  className="mt-1 w-full border rounded-lg p-2"
+                />
+              </div>
+
+              {/* NEXT ACTION */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700">
+                  Hành động tiếp theo
+                </label>
+                <textarea
+                  value={reportData.nextActionNote}
+                  onChange={(e) =>
+                    setReportData({
+                      ...reportData,
+                      nextActionNote: e.target.value,
+                    })
+                  }
+                  className="mt-1 w-full border rounded-lg p-2"
+                  rows={3}
+                />
+              </div>
+
+              {/* ERROR */}
+              {reportError && (
+                <p className="text-red-500 text-sm">{reportError}</p>
+              )}
+
+              {/* BUTTON */}
+              <button
+                onClick={handleSubmitReport}
+                disabled={reportLoading}
+                className="w-full bg-green-700 text-white py-3 rounded-xl font-bold"
+              >
+                {reportLoading ? "Đang gửi..." : "Gửi báo cáo"}
+              </button>
+            </div>
+          </div>
         </div>
-
-        <div>
-  <label className="text-sm font-semibold text-gray-700">
-    Loại báo cáo
-  </label>
-  <select
-    value={reportData.reportTypeCode}
-    onChange={(e) =>
-      setReportData({ ...reportData, reportTypeCode: e.target.value })
-    }
-    className="mt-1 w-full border rounded-lg p-2"
-  >
-    <option value="PROGRESS">Đang xử lý</option>
-    <option value="ON_SITE">Đã có mặt</option>
-    <option value="FINAL">Hoàn tất</option>
-  </select>
-</div>
-
-        {/* RESCUED */}
-        <div>
-          <label className="text-sm font-semibold text-gray-700">
-            Số người cứu được
-          </label>
-          <input
-            type="number"
-            value={reportData.victimRescuedCount}
-          onChange={(e) =>
-  setReportData({
-    ...reportData,
-    victimRescuedCount: toNumber(e.target.value),
-  })
-}
-            className="mt-1 w-full border rounded-lg p-2"
-          />
-        </div>
-
-        {/* UNREACHABLE */}
-        <div>
-          <label className="text-sm font-semibold text-gray-700">
-            Số người chưa tiếp cận
-          </label>
-          <input
-            type="number"
-            value={reportData.victimUnreachableCount}
-            onChange={(e) =>
-              setReportData({
-                ...reportData,
-                victimUnreachableCount: Number(e.target.value),
-              })
-            }
-            className="mt-1 w-full border rounded-lg p-2"
-          />
-        </div>
-
-        {/* CASUALTY */}
-        <div>
-          <label className="text-sm font-semibold text-gray-700">
-            Số thương vong
-          </label>
-          <input
-            type="number"
-            value={reportData.casualtyCount}
-            onChange={(e) =>
-              setReportData({
-                ...reportData,
-                casualtyCount: Number(e.target.value),
-              })
-            }
-            className="mt-1 w-full border rounded-lg p-2"
-          />
-        </div>
-
-        {/* NEXT ACTION */}
-        <div>
-          <label className="text-sm font-semibold text-gray-700">
-            Hành động tiếp theo
-          </label>
-          <textarea
-            value={reportData.nextActionNote}
-            onChange={(e) =>
-              setReportData({
-                ...reportData,
-                nextActionNote: e.target.value,
-              })
-            }
-            className="mt-1 w-full border rounded-lg p-2"
-            rows={3}
-          />
-        </div>
-
-        {/* ERROR */}
-        {reportError && (
-          <p className="text-red-500 text-sm">{reportError}</p>
-        )}
-
-        {/* BUTTON */}
-        <button
-          onClick={handleSubmitReport}
-          disabled={reportLoading}
-          className="w-full bg-green-700 text-white py-3 rounded-xl font-bold"
-        >
-          {reportLoading ? "Đang gửi..." : "Gửi báo cáo"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 };

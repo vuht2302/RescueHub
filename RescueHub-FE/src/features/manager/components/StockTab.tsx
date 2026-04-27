@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
-  Search,
   RefreshCw,
   AlertCircle,
   PackageSearch,
@@ -27,21 +26,6 @@ const LOT_STATUS: Record<string, { label: string; cls: string }> = {
   EXPIRED: { label: "Hết hạn", cls: "bg-red-100 text-red-700" },
   QUARANTINE: { label: "Cách ly", cls: "bg-purple-100 text-purple-700" },
 };
-
-function LotBadge({ code }: { code: string }) {
-  const cfg = LOT_STATUS[code] ?? {
-    label: code,
-    cls: "bg-gray-100 text-gray-600",
-  };
-  return (
-    <span
-      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${cfg.cls}`}
-    >
-      {code === "NEAR_EXPIRY" && <AlertTriangle size={10} />}
-      {cfg.label}
-    </span>
-  );
-}
 
 // ─── Main Tab ─────────────────────────────────────────────────────────────────
 export const StockTab: React.FC = () => {

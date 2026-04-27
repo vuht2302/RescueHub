@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
-    "@react-google-maps/api": "^2.20.8",
     "@tailwindcss/vite": "^4.1.14",
     "@vietmap/vietmap-gl-js": "^7.0.0-pre.1",
     "@vitejs/plugin-react": "^5.0.4",
@@ -20,7 +19,6 @@
     "express": "^4.21.2",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.546.0",
-    "maplibre-gl": "^5.23.0",
     "motion": "^12.23.24",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

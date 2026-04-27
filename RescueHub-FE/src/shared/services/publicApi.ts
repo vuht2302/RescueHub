@@ -153,6 +153,7 @@ export const createPublicIncident = async (
 
 export const createPublicReliefRequest = async (
   payload: PublicReliefRequest,
+  accessToken?: string,
 ): Promise<PublicReliefResponse> => {
   return requestPublicApi<PublicReliefResponse>(
     "/api/v1/public/relief-requests",
@@ -160,6 +161,11 @@ export const createPublicReliefRequest = async (
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(accessToken?.trim()
+          ? {
+              Authorization: `Bearer ${accessToken.trim()}`,
+            }
+          : {}),
       },
       body: JSON.stringify(payload),
     },

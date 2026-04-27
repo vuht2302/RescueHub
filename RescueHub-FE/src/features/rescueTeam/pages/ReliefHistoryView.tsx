@@ -15,14 +15,26 @@ import {
 
 const statusStyles: Record<string, string> = {
   COMPLETED: "bg-emerald-100 text-emerald-700",
-  IN_PROGRESS: "bg-amber-100 text-amber-700",
+  CANCELLED: "bg-red-100 text-red-700",
   PENDING: "bg-gray-100 text-gray-700",
 };
 
 const DISTRIBUTION_STATUS_OPTIONS = [
-  { code: "COMPLETED", label: "Hoàn tất", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  { code: "IN_PROGRESS", label: "Đang thực hiện", color: "bg-amber-100 text-amber-700 border-amber-200" },
-  { code: "PENDING", label: "Chờ xử lý", color: "bg-gray-100 text-gray-700 border-gray-200" },
+  {
+    code: "COMPLETED",
+    label: "Hoàn tất",
+    color: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  },
+  {
+    code: "CANCELLED",
+    label: "Đã hủy",
+    color: "bg-red-100 text-red-700 border-red-200",
+  },
+  {
+    code: "PENDING",
+    label: "Chờ xử lý",
+    color: "bg-gray-100 text-gray-700 border-gray-200",
+  },
 ];
 
 const formatDate = (isoDate: string) => {
@@ -61,9 +73,11 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [selectedItem, setSelectedItem] = useState<DistributionHistoryItem | null>(null);
+  const [selectedItem, setSelectedItem] =
+    useState<DistributionHistoryItem | null>(null);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [selectedDistribution, setSelectedDistribution] = useState<DistributionHistoryItem | null>(null);
+  const [selectedDistribution, setSelectedDistribution] =
+    useState<DistributionHistoryItem | null>(null);
   const [selectedStatus, setSelectedStatus] = useState("");
   const [statusNote, setStatusNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -385,7 +399,7 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
               </div>
               <div className="rounded-xl bg-purple-50 border border-purple-200 p-4">
                 <p className="text-sm font-semibold text-purple-900">
-                  Đang thực hiện
+                  Đang xử lí
                 </p>
                 <p className="text-3xl font-black text-purple-700 mt-1">
                   {totalItems - completedCount}
@@ -592,7 +606,9 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
             <div className="mb-4">
               <p className="text-sm font-semibold text-gray-700">
                 Mã phân phối:{" "}
-                <span className="text-blue-950">{selectedDistribution.distributionCode}</span>
+                <span className="text-blue-950">
+                  {selectedDistribution.distributionCode}
+                </span>
               </p>
             </div>
 
@@ -602,7 +618,8 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
                   Trạng thái hiện tại:
                   <span
                     className={`ml-2 inline-block text-xs px-2 py-1 rounded-md font-bold ${
-                      statusStyles[selectedDistribution.status.code] ?? "bg-gray-100 text-gray-700"
+                      statusStyles[selectedDistribution.status.code] ??
+                      "bg-gray-100 text-gray-700"
                     }`}
                   >
                     {selectedDistribution.status.name}

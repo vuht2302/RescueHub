@@ -25,7 +25,6 @@ const LOT_STATUS: Record<string, { label: string; cls: string }> = {
   AVAILABLE: { label: "Có sẵn", cls: "bg-emerald-100 text-emerald-700" },
   NEAR_EXPIRY: { label: "Sắp hết hạn", cls: "bg-amber-100 text-amber-700" },
   EXPIRED: { label: "Hết hạn", cls: "bg-red-100 text-red-700" },
-  RESERVED: { label: "Đặt trước", cls: "bg-blue-100 text-blue-700" },
   QUARANTINE: { label: "Cách ly", cls: "bg-purple-100 text-purple-700" },
 };
 
@@ -160,12 +159,7 @@ export const StockTab: React.FC = () => {
           placeholder="ID Hàng hóa..."
           className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-44 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <input
-          value={params.lotNo}
-          onChange={setStr("lotNo")}
-          placeholder="Số lô..."
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-36 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+
         <button
           onClick={toggleNE}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${
@@ -203,18 +197,7 @@ export const StockTab: React.FC = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
-              {[
-                "Kho",
-                "Hàng hóa",
-                "Mã hàng",
-                "Lô",
-                "HSD",
-                "Trạng thái lô",
-                "Tồn thực",
-                "Đặt trước",
-                "Khả dụng",
-                "ĐV",
-              ].map((h) => (
+              {["Kho", "Hàng hóa", "Mã hàng", "Số lượng", "Đơn vị"].map((h) => (
                 <th
                   key={h}
                   className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap"
@@ -270,55 +253,13 @@ export const StockTab: React.FC = () => {
                     <td className="px-4 py-3 font-mono text-xs text-blue-700 font-semibold">
                       {s.item.code}
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-700 font-semibold whitespace-nowrap">
-                      {s.lot?.lotNo ?? <span className="text-gray-400">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-xs whitespace-nowrap">
-                      {s.lot?.expDate ? (
-                        <span
-                          className={
-                            isNE
-                              ? "text-amber-600 font-bold"
-                              : isExp
-                                ? "text-red-600 font-bold"
-                                : "text-gray-500"
-                          }
-                        >
-                          {new Date(s.lot.expDate).toLocaleDateString("vi-VN")}
-                          {isNE && " ⚠️"}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <LotBadge code={s.lot?.statusCode ?? "AVAILABLE"} />
-                    </td>
+
                     <td className="px-4 py-3 text-center">
                       <span className="font-bold text-gray-900">
                         {s.qtyOnHand.toLocaleString()}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <span
-                        className={`font-semibold ${s.qtyReserved > 0 ? "text-amber-600" : "text-gray-400"}`}
-                      >
-                        {s.qtyReserved.toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span
-                        className={`font-bold ${
-                          s.qtyAvailable <= 0
-                            ? "text-red-600"
-                            : s.qtyAvailable < 20
-                              ? "text-amber-600"
-                              : "text-emerald-600"
-                        }`}
-                      >
-                        {s.qtyAvailable.toLocaleString()}
-                      </span>
-                    </td>
+
                     <td className="px-4 py-3 text-gray-500 text-xs">
                       {s.item.unitCode}
                     </td>

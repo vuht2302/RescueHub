@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Search, MapPin, Map, X } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshCw, Search, MapPin, Map, X } from "lucide-react";
 import { useCoordinator } from "../../../shared/context/CoordinatorContext";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { DispatchModal } from "../components/DispatchModal";
@@ -187,38 +187,32 @@ const RescueCoordinatorPage: React.FC = () => {
     };
   };
 
-  useEffect(() => {
-    const loadIncidents = async () => {
-      setIsLoadingRequests(true);
-      setRequestsError(null);
+  const loadIncidents = useCallback(async () => {
+    setIsLoadingRequests(true);
+    setRequestsError(null);
 
-      try {
-        const authSession = getAuthSession();
-        if (!authSession?.accessToken) {
-          throw new Error("Không có token xác thực. Vui lòng đăng nhập lại.");
-        }
-        const incidents = await getIncidents(authSession.accessToken);
-        const mappedRequests = incidents.map(mapIncidentToRescueRequest);
-        console.log("Raw incidents:", incidents);
-        console.log("Mapped requests:", mappedRequests);
-        console.log(
-          "Pending requests:",
-          mappedRequests.filter((r) => r.status === "pending"),
-        );
-        setRequests(mappedRequests);
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Không thể tải dữ liệu sự cố từ hệ thống";
-        setRequestsError(message);
-      } finally {
-        setIsLoadingRequests(false);
+    try {
+      const authSession = getAuthSession();
+      if (!authSession?.accessToken) {
+        throw new Error("Không có token xác thực. Vui lòng đăng nhập lại.");
       }
-    };
-
-    void loadIncidents();
+      const incidents = await getIncidents(authSession.accessToken);
+      const mappedRequests = incidents.map(mapIncidentToRescueRequest);
+      setRequests(mappedRequests);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể tải dữ liệu sự cố từ hệ thống";
+      setRequestsError(message);
+    } finally {
+      setIsLoadingRequests(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadIncidents();
+  }, [loadIncidents]);
 
   const [teams] = useState<RescueTeam[]>([
     {
@@ -560,7 +554,7 @@ const RescueCoordinatorPage: React.FC = () => {
                 style={{ maxHeight: "calc(100vh - 140px)" }}
               >
                 {/* Stats */}
-                <div className="grid grid-cols-4 gap-4 mb-6 flex-shrink-0">
+                <div className="grid grid-cols-4 gap-4 mb-6 shrink-0">
                   <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-red-500">
                     <p className="text-gray-600 text-sm">Chờ xác minh</p>
                     <p className="text-3xl font-bold text-gray-900">
@@ -603,19 +597,33 @@ const RescueCoordinatorPage: React.FC = () => {
                         Mới nhất trước
                       </p>
                     </div>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="border-2 border-gray-200 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-700 focus:outline-none bg-white"
-                    >
-                      <option value="">Tất cả trạng thái</option>
-                      <option value="pending">Chờ xác minh</option>
-                      <option value="verified">Đã xác minh</option>
-                      <option value="assessed">Đã đánh giá</option>
-                      <option value="dispatched">Đã điều phối</option>
-                      <option value="in-progress">Đang xử lý</option>
-                      <option value="completed">Hoàn thành</option>
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void loadIncidents()}
+                        className="inline-flex items-center gap-1.5 rounded-lg border-2 border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition-colors hover:border-blue-200 hover:text-blue-950"
+                        title="Tải lại dữ liệu"
+                      >
+                        <RefreshCw
+                          size={14}
+                          className={isLoadingRequests ? "animate-spin" : ""}
+                        />
+                        Làm mới
+                      </button>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="border-2 border-gray-200 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-700 focus:outline-none bg-white"
+                      >
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="pending">Chờ xác minh</option>
+                        <option value="verified">Đã xác minh</option>
+                        <option value="assessed">Đã đánh giá</option>
+                        <option value="dispatched">Đã điều phối</option>
+                        <option value="in-progress">Đang xử lý</option>
+                        <option value="completed">Hoàn thành</option>
+                      </select>
+                    </div>
                   </div>
 
                   {isLoadingRequests && (
@@ -684,12 +692,12 @@ const RescueCoordinatorPage: React.FC = () => {
                                 </h3>
                                 {/* SOS badge from cache */}
                                 {cached?.isSOS && (
-                                  <span className="flex-shrink-0 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-black rounded animate-pulse">
+                                  <span className="shrink-0 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-black rounded animate-pulse">
                                     SOS
                                   </span>
                                 )}
                                 {hasTeams && (
-                                  <span className="flex-shrink-0 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded">
+                                  <span className="shrink-0 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded">
                                     👥 {request.handlingTeams?.length} đội
                                   </span>
                                 )}
@@ -697,10 +705,7 @@ const RescueCoordinatorPage: React.FC = () => {
 
                               {/* Location */}
                               <div className="flex items-start gap-1 text-xs text-gray-500 mt-1.5">
-                                <MapPin
-                                  size={12}
-                                  className="flex-shrink-0 mt-0.5"
-                                />
+                                <MapPin size={12} className="shrink-0 mt-0.5" />
                                 <span className="truncate">
                                   {locationText ?? "Đang tải vị trí..."}
                                 </span>
@@ -747,7 +752,7 @@ const RescueCoordinatorPage: React.FC = () => {
 
                             {/* Status Badge */}
                             <span
-                              className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold border ${getStatusColor(request.status)}`}
+                              className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold border ${getStatusColor(request.status)}`}
                             >
                               {getStatusBadge(request.status)}
                             </span>
@@ -762,9 +767,23 @@ const RescueCoordinatorPage: React.FC = () => {
 
             {activeMenu === "tasks" && (
               <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">
-                  Danh sách nhiệm vụ
-                </h2>
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Danh sách nhiệm vụ
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => void loadIncidents()}
+                    className="inline-flex items-center gap-1.5 rounded-lg border-2 border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition-colors hover:border-blue-200 hover:text-blue-950"
+                    title="Tải lại dữ liệu"
+                  >
+                    <RefreshCw
+                      size={14}
+                      className={isLoadingRequests ? "animate-spin" : ""}
+                    />
+                    Làm mới
+                  </button>
+                </div>
                 <div className="space-y-3">
                   {filteredRequests.map((request) => (
                     <div
@@ -813,7 +832,7 @@ const RescueCoordinatorPage: React.FC = () => {
                 }}
               >
                 {/* Panel Header */}
-                <div className="px-5 py-3 border-b border-gray-100 flex-shrink-0">
+                <div className="px-5 py-3 border-b border-gray-100 shrink-0">
                   <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
                     Chi tiết yêu cầu
                   </h3>

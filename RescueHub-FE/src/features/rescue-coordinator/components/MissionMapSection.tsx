@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import vietmapgl from "@vietmap/vietmap-gl-js/dist/vietmap-gl";
 import "@vietmap/vietmap-gl-js/dist/vietmap-gl.css";
-import { AlertCircle, MapPin } from "lucide-react";
+import { AlertCircle, MapPin, RefreshCw } from "lucide-react";
 import { getAuthSession } from "../../auth/services/authStorage";
 import { getIncidents, IncidentItem } from "../services/incidentServices";
 
@@ -21,26 +21,27 @@ export const MissionMapSection: React.FC = () => {
   const hasVietmapKey = vietmapApiKey.length > 0;
   const canUseVietmap = hasVietmapKey;
 
+  const fetchIncidents = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const authSession = getAuthSession();
+      if (!authSession?.accessToken) {
+        throw new Error("Không có token xác thực.");
+      }
+      const data = await getIncidents(authSession.accessToken);
+      setIncidents(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lỗi khi tải sự cố");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // Load incidents
   useEffect(() => {
-    const fetchIncidents = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const authSession = getAuthSession();
-        if (!authSession?.accessToken) {
-          throw new Error("Không có token xác thực.");
-        }
-        const data = await getIncidents(authSession.accessToken);
-        setIncidents(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Lỗi khi tải sự cố");
-      } finally {
-        setIsLoading(false);
-      }
-    };
     void fetchIncidents();
-  }, []);
+  }, [fetchIncidents]);
 
   // Initialize Map
   useEffect(() => {
@@ -156,7 +157,7 @@ export const MissionMapSection: React.FC = () => {
   return (
     <div className="flex flex-col md:flex-row h-full gap-5">
       {/* MAP AREA */}
-      <article className="relative rounded-2xl overflow-hidden bg-[#cfd4db] flex-1 min-h-[500px]">
+      <article className="relative rounded-2xl overflow-hidden bg-[#cfd4db] flex-1 min-h-125">
         {canUseVietmap ? (
           <div
             ref={mapContainerRef}
@@ -173,7 +174,7 @@ export const MissionMapSection: React.FC = () => {
 
         {/* Selected Incident Info overlay */}
         {selectedIncident && selectedIncident.location && (
-          <div className="absolute top-5 left-5 bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-md border border-white/70 max-w-[300px]">
+          <div className="absolute top-5 left-5 bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-md border border-white/70 max-w-75">
             <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant flex items-center gap-1.5">
               <MapPin size={12} className="text-blue-950" /> Vị trí chọn
             </p>
@@ -193,22 +194,33 @@ export const MissionMapSection: React.FC = () => {
       </article>
 
       {/* SIDEBAR AREA */}
-      <aside className="rounded-2xl bg-[#d7dce2] border border-[#c8ced6] p-4 md:p-5 overflow-auto w-full md:w-[400px] flex flex-col">
+      <aside className="rounded-2xl bg-[#d7dce2] border border-[#c8ced6] p-4 md:p-5 overflow-auto w-full md:w-100 flex flex-col">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs uppercase tracking-[0.1em] font-bold text-on-surface-variant font-primary">
+          <h3 className="text-xs uppercase tracking-widest font-bold text-on-surface-variant font-primary">
             Sự cố trên bản đồ
           </h3>
-          <span className="text-xs font-bold text-blue-950 bg-blue-100 px-2 py-0.5 rounded-full">
-            {incidents.length}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void fetchIncidents()}
+              className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-white px-2.5 py-1 text-[11px] font-bold text-blue-950 transition-colors hover:bg-blue-50"
+              title="Tải lại dữ liệu"
+            >
+              <RefreshCw
+                size={12}
+                className={isLoading ? "animate-spin" : ""}
+              />
+              Làm mới
+            </button>
+            <span className="text-xs font-bold text-blue-950 bg-blue-100 px-2 py-0.5 rounded-full">
+              {incidents.length}
+            </span>
+          </div>
         </div>
 
         {error && (
           <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2 mb-4">
-            <AlertCircle
-              size={16}
-              className="text-red-600 mt-0.5 flex-shrink-0"
-            />
+            <AlertCircle size={16} className="text-red-600 mt-0.5 shrink-0" />
             <p className="text-xs text-red-700">{error}</p>
           </div>
         )}
@@ -249,7 +261,7 @@ export const MissionMapSection: React.FC = () => {
                   <div className="flex items-start gap-1.5 text-xs text-[#3f4650] mt-1.5">
                     <MapPin
                       size={14}
-                      className="mt-0.5 flex-shrink-0 text-blue-900/60"
+                      className="mt-0.5 shrink-0 text-blue-900/60"
                     />
                     <span className="line-clamp-2">
                       {incident.location?.addressText || "Đang tải vị trí..."}

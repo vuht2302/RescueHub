@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Loader2, MapPin, Clock, Shield } from "lucide-react";
+import { Loader2, MapPin, Clock, Shield, RefreshCw } from "lucide-react";
 import { getIncidents, type IncidentItem } from "../services/incidentServices";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
 import { DispatchModal } from "./DispatchModal";
@@ -295,9 +295,25 @@ export function CurrentMissionsSection() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-              <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">
-                Nhiệm vụ đang thực hiện ({missions.length})
-              </h3>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide">
+                  Nhiệm vụ đang thực hiện ({missions.length})
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => void refreshAllData()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 transition-colors hover:border-blue-200 hover:text-blue-950"
+                  title="Tải lại dữ liệu"
+                >
+                  <RefreshCw
+                    size={12}
+                    className={
+                      isLoading || isLoadingAbortRequests ? "animate-spin" : ""
+                    }
+                  />
+                  Làm mới
+                </button>
+              </div>
 
               {missions.length === 0 ? (
                 <div className="text-center py-8">

@@ -1,6 +1,7 @@
 import type {
   ApiResponse,
   AuthSession,
+  CitizenRegisterRequest,
   InternalRole,
   LoginRequest,
 } from "../types";
@@ -45,6 +46,29 @@ export const logout = async (accessToken: string): Promise<void> => {
   if (!response.ok || !result.success) {
     const backendError = result.errors?.[0] ?? result.message;
     throw new Error(backendError || "Dang xuat that bai");
+  }
+};
+
+export const registerCitizen = async (
+  payload: CitizenRegisterRequest,
+): Promise<void> => {
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/v1/auth/citizen/register`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "text/plain",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  const result = (await response.json()) as ApiResponse<unknown>;
+
+  if (!response.ok || !result.success) {
+    const backendError = result.errors?.[0] ?? result.message;
+    throw new Error(backendError || "Dang ky that bai");
   }
 };
 

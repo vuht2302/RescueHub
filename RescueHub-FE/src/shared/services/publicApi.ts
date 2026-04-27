@@ -86,14 +86,35 @@ const requestPublicApi = async <T>(
     },
   });
 
-  const result = (await response.json()) as ApiResponse<T>;
+  const raw = await response.text();
+  let result: ApiResponse<T> | null = null;
 
-  if (!response.ok || !result.success) {
+  if (raw.trim().length > 0) {
+    try {
+      result = JSON.parse(raw) as ApiResponse<T>;
+    } catch {
+      if (!response.ok) {
+        throw new Error(raw || `HTTP ${response.status}`);
+      }
+      throw new Error("API tra ve du lieu khong hop le");
+    }
+  }
+
+  if (!response.ok) {
+    const backendError = result?.errors?.[0] ?? result?.message ?? raw;
+    throw new Error(backendError || `HTTP ${response.status}`);
+  }
+
+  if (result && !result.success) {
     const backendError = result.errors?.[0] ?? result.message;
     throw new Error(backendError || "Yeu cau that bai");
   }
 
-  return result.data;
+  if (result) {
+    return result.data;
+  }
+
+  return {} as T;
 };
 
 export const getPublicBootstrap = async (): Promise<BootstrapData> => {

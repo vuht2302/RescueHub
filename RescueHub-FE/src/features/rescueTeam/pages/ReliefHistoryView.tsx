@@ -16,7 +16,15 @@ import {
 const statusStyles: Record<string, string> = {
   COMPLETED: "bg-emerald-100 text-emerald-700",
   CANCELLED: "bg-red-100 text-red-700",
-  PENDING: "bg-gray-100 text-gray-700",
+  PENDING: "bg-orange-100 text-orange-700",
+};
+const getStatusLabel = (code: string): string => {
+  const statusLabels: Record<string, string> = {
+    COMPLETED: "Hoàn tất",
+    CANCELLED: "Đã hủy",
+    PENDING: "Chờ xử lý",
+  };
+  return statusLabels[code] ?? code;
 };
 
 const DISTRIBUTION_STATUS_OPTIONS = [
@@ -33,7 +41,7 @@ const DISTRIBUTION_STATUS_OPTIONS = [
   {
     code: "PENDING",
     label: "Chờ xử lý",
-    color: "bg-gray-100 text-gray-700 border-gray-200",
+    color: "bg-orange-100 text-orange-700 border-orange-200",
   },
 ];
 
@@ -285,7 +293,7 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
                       "bg-gray-100 text-gray-700"
                     }`}
                   >
-                    {selectedItem.status.name}
+                    {getStatusLabel(selectedItem.status.code)}
                   </span>
                 </div>
               </div>
@@ -496,7 +504,7 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
                               "bg-gray-100 text-gray-700"
                             }`}
                           >
-                            {item.status.name}
+                            {getStatusLabel(item.status.code)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
@@ -622,7 +630,7 @@ export const ReliefHistoryView: React.FC<ReliefHistoryViewProps> = ({
                       "bg-gray-100 text-gray-700"
                     }`}
                   >
-                    {selectedDistribution.status.name}
+                    {getStatusLabel(selectedDistribution.status.code)}
                   </span>
                 </label>
               </div>

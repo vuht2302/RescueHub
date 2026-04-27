@@ -62,12 +62,14 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
     [defaultLocation],
   );
 
-  const currentLocationAddress = useMemo(() => {
-    if (defaultAddress && defaultAddress.trim().length > 0) {
-      return defaultAddress.trim();
-    }
-    return `${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)}`;
-  }, [defaultAddress, currentLocation.lat, currentLocation.lng]);
+  const fallbackCurrentLocationAddress = useMemo(
+    () =>
+      `${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)}`,
+    [currentLocation.lat, currentLocation.lng],
+  );
+  const [currentLocationAddress, setCurrentLocationAddress] = useState(
+    defaultAddress?.trim() || fallbackCurrentLocationAddress,
+  );
 
   const currentLocationOption = useMemo<AddressSuggestion>(
     () => ({
@@ -75,7 +77,7 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
       label: `Vị trí hiện tại của bạn`,
       value: currentLocationAddress,
     }),
-    [currentLocationAddress, currentLocation.lat, currentLocation.lng],
+    [currentLocationAddress],
   );
 
   useEffect(() => {
@@ -86,9 +88,63 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
     setRequesterName(defaultRequesterName?.trim() ?? "");
     setRequesterPhone(defaultRequesterPhone?.trim() ?? "");
     setAddressText(defaultAddress ?? "");
+    setCurrentLocationAddress(
+      defaultAddress?.trim() || fallbackCurrentLocationAddress,
+    );
     setSubmitError("");
     setSubmitSuccess("");
-  }, [isOpen, defaultRequesterName, defaultRequesterPhone, defaultAddress]);
+  }, [
+    isOpen,
+    defaultRequesterName,
+    defaultRequesterPhone,
+    defaultAddress,
+    fallbackCurrentLocationAddress,
+  ]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchAddressFromCoords = async () => {
+      if (
+        defaultAddress &&
+        defaultAddress.trim().length > 0 &&
+        !defaultAddress.match(/^-?\d+\.\d+,\s*-?\d+\.\d+$/)
+      ) {
+        const trimmedAddress = defaultAddress.trim();
+        setCurrentLocationAddress(trimmedAddress);
+        setAddressText((prev) =>
+          prev.trim().length > 0 ? prev : trimmedAddress,
+        );
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLocation.lat}&lon=${currentLocation.lng}&accept-language=vi`,
+          {
+            headers: {
+              "Accept-Language": "vi",
+            },
+          },
+        );
+
+        if (response.ok) {
+          const data = (await response.json()) as { display_name?: string };
+          if (data.display_name) {
+            const resolvedAddress = data.display_name;
+            setCurrentLocationAddress(resolvedAddress);
+            setAddressText((prev) =>
+              prev.trim().length > 0 ? prev : resolvedAddress,
+            );
+          }
+        }
+      } catch {
+        // Keep fallback address when reverse geocoding fails.
+      }
+    };
+
+    void fetchAddressFromCoords();
+  }, [isOpen, defaultAddress, currentLocation.lat, currentLocation.lng]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -206,6 +262,7 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
         addressText: addressText.trim(),
         landmark: "",
       },
+      items: [],
     };
 
     try {
@@ -221,7 +278,7 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
       setRequesterPhone(defaultRequesterPhone?.trim() ?? "");
       setHouseholdCount(1);
       setNote("");
-      setAddressText(defaultAddress ?? "");
+      setAddressText(currentLocationAddress);
     } catch (error) {
       const message =
         error instanceof Error
@@ -318,10 +375,7 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
                 }}
                 onFocus={() => setIsAddressDropdownOpen(true)}
                 onBlur={() => {
-                  window.setTimeout(
-                    () => setIsAddressDropdownOpen(false),
-                    120,
-                  );
+                  window.setTimeout(() => setIsAddressDropdownOpen(false), 120);
                 }}
                 className="w-full bg-surface-container-high border-none rounded-xl p-4 pl-12 text-on-surface focus:ring-2 focus:ring-primary"
                 placeholder="Nhập địa chỉ để tìm kiếm..."

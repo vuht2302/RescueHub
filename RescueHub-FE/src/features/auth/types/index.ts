@@ -10,6 +10,12 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface CitizenRegisterRequest {
+  displayName: string;
+  phone: string;
+  password: string;
+}
+
 export interface AuthUser {
   id: string;
   displayName: string;

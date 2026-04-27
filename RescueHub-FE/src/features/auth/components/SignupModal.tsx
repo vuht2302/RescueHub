@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { X, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react";
+import { X, Lock, User, Eye, EyeOff, Loader2, Phone } from "lucide-react";
+import { registerCitizen } from "../services/authService";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   onSwitchToLogin,
 }) => {
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -36,21 +38,45 @@ export const SignupModal: React.FC<SignupModalProps> = ({
     e.preventDefault();
     setErrorMessage("");
 
+    const normalizedName = fullName.trim();
+    const normalizedPhone = phone.trim();
+
+    if (!normalizedName) {
+      setErrorMessage("Vui long nhap ho va ten");
+      return;
+    }
+
+    if (!normalizedPhone) {
+      setErrorMessage("Vui long nhap so dien thoai");
+      return;
+    }
+
     if (password !== confirmPassword) {
-      setErrorMessage("Mật khẩu không khớp!");
+      setErrorMessage("Mat khau khong khop");
       return;
     }
 
     if (password.length < 6) {
-      setErrorMessage("Mật khẩu phải có ít nhất 6 ký tự");
+      setErrorMessage("Mat khau phai co it nhat 6 ky tu");
       return;
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await registerCitizen({
+        displayName: normalizedName,
+        phone: normalizedPhone,
+        password,
+      });
+
       onClose();
-    }, 1500);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Dang ky that bai",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClose = () => {
@@ -91,7 +117,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
             {/* Full Name Field */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-slate-700">
-                Họ và Tên
+                Tên hiển thị
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -104,13 +130,34 @@ export const SignupModal: React.FC<SignupModalProps> = ({
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Nhập họ và tên của bạn"
+                  placeholder="Nhập tên của bạn"
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-emerald-500 focus:outline-none transition-all text-sm text-slate-700 placeholder:text-slate-400 shadow-sm focus:shadow-emerald-500/10"
                   required
                 />
               </div>
             </div>
-
+            {/* Phone Field */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                So dien thoai
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Phone
+                    className="text-slate-400 group-focus-within:text-emerald-500 transition-colors"
+                    size={18}
+                  />
+                </div>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Nhap so dien thoai"
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-emerald-500 focus:outline-none transition-all text-sm text-slate-700 placeholder:text-slate-400 shadow-sm focus:shadow-emerald-500/10"
+                  required
+                />
+              </div>
+            </div>
             {/* Password Field */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-slate-700">

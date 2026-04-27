@@ -567,7 +567,6 @@ function ReliefRequestDetailModal({
     }
 
     const payload: ApproveReliefRequestPayload = {
-      decisionCode: "APPROVED",
       note: approvalNote,
       items: allItems,
     };
@@ -952,15 +951,24 @@ interface AddItemModalProps {
   existingItemIds: string[];
 }
 
+// Item for modal display (normalized from API)
+interface ItemDisplay {
+  id: string;
+  itemCode: string;
+  itemName: string;
+  unitCode: string;
+  categoryName: string;
+}
+
 function AddItemModal({
   onClose,
   onAddItem,
   existingItemIds,
 }: AddItemModalProps) {
-  const [items, setItems] = useState<ItemListItem[]>([]);
+  const [items, setItems] = useState<ItemDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [selectedItem, setSelectedItem] = useState<ItemListItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ItemDisplay | null>(null);
   const [qty, setQty] = useState(1);
   const token = getAuthSession()?.accessToken ?? "";
 
@@ -968,11 +976,25 @@ function AddItemModal({
     const loadItems = async () => {
       try {
         const data = await getAllItems(token);
-        // Filter out items already in the request
-        const availableItems = data.filter(
-          (item) => !existingItemIds.includes(item.itemCode) && item.isActive,
+        console.log("Items loaded:", data);
+        // Normalize data to display format
+        const displayItems: ItemDisplay[] = data
+          .filter((item) => item.isActive)
+          .map((item) => ({
+            id: item.id,
+            itemCode: item.itemCode,
+            itemName: item.itemName,
+            unitCode: item.unitCode,
+            categoryName: item.itemCategory?.name ?? "",
+          }));
+        console.log("Display items before filter:", displayItems);
+        console.log("Existing item codes:", existingItemIds);
+        // Filter out items that already exist in the request
+        const filtered = displayItems.filter(
+          (item) => !existingItemIds.includes(item.itemCode),
         );
-        setItems(availableItems);
+        console.log("Filtered items:", filtered);
+        setItems(filtered);
       } catch (err) {
         console.error("Error loading items:", err);
         setItems([]);
@@ -1059,7 +1081,7 @@ function AddItemModal({
                         {item.itemName}
                       </p>
                       <p className="text-[11px] text-gray-400">
-                        {item.itemCode} • {item.itemCategory.name}
+                        {item.itemCode} • {item.categoryName}
                       </p>
                     </div>
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">

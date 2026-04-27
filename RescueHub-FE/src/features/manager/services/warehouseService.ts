@@ -252,6 +252,41 @@ export async function getAllItems(token: string): Promise<ItemListItem[]> {
   return data.items ?? [];
 }
 
+// Get items for dropdown (compatible format with ItemWithLots)
+export interface ItemForDropdown {
+  id: string;
+  itemCode: string;
+  itemName: string;
+  unitCode: string;
+  totalQtyAvailable: number;
+  lots: Array<{
+    id: string;
+    lotNo: string;
+    expDate: string | null;
+    statusCode: string;
+  }>;
+  isActive: boolean;
+}
+
+export async function getItemsForDropdown(
+  token: string,
+): Promise<ItemForDropdown[]> {
+  const data = await apiFetch<ItemListResponse>(`${BASE}/items`, {
+    headers: authHeaders(token),
+  });
+  return (data.items ?? [])
+    .filter((i) => i.isActive)
+    .map((i) => ({
+      id: i.id,
+      itemCode: i.itemCode,
+      itemName: i.itemName,
+      unitCode: i.unitCode,
+      totalQtyAvailable: 0,
+      lots: [],
+      isActive: i.isActive,
+    }));
+}
+
 // Item with embedded lots (from /api/v1/manager/items with lots detail)
 export interface ItemWithLots {
   id: string;
@@ -1116,15 +1151,14 @@ export async function deleteReliefCampaign(
 
 // ─── MAN-11  Relief Request Approval ─────────────────────────────────────────
 export interface ApproveReliefRequestItem {
-  reliefRequestItemId: string;
-  supportTypeCode?: string;
+  reliefRequestItemId?: string; // Optional - for existing items
+  supportTypeCode?: string; // Required for new items
   itemId?: string;
   approvedQty: number;
   unitCode: string;
 }
 
 export interface ApproveReliefRequestPayload {
-  decisionCode: string;
   note?: string;
   items: ApproveReliefRequestItem[];
 }

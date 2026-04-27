@@ -823,6 +823,24 @@ export async function ackDistribution(
   });
 }
 
+export interface UpdateDistributionPayload {
+  teamId: string;
+  ackMethodCode?: string;
+  note?: string;
+}
+
+export async function updateDistribution(
+  id: string,
+  payload: UpdateDistributionPayload,
+  token: string,
+): Promise<Distribution> {
+  return apiFetch<Distribution>(`${BASE}/distributions/${id}`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
 // ─── Distribution Options ────────────────────────────────────────────────────
 export interface DistributionOptions {
   campaigns: Array<{

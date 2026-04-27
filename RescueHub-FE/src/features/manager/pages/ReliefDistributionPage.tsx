@@ -15,8 +15,10 @@ import {
   Home,
   FileText,
   AlertCircle,
+  Edit3,
 } from "lucide-react";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
+import { toast } from "react-toastify";
 import {
   getReliefRequests,
   getReliefRequestDetail,
@@ -29,9 +31,14 @@ import {
   getAllItems,
   type ItemListItem,
   getDistributions,
+  getDistribution,
+  getManagerTeams,
+  updateDistribution,
   type DistributionListItem,
   type Distribution,
+  type DistributionPayload,
   type PagedResponse,
+  type ManagerTeam,
 } from "../services/warehouseService";
 import {
   REQUEST_STATUS,
@@ -70,6 +77,9 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
   const [viewDistDetail, setViewDistDetail] = useState<Distribution | null>(
     null,
   );
+  const [editDistId, setEditDistId] = useState<string | null>(null);
+  const [editTeams, setEditTeams] = useState<ManagerTeam[]>([]);
+  const [editLoading, setEditLoading] = useState(false);
   const [showReliefDistModal, setShowReliefDistModal] = useState(false);
   const [initialCampaignIdForDist, setInitialCampaignIdForDist] = useState<
     string | undefined
@@ -404,16 +414,31 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                             />
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setViewDistId(dist.id);
-                              }}
-                              className="flex items-center justify-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-semibold transition-colors"
-                            >
-                              <FileText size={12} />
-                              Chi tiết
-                            </button>
+                            <div className="flex items-center justify-center gap-1">
+                              {(dist.status?.code === "CANCELLED" || dist.status?.code === "CANCEL") && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    console.log("Edit clicked for dist:", dist.id, "Status:", dist.status?.code);
+                                    setEditDistId(dist.id);
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-orange-100 text-orange-600"
+                                  title="Sửa phiếu đã hủy"
+                                >
+                                  <Edit3 size={14} />
+                                </button>
+                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewDistId(dist.id);
+                                }}
+                                className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-semibold transition-colors"
+                              >
+                                <FileText size={12} />
+                                Chi tiết
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -478,6 +503,18 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
             setInitialCampaignIdForDist(undefined);
           }}
           onSuccess={handleReliefDistributionCreated}
+        />
+      )}
+      {editDistId && (
+        <EditCancelledDistModal
+          distId={editDistId}
+          onClose={() => {
+            setEditDistId(null);
+          }}
+          onSuccess={() => {
+            void loadDistributions();
+            setEditDistId(null);
+          }}
         />
       )}
     </div>
@@ -1127,6 +1164,181 @@ function AddItemModal({
             className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
           >
             Thêm vật phẩm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Edit Cancelled Distribution Modal - allows changing team and resetting to PENDING
+interface EditCancelledDistModalProps {
+  distId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function EditCancelledDistModal({
+  distId,
+  onClose,
+  onSuccess,
+}: EditCancelledDistModalProps) {
+  const [dist, setDist] = useState<Distribution | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+  const [teams, setTeams] = useState<ManagerTeam[]>([]);
+  const [loadingTeams, setLoadingTeams] = useState(true);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = await getDistribution(distId, getAuthSession()?.accessToken ?? "");
+        setDist(data);
+        if (data.recipient?.id) {
+          setSelectedTeamId(data.recipient.id);
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Không thể tải phiếu");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [distId]);
+
+  // Load available teams
+  useEffect(() => {
+    void (async () => {
+      try {
+        const teamItems = await getManagerTeams(getAuthSession()?.accessToken ?? "", {
+          statusCode: "AVAILABLE",
+        });
+        setTeams(teamItems);
+      } catch (e) {
+        console.error("Error loading teams:", e);
+      } finally {
+        setLoadingTeams(false);
+      }
+    })();
+  }, []);
+
+  const handleSubmit = async () => {
+    if (!selectedTeamId) {
+      setError("Vui lòng chọn đội cứu trợ");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Call update API to change team - backend will reset status to PENDING for cancelled distributions
+      await updateDistribution(distId, {
+        teamId: selectedTeamId,
+      }, getAuthSession()?.accessToken ?? "");
+      toast.success("Đã cập nhật phiếu phân phối và chuyển sang trạng thái Chờ nhận!");
+      onSuccess();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Lỗi cập nhật");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Map teams to display format
+  const teamOptions = teams.map((t) => ({
+    id: t.id,
+    name: t.teamName ?? t.name ?? "Đội cứu trợ",
+    code: t.teamCode ?? "",
+  }));
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-orange-600">Sửa phiếu đã hủy</h2>
+            <p className="text-xs text-gray-400 font-mono">{dist?.code || "..."}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-4">
+          {loading && (
+            <div className="text-center py-8">
+              <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin mx-auto" />
+            </div>
+          )}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+          {!loading && (
+            <>
+              {/* Current info */}
+              <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Trạng thái hiện tại:</span>
+                  <span className="font-semibold text-red-600">{dist?.status?.code || "CANCELLED"}</span>
+                </div>
+              </div>
+
+              {/* Team selection */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Chọn đội cứu trợ <span className="text-red-500">*</span>
+                </label>
+                {loadingTeams ? (
+                  <div className="flex items-center justify-center py-3">
+                    <div className="w-5 h-5 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
+                    <span className="ml-2 text-sm text-gray-500">Đang tải đội cứu trợ...</span>
+                  </div>
+                ) : teamOptions.length === 0 ? (
+                  <div className="text-sm text-orange-600 py-2">
+                    Không có đội cứu trợ nào đang rảnh. Vui lòng tạo hoặc giải phóng đội cứu trợ.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedTeamId}
+                    onChange={(e) => setSelectedTeamId(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 bg-white"
+                  >
+                    <option value="">-- Chọn đội cứu trợ --</option>
+                    {teamOptions.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name} ({team.code})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Info text */}
+              <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
+                Sau khi lưu, phiếu sẽ được chuyển sang trạng thái <strong>Chờ nhận (PENDING)</strong> để đội cứu trợ có thể xác nhận.
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-gray-50 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 font-semibold text-sm text-gray-600 hover:bg-gray-100"
+          >
+            Hủy
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !selectedTeamId}
+            className="flex-1 py-2.5 rounded-xl bg-orange-600 font-semibold text-sm text-white hover:bg-orange-700 disabled:opacity-50"
+          >
+            {submitting ? "Đang lưu..." : "Lưu thay đổi"}
           </button>
         </div>
       </div>

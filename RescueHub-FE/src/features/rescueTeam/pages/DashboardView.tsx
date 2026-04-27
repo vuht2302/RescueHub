@@ -7,7 +7,6 @@ import {
   Activity,
   RefreshCw,
 } from "lucide-react";
-import { TeamDashboardData } from "../services/teamDashboardService";
 import { TeamMissionListItem } from "../services/teamMissionService";
 
 // Map backend status codes to Vietnamese display names
@@ -47,7 +46,7 @@ const mapBackendStatusToColor = (statusCode: string): string => {
 };
 
 interface DashboardViewProps {
-  dashboard: TeamDashboardData | null;
+  totalMissionCount: number;
   recentMissions: TeamMissionListItem[];
   isLoading: boolean;
   error: string | null;
@@ -57,7 +56,7 @@ interface DashboardViewProps {
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
-  dashboard,
+  totalMissionCount,
   recentMissions,
   isLoading,
   error,
@@ -71,6 +70,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     )
     .slice(0, 10);
+
+  const completedStatuses = new Set(["COMPLETED"]);
+  const canceledStatuses = new Set(["CANCELLED", "ABORTED", "ABORT_PENDING"]);
+
+  const completedMissionCount = recentMissions.filter((mission) =>
+    completedStatuses.has(mission.status.code.toUpperCase()),
+  ).length;
+
+  const canceledMissionCount = recentMissions.filter((mission) =>
+    canceledStatuses.has(mission.status.code.toUpperCase()),
+  ).length;
+
+  const activeMissionCount = recentMissions.filter((mission) => {
+    const normalizedStatus = mission.status.code.toUpperCase();
+    return (
+      !completedStatuses.has(normalizedStatus) &&
+      !canceledStatuses.has(normalizedStatus)
+    );
+  }).length;
 
   return (
     <div className="col-span-1 xl:col-span-2 space-y-4 overflow-auto">
@@ -107,68 +125,54 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="rounded-xl bg-white border border-gray-200 p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-bold text-gray-600">Chờ phản hồi</p>
+                <p className="text-sm font-bold text-gray-600">Tổng nhiệm vụ</p>
                 <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
                   <FolderKanban size={20} strokeWidth={2.5} />
                 </div>
               </div>
               <p className="text-3xl font-black text-blue-950">
-                {dashboard?.pendingResponseCount ?? 0}
+                {totalMissionCount}
               </p>
             </div>
 
             <div className="rounded-xl bg-white border border-gray-200 p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm font-bold text-gray-600">
-                  Đang hoạt động
+                  Đang thực hiện
                 </p>
                 <div className="rounded-lg bg-amber-50 p-2 text-amber-600">
                   <AlertCircle size={20} strokeWidth={2.5} />
                 </div>
               </div>
               <p className="text-3xl font-black text-blue-950">
-                {dashboard?.activeMissionCount ?? 0}
+                {activeMissionCount}
               </p>
             </div>
 
             <div className="rounded-xl bg-white border border-gray-200 p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-bold text-gray-600">
-                  H.thành hôm nay
-                </p>
+                <p className="text-sm font-bold text-gray-600">Đã hoàn thành</p>
                 <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
                   <CheckCircle size={20} strokeWidth={2.5} />
                 </div>
               </div>
               <p className="text-3xl font-black text-blue-950">
-                {dashboard?.completedTodayCount ?? 0}
+                {completedMissionCount}
               </p>
             </div>
 
             <div className="rounded-xl bg-white border border-gray-200 p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-bold text-gray-600">Chờ hủy</p>
+                <p className="text-sm font-bold text-gray-600">Đã hủy</p>
                 <div className="rounded-lg bg-rose-50 p-2 text-rose-600">
                   <Clock size={20} strokeWidth={2.5} />
                 </div>
               </div>
               <p className="text-3xl font-black text-blue-950">
-                {dashboard?.pendingAbortCount ?? 0}
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-white border border-gray-200 p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-bold text-gray-600">Chờ chi viện</p>
-                <div className="rounded-lg bg-indigo-50 p-2 text-indigo-600">
-                  <Activity size={20} strokeWidth={2.5} />
-                </div>
-              </div>
-              <p className="text-3xl font-black text-blue-950">
-                {dashboard?.pendingSupportCount ?? 0}
+                {canceledMissionCount}
               </p>
             </div>
           </div>

@@ -92,6 +92,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   onMissionAccepted,
 }) => {
   const [missions, setMissions] = useState<TeamMissionListItem[]>([]);
+  const [totalMissionCount, setTotalMissionCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [missionDetailsById, setMissionDetailsById] = useState<
@@ -219,6 +220,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
       const items = response.items;
 
       setMissions(items);
+      setTotalMissionCount(response.totalItems ?? items.length);
 
       const mappedStatus = items.reduce<Record<string, MissionStatus>>(
         (acc, mission) => {
@@ -284,15 +286,24 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
     }
   }, [selectedMissionId]);
 
-  const pendingCount = missions.filter(
-    (m) => (statusMap[m.missionId] ?? "Chờ nhận") === "Chờ nhận",
+  const completedStatuses = new Set(["COMPLETED"]);
+  const canceledStatuses = new Set(["CANCELLED", "ABORTED", "ABORT_PENDING"]);
+
+  const completedCount = missions.filter((mission) =>
+    completedStatuses.has(mission.status.code.toUpperCase()),
   ).length;
 
-  const inProgressCount = missions.filter((m) =>
-    ["Đang di chuyển", "Đang xử lý"].includes(
-      statusMap[m.missionId] ?? "Chờ nhận",
-    ),
+  const canceledCount = missions.filter((mission) =>
+    canceledStatuses.has(mission.status.code.toUpperCase()),
   ).length;
+
+  const inProgressCount = missions.filter((mission) => {
+    const normalizedStatus = mission.status.code.toUpperCase();
+    return (
+      !completedStatuses.has(normalizedStatus) &&
+      !canceledStatuses.has(normalizedStatus)
+    );
+  }).length;
 
   const totalPages = Math.max(1, Math.ceil(missions.length / ITEMS_PAGE_SIZE));
   const startIndex = (currentPage - 1) * ITEMS_PAGE_SIZE;
@@ -465,27 +476,35 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
             <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
               <p className="text-sm font-semibold text-blue-900">
                 Tổng nhiệm vụ
               </p>
               <p className="text-3xl font-black text-blue-950 mt-1">
-                {missions.length}
+                {totalMissionCount}
               </p>
             </div>
             <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
-              <p className="text-sm font-semibold text-amber-900">Chờ nhận</p>
-              <p className="text-3xl font-black text-amber-700 mt-1">
-                {pendingCount}
-              </p>
-            </div>
-            <div className="rounded-xl bg-purple-50 border border-purple-200 p-4">
-              <p className="text-sm font-semibold text-purple-900">
+              <p className="text-sm font-semibold text-amber-900">
                 Đang thực hiện
               </p>
-              <p className="text-3xl font-black text-purple-700 mt-1">
+              <p className="text-3xl font-black text-amber-700 mt-1">
                 {inProgressCount}
+              </p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+              <p className="text-sm font-semibold text-emerald-900">
+                Đã hoàn thành
+              </p>
+              <p className="text-3xl font-black text-emerald-700 mt-1">
+                {completedCount}
+              </p>
+            </div>
+            <div className="rounded-xl bg-rose-50 border border-rose-200 p-4">
+              <p className="text-sm font-semibold text-rose-900">Đã hủy</p>
+              <p className="text-3xl font-black text-rose-700 mt-1">
+                {canceledCount}
               </p>
             </div>
           </div>

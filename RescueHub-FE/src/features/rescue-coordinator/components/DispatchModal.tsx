@@ -47,6 +47,20 @@ interface DispatchModalProps {
   onDispatch: (teamId: string) => void;
 }
 
+const dedupeById = <T extends { id: string }>(items: T[]): T[] => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+};
+
+const getCharCode = (value: string, index: number): number => {
+  if (!value || value.length <= index) return 0;
+  return value.charCodeAt(index);
+};
+
 const DispatchModal: React.FC<DispatchModalProps> = ({
   isOpen,
   onClose,
@@ -91,10 +105,17 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
 
         // Map API teams to UI teams interface and filter AVAILABLE ones
         const mappedTeams: Team[] = apiTeams
-          .filter((team: ApiTeam) => team.status.code === "AVAILABLE")
+          .filter((team: ApiTeam) => team.status?.code === "AVAILABLE")
           .map((team: ApiTeam) => {
-            const mockDist = (team.id.charCodeAt(0) % 10) + 2; // 2-11 km
+            const mockDist = (getCharCode(team.id, 0) % 10) + 2; // 2-11 km
             const mockEta = mockDist * 5; // 5 mins per km
+            const lat = team.currentLocation?.lat;
+            const lng = team.currentLocation?.lng;
+            const homeAreaName = team.homeAdminArea?.name ?? "Chưa cập nhật";
+            const locationText =
+              typeof lat === "number" && typeof lng === "number"
+                ? `${homeAreaName} [${lat.toFixed(2)}, ${lng.toFixed(2)}]`
+                : homeAreaName;
 
             return {
               id: team.id,
@@ -103,17 +124,17 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
               members: team.memberCount,
               vehicle: `Xe ${team.code}`,
               status: "available",
-              currentLocation: `${team.homeAdminArea.name} [${team.currentLocation?.lat.toFixed(2)}, ${team.currentLocation?.lng.toFixed(2)}]`,
+              currentLocation: locationText,
               distance: mockDist,
               estimatedTime: mockEta,
               equipment: team.notes ? [team.notes] : [],
-              fuel: 80 + (team.id.charCodeAt(1) % 20),
+              fuel: 80 + (getCharCode(team.id, 1) % 20),
               capacity: team.maxParallelMissions * 5,
               specialization: team.notes || "Cứu hộ cơ bản",
             };
           });
 
-        setTeams(mappedTeams);
+        setTeams(dedupeById(mappedTeams));
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Có lỗi khi tải danh sách team",
@@ -155,9 +176,10 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
         const filteredVehicles = teamVehicles.filter(
           (vehicle) => vehicle.team?.id === selectedTeamId,
         );
-        setVehicles(filteredVehicles);
+        const dedupedVehicles = dedupeById(filteredVehicles);
+        setVehicles(dedupedVehicles);
 
-        const firstAvailable = filteredVehicles.find(
+        const firstAvailable = dedupedVehicles.find(
           (vehicle) => vehicle.status?.code === "AVAILABLE",
         );
         setSelectedVehicleId(firstAvailable?.id ?? "");
@@ -373,9 +395,9 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                           lòng thử lại sau hoặc mở rộng phạm vi tìm kiếm.
                         </div>
                       ) : (
-                        teams.map((team) => (
+                        teams.map((team, index) => (
                           <div
-                            key={team.id}
+                            key={`${team.id}-${team.code ?? "TEAM"}-${index}`}
                             onClick={() => setSelectedTeamId(team.id)}
                             className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                               selectedTeamId === team.id
@@ -485,9 +507,7 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                       </h4>
                       <ul className="space-y-2">
                         {selectedTeam.equipment.map((item, idx) => (
-                          <li key={idx} className="text-sm text-gray-700">
-                            ✓ {item}
-                          </li>
+                          <li key={idx} className="text-sm text-gray-700"></li>
                         ))}
                       </ul>
                     </div>
@@ -513,12 +533,12 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                           </p>
                         ) : (
                           <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                            {vehicles.map((vehicle) => {
+                            {vehicles.map((vehicle, index) => {
                               const isAvailable =
                                 vehicle.status?.code === "AVAILABLE";
                               return (
                                 <label
-                                  key={vehicle.id}
+                                  key={`${vehicle.id}-${vehicle.plateNo ?? index}`}
                                   className={`flex items-start gap-2 rounded border p-2 text-sm ${
                                     isAvailable
                                       ? "border-gray-200 bg-white"
@@ -568,7 +588,7 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
                             Khả năng tiếp nhận:
                           </span>
                           <span className="font-semibold text-gray-900">
-                            {selectedTeam.capacity} người
+                            {selectedTeam.capacity} nhiệm vụ
                           </span>
                         </div>
                         <div className="flex justify-between">

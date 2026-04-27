@@ -327,6 +327,7 @@ public sealed class DbWarehouseManagementRepository(RescueHubDbContext dbContext
                 id = x.id,
                 warehouse = new { id = x.warehouse.id, code = x.warehouse.code, name = x.warehouse.name },
                 item = new { id = x.item.id, code = x.item.code, name = x.item.name, unitCode = x.item.unit_code },
+                qtyOnHand = x.qty_on_hand
             })
             .ToListAsync();
 

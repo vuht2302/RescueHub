@@ -14,6 +14,7 @@ using RescueHub.Modules.MasterData;
 using RescueHub.Modules.Media;
 using RescueHub.Modules.Public;
 using RescueHub.Persistence;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 // Prevent FileSystemWatcher exhaustion on container/PaaS hosts with low inotify limits.
 if (IsContainerOrPaaS() && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE")))
@@ -128,6 +129,8 @@ if (swaggerEnabled)
 {
     builder.Services.AddSwaggerGen(options =>
     {
+        options.DocumentFilter<AuthFirstDocumentFilter>();
+
         var xmlFiles = new[]
         {
             "RescueHub.Api.xml",
@@ -226,4 +229,24 @@ static bool IsContainerOrPaaS()
     return !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER"))
         || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID"))
         || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DYNO"));
+}
+
+internal sealed class AuthFirstDocumentFilter : IDocumentFilter
+{
+    public void Apply(OpenApiDocument swaggerDoc, DocumentFilterContext context)
+    {
+        var tags = context.ApiDescriptions
+            .Select(x => x.ActionDescriptor.RouteValues.TryGetValue("controller", out var controller) ? controller : null)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => string.Equals(x, "Auth", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(x => x)
+            .Select(x => new OpenApiTag { Name = x! })
+            .ToList();
+
+        if (tags.Count > 0)
+        {
+            swaggerDoc.Tags = tags;
+        }
+    }
 }

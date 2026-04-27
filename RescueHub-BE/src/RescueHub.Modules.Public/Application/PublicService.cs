@@ -244,6 +244,7 @@ public sealed class PublicService(
         var query = dbContext.incidents
             .AsNoTracking()
             .Include(x => x.incident_location)
+            .Include(x => x.incident_media)
             .Where(x => x.reporter_phone == normalizedPhone)
             .OrderByDescending(x => x.created_at)
             .AsQueryable();
@@ -270,6 +271,25 @@ public sealed class PublicService(
                         addressText = x.incident_location.address_text,
                         landmark = x.incident_location.landmark
                     },
+                imageUrls = x.incident_media
+                    .Where(m => m.media_type_code == "IMAGE")
+                    .OrderByDescending(m => m.uploaded_at)
+                    .Select(m => m.file_url)
+                    .ToList(),
+                media = x.incident_media
+                    .OrderByDescending(m => m.uploaded_at)
+                    .Select(m => new
+                    {
+                        id = m.id,
+                        mediaTypeCode = m.media_type_code,
+                        fileUrl = m.file_url,
+                        thumbnailUrl = m.thumbnail_url,
+                        aiOptimizedUrl = m.ai_optimized_url,
+                        width = m.width,
+                        height = m.height,
+                        uploadedAt = m.uploaded_at
+                    })
+                    .ToList(),
                 reportedAt = x.created_at,
                 updatedAt = x.updated_at
             })

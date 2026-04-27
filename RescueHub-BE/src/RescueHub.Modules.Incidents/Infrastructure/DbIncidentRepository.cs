@@ -2502,9 +2502,15 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
             throw new InvalidOperationException("StatusCode la bat buoc.");
         }
 
+        statusCode = statusCode switch
+        {
+            "FULFILLED" or "FULLFILED" => "COMPLETED",
+            _ => statusCode
+        };
+
         if (statusCode is not ("PENDING" or "COMPLETED" or "CANCELLED"))
         {
-            throw new InvalidOperationException("StatusCode khong hop le. Chi nhan PENDING, COMPLETED, CANCELLED.");
+            throw new InvalidOperationException("StatusCode khong hop le. Chi nhan PENDING, COMPLETED, FULFILLED, CANCELLED.");
         }
 
         var distribution = await dbContext.distributions
@@ -2736,6 +2742,19 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
                 .ThenByDescending(x => x.created_at)
                 .Take(50)
                 .ToListAsync();
+
+            if (byCampaign.Count == 0)
+            {
+                byCampaign = await dbContext.relief_requests
+                    .Where(x => x.campaign_id == campaignId &&
+                                x.status_code != "REJECTED" &&
+                                x.status_code != "CANCELLED")
+                    .OrderByDescending(x => x.status_code == "APPROVED")
+                    .ThenByDescending(x => x.updated_at)
+                    .ThenByDescending(x => x.created_at)
+                    .Take(50)
+                    .ToListAsync();
+            }
 
             var selectedByCampaign = byCampaign
                 .Where(x => x.status_code != "FULFILLED")

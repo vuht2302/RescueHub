@@ -2491,6 +2491,7 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
 
         var distribution = await dbContext.distributions
             .Include(x => x.household)
+            .Include(x => x.relief_point)
             .Include(x => x.distribution_ack)
             .FirstOrDefaultAsync(x => x.id == distributionId);
 
@@ -2671,25 +2672,81 @@ public sealed class DbIncidentRepository(RescueHubDbContext dbContext) : IIncide
 
     private async Task<relief_request?> ResolveReliefRequestForDistribution(distribution distribution)
     {
-        IQueryable<relief_request> query = dbContext.relief_requests;
-
         if (distribution.linked_incident_id.HasValue)
         {
             var incidentId = distribution.linked_incident_id.Value;
-            query = query.Where(x => x.linked_incident_id == incidentId);
-        }
-        else
-        {
-            var phone = distribution.household.phone;
-            if (string.IsNullOrWhiteSpace(phone))
+            var byIncident = await dbContext.relief_requests
+                .Where(x => x.linked_incident_id == incidentId)
+                .OrderByDescending(x => x.updated_at)
+                .ThenByDescending(x => x.created_at)
+                .Take(30)
+                .ToListAsync();
+
+            var selectedByIncident = byIncident
+                .Where(x => x.status_code != "FULFILLED")
+                .OrderByDescending(x => x.updated_at)
+                .ThenByDescending(x => x.created_at)
+                .FirstOrDefault();
+            if (selectedByIncident is not null)
             {
-                return null;
+                return selectedByIncident;
             }
 
-            query = query.Where(x => x.requester_phone == phone);
+            return byIncident
+                .OrderByDescending(x => x.updated_at)
+                .ThenByDescending(x => x.created_at)
+                .FirstOrDefault();
         }
 
-        var candidates = await query
+        if (distribution.campaign_id.HasValue)
+        {
+            var campaignId = distribution.campaign_id.Value;
+            IQueryable<relief_request> campaignQuery = dbContext.relief_requests
+                .Where(x => x.campaign_id == campaignId &&
+                            x.status_code != "REJECTED" &&
+                            x.status_code != "CANCELLED");
+
+            if (distribution.relief_point?.admin_area_id.HasValue == true)
+            {
+                var adminAreaId = distribution.relief_point.admin_area_id.Value;
+                campaignQuery = campaignQuery.Where(x => x.admin_area_id == adminAreaId);
+            }
+
+            var byCampaign = await campaignQuery
+                .OrderByDescending(x => x.status_code == "APPROVED")
+                .ThenByDescending(x => x.updated_at)
+                .ThenByDescending(x => x.created_at)
+                .Take(50)
+                .ToListAsync();
+
+            var selectedByCampaign = byCampaign
+                .Where(x => x.status_code != "FULFILLED")
+                .OrderByDescending(x => x.status_code == "APPROVED")
+                .ThenByDescending(x => x.updated_at)
+                .ThenByDescending(x => x.created_at)
+                .FirstOrDefault();
+            if (selectedByCampaign is not null)
+            {
+                return selectedByCampaign;
+            }
+
+            if (byCampaign.Count > 0)
+            {
+                return byCampaign
+                    .OrderByDescending(x => x.updated_at)
+                    .ThenByDescending(x => x.created_at)
+                    .First();
+            }
+        }
+
+        var phone = distribution.household.phone;
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            return null;
+        }
+
+        var candidates = await dbContext.relief_requests
+            .Where(x => x.requester_phone == phone)
             .OrderByDescending(x => x.updated_at)
             .ThenByDescending(x => x.created_at)
             .Take(30)

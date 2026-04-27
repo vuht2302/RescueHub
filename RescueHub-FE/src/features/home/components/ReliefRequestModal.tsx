@@ -15,6 +15,8 @@ type AddressSuggestion = {
   value: string;
 };
 
+const PHONE_REGEX = /^\d{10}$/;
+
 interface ReliefRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -177,9 +179,15 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const normalizedRequesterPhone = requesterPhone.trim();
 
     if (!canSubmit) {
       setSubmitError("Vui lòng nhập tên người yêu cầu và số điện thoại.");
+      return;
+    }
+
+    if (!PHONE_REGEX.test(normalizedRequesterPhone)) {
+      setSubmitError("Số điện thoại phải gồm đúng 10 chữ số.");
       return;
     }
 
@@ -189,7 +197,7 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
 
     const payload = {
       requesterName: requesterName.trim(),
-      requesterPhone: requesterPhone.trim(),
+      requesterPhone: normalizedRequesterPhone,
       householdCount,
       note: note.trim(),
       location: {
@@ -268,8 +276,13 @@ export const ReliefRequestModal: React.FC<ReliefRequestModalProps> = ({
               </label>
               <input
                 value={requesterPhone}
-                onChange={(event) => setRequesterPhone(event.target.value)}
+                onChange={(event) => {
+                  const digitsOnly = event.target.value.replace(/\D/g, "");
+                  setRequesterPhone(digitsOnly.slice(0, 10));
+                }}
                 readOnly={lockRequesterInfo}
+                inputMode="numeric"
+                maxLength={10}
                 className="w-full bg-surface-container-high border-none rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-primary"
                 placeholder="Nhập số điện thoại"
               />

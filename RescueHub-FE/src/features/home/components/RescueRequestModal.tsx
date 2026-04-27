@@ -19,6 +19,8 @@ type AddressSuggestion = {
   value: string;
 };
 
+const PHONE_REGEX = /^\d{10}$/;
+
 interface RescueRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -132,7 +134,9 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     setReporterName(defaultReporterName?.trim() ?? "");
-    setReporterPhone(defaultReporterPhone?.trim() ?? "");
+    setReporterPhone(
+      (defaultReporterPhone?.trim() ?? "").replace(/\D/g, "").slice(0, 10),
+    );
   }, [defaultReporterName, defaultReporterPhone, isOpen]);
 
   const filePreviews = useMemo(
@@ -166,7 +170,7 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
   const canSubmit =
     incidentTypeCode.trim().length > 0 &&
     reporterName.trim().length > 0 &&
-    reporterPhone.trim().length > 0 &&
+    PHONE_REGEX.test(reporterPhone.trim()) &&
     description.trim().length > 0;
 
   useEffect(() => {
@@ -245,11 +249,17 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    const normalizedReporterPhone = reporterPhone.trim();
 
     if (!canSubmit) {
       setSubmitError(
         "Vui lòng nhập đầy đủ loại sự cố, họ tên, số điện thoại và mô tả.",
       );
+      return;
+    }
+
+    if (!PHONE_REGEX.test(normalizedReporterPhone)) {
+      setSubmitError("Số điện thoại phải gồm đúng 10 chữ số.");
       return;
     }
 
@@ -267,7 +277,7 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
       const response = await createPublicIncident({
         incidentTypeCode: incidentTypeCode.trim(),
         reporterName: reporterName.trim(),
-        reporterPhone: reporterPhone.trim(),
+        reporterPhone: normalizedReporterPhone,
         description: description.trim(),
         victimCountEstimate,
         injuredCountEstimate,
@@ -329,24 +339,6 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
-          {/* <div>
-            <label className="block text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">
-              Loại sự cố
-            </label>
-            <select
-              value={incidentTypeCode}
-              onChange={(event) => setIncidentTypeCode(event.target.value)}
-              className="w-full bg-surface-container-high border-none rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-primary"
-            >
-              <option value="">Chọn loại sự cố</option>
-              {incidentTypes.map((type) => (
-                <option key={type.code} value={type.code}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
-          </div> */}
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">
@@ -366,58 +358,18 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
               </label>
               <input
                 value={reporterPhone}
-                onChange={(event) => setReporterPhone(event.target.value)}
+                onChange={(event) => {
+                  const digitsOnly = event.target.value.replace(/\D/g, "");
+                  setReporterPhone(digitsOnly.slice(0, 10));
+                }}
                 readOnly={lockReporterInfo}
+                inputMode="numeric"
+                maxLength={10}
                 className="w-full bg-surface-container-high border-none rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-primary"
                 placeholder="Nhập số điện thoại"
               />
             </div>
           </div>
-
-          {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">
-                Số nạn nhân
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={victimCountEstimate}
-                onChange={(event) =>
-                  setVictimCountEstimate(Number(event.target.value) || 0)
-                }
-                className="w-full bg-surface-container-high border-none rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">
-                Số người bị thương
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={injuredCountEstimate}
-                onChange={(event) =>
-                  setInjuredCountEstimate(Number(event.target.value) || 0)
-                }
-                className="w-full bg-surface-container-high border-none rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">
-                Người dễ bị tổn thương
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={vulnerableCountEstimate}
-                onChange={(event) =>
-                  setVulnerableCountEstimate(Number(event.target.value) || 0)
-                }
-                className="w-full bg-surface-container-high border-none rounded-xl p-4 text-on-surface focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div> */}
 
           <div className="grid grid-cols-1  gap-4">
             <div>

@@ -479,7 +479,6 @@ const RescueCoordinatorPage: React.FC = () => {
           activeMenu === "map" ||
           activeMenu === "hotspot" ||
           activeMenu === "relief-requests" ||
-          activeMenu === "current" ||
           activeMenu === "teams"
             ? "h-screen overflow-hidden"
             : "min-h-screen"
@@ -526,10 +525,11 @@ const RescueCoordinatorPage: React.FC = () => {
             activeMenu === "map" ||
             activeMenu === "hotspot" ||
             activeMenu === "relief-requests" ||
-            activeMenu === "current" ||
             activeMenu === "teams"
               ? "grid grid-cols-1 gap-6 h-[calc(100vh-140px)]"
-              : "grid grid-cols-3 gap-6"
+              : activeMenu === "current"
+                ? "grid grid-cols-1 gap-6"
+                : "grid grid-cols-3 gap-6"
           }`}
         >
           {/* Main Content */}

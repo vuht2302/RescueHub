@@ -208,9 +208,9 @@ export function CurrentMissionsSection() {
 
   function getAbortStatusLabel(statusCode: string): string {
     const labels: Record<string, string> = {
-      PENDING: "Cho duyet",
-      APPROVED: "Da duyet",
-      REJECTED: "Tu choi",
+      PENDING: "Chờ duyệt",
+      APPROVED: "Đã duyệt",
+      REJECTED: "Từ chối",
     };
     return labels[statusCode] || statusCode;
   }

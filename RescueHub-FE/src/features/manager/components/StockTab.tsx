@@ -184,7 +184,11 @@ export const StockTab: React.FC = () => {
               {["Kho", "Hàng hóa", "Mã hàng", "Số lượng", "Đơn vị"].map((h) => (
                 <th
                   key={h}
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap"
+                  className={`px-4 py-3 ${
+                    h === "Số lượng" || h === "Đơn vị"
+                      ? "text-center"
+                      : "text-left"
+                  } text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap`}
                 >
                   {h}
                 </th>
@@ -244,7 +248,7 @@ export const StockTab: React.FC = () => {
                       </span>
                     </td>
 
-                    <td className="px-4 py-3 text-gray-500 text-xs">
+                    <td className="px-4 py-3 text-center text-gray-500 text-xs">
                       {s.item.unitCode}
                     </td>
                   </tr>

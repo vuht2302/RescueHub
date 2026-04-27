@@ -175,10 +175,6 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
     void loadDistributions();
   };
 
-  // Format recipient name helper
-  const getRecipientName = (dist: DistributionListItem) =>
-    dist.recipient?.name || "—";
-
   return (
     <div className={`flex flex-col h-full ${className}`}>
       {/* Tabs */}
@@ -222,7 +218,7 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
         {/* RELIEF REQUESTS */}
         {activeTab === "requests" && (
           <div className="h-full flex flex-col">
-            {/* Search */}
+            {/* Search & Filter */}
             <div className="p-4 bg-white border-b border-gray-100 space-y-2">
               <div className="relative">
                 <Search
@@ -251,8 +247,8 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
               </select>
             </div>
 
-            {/* List */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Table */}
+            <div className="flex-1 overflow-auto">
               {isLoadingRequests ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
@@ -265,41 +261,77 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                   </p>
                 </div>
               ) : (
-                filteredRequests.map((req) => (
-                  <div
-                    key={req.reliefRequestId}
-                    onClick={() => void handleSelectRequest(req)}
-                    className={`px-4 py-3 border-b border-gray-50 cursor-pointer transition-all hover:bg-blue-50 ${selectedRequestId === req.reliefRequestId ? "bg-blue-50 border-l-4 border-l-blue-800" : ""}`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-bold truncate">
-                          {req.requestCode}
-                        </h3>
-                        <p className="text-[11px] text-gray-400 flex items-center gap-1">
-                          <User size={10} />
-                          {req.requester.name}
-                        </p>
-                      </div>
-                      <span
-                        className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${REQUEST_STATUS[req.status.code]?.cls || "bg-gray-100 text-gray-600"}`}
+                <table className="w-full">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
+                      <th className="px-4 py-3">Mã yêu cầu</th>
+                      <th className="px-4 py-3">Người yêu cầu</th>
+                      <th className="px-4 py-3">Số hộ</th>
+                      <th className="px-4 py-3">Địa chỉ</th>
+                      <th className="px-4 py-3">Trạng thái</th>
+                      <th className="px-4 py-3 text-right">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredRequests.map((req) => (
+                      <tr
+                        key={req.reliefRequestId}
+                        onClick={() => void handleSelectRequest(req)}
+                        className={`cursor-pointer transition-colors hover:bg-blue-50 ${
+                          selectedRequestId === req.reliefRequestId
+                            ? "bg-blue-50"
+                            : ""
+                        }`}
                       >
-                        {REQUEST_STATUS[req.status.code]?.label ||
-                          req.status.code}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-[11px] text-gray-500">
-                      <span>
-                        <Phone size={10} className="inline mr-1" />
-                        {req.requester.phone}
-                      </span>
-                      <span>
-                        <Home size={10} className="inline mr-1" />
-                        {req.householdCount} hộ
-                      </span>
-                    </div>
-                  </div>
-                ))
+                        <td className="px-4 py-3">
+                          <p className="text-sm font-bold text-blue-700 font-mono">
+                            {req.requestCode}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-700 truncate">
+                              {req.requester.name}
+                            </p>
+                            <p className="text-[11px] text-gray-400 flex items-center gap-1">
+                              <Phone size={10} />
+                              {req.requester.phone}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded text-xs font-semibold">
+                            {req.householdCount} hộ
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="flex items-center gap-1 text-sm text-gray-600 truncate max-w-[200px]">
+                            <MapPin size={12} />
+                            {req.addressText}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge
+                            code={req.status.code}
+                            statusMap={REQUEST_STATUS}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleSelectRequest(req);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-semibold transition-colors"
+                          >
+                            <FileText size={12} />
+                            Chi tiết
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>
@@ -317,8 +349,8 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
               </div>
             </div>
 
-            {/* List */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Table */}
+            <div className="flex-1 overflow-auto">
               {isLoadingDist ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
@@ -332,36 +364,61 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                 </div>
               ) : (
                 <>
-                  {distributions.map((dist) => (
-                    <div
-                      key={dist.id}
-                      onClick={() => setViewDistId(dist.id)}
-                      className="px-4 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h3 className="text-sm font-bold font-mono text-blue-700">
-                            {dist.code}
-                          </h3>
-                          <p className="text-[11px] text-gray-400">
-                            {getRecipientName(dist)}
-                          </p>
-                        </div>
-                        <StatusBadge
-                          code={dist.status?.code ?? ""}
-                          statusMap={DIST_STATUS}
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400">
-                        <span>
-                          <MapPin size={10} className="inline" />{" "}
-                          {dist.adminArea?.name || "—"}
-                        </span>
-                        <span>•</span>
-                        <span>{dist.lineCount} dòng</span>
-                      </div>
-                    </div>
-                  ))}
+                  <table className="w-full">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr className="text-left text-xs font-semibold text-gray-500 uppercase">
+                        <th className="px-4 py-3 text-center">Mã phiếu</th>
+                        <th className="px-4 py-3 text-center">Đội cứu trợ</th>
+                        <th className="px-4 py-3 text-center">Khu vực</th>
+                        <th className="px-4 py-3 text-center">Trạng thái</th>
+                        <th className="px-4 py-3 text-center">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {distributions.map((dist) => (
+                        <tr
+                          key={dist.id}
+                          onClick={() => setViewDistId(dist.id)}
+                          className="cursor-pointer transition-colors hover:bg-blue-50"
+                        >
+                          <td className="px-4 py-3 text-center">
+                            <p className="text-sm font-bold text-blue-700 font-mono">
+                              {dist.code}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <p className="text-sm font-semibold text-gray-700 truncate">
+                              {dist.recipient?.name || "—"}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="flex items-center justify-center gap-1 text-sm text-gray-600">
+                              <MapPin size={12} />
+                              {dist.adminArea?.name || "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <StatusBadge
+                              code={dist.status?.code ?? ""}
+                              statusMap={DIST_STATUS}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewDistId(dist.id);
+                              }}
+                              className="flex items-center justify-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-semibold transition-colors"
+                            >
+                              <FileText size={12} />
+                              Chi tiết
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                   {distTotalPages > 1 && (
                     <div className="flex items-center justify-center gap-2 py-3 border-t bg-white">
                       <button

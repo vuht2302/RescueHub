@@ -242,7 +242,7 @@ public sealed class PublicController(IPublicService publicService) : BaseApiCont
     /// </summary>
     /// <param name="request">Thong tin yeu cau cuu tro.</param>
     /// <returns>Request code de theo doi cuu tro.</returns>
-    [Authorize(Roles = "CITIZEN")]
+    [Authorize]
     [HttpPost("relief-requests")]
     public async Task<ActionResult<ApiResponse<object>>> CreateReliefRequest([FromBody] CreateReliefRequest request)
     {

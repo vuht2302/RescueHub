@@ -18,13 +18,13 @@ import { getAuthSession } from "../../../features/auth/services/authStorage";
 import {
   getDistributionOptions,
   getManagerTeams,
-  getInventoryItemsForDropdown,
+  getItemsForDropdown,
   createDistribution,
   getReliefCampaign,
   getWarehouses,
   getStocks,
   type ManagerTeam,
-  type InventoryItemForDropdown,
+  type ItemForDropdown,
   type Warehouse,
   type ReliefCampaignDetail,
   type ReliefRequestDetail,
@@ -240,11 +240,8 @@ export function CreateReliefDistributionModal({
   const [campaigns, setCampaigns] = useState<
     Array<{ id: string; code: string; name: string; adminAreaId?: string }>
   >([]);
-  const [ackMethodCodes, setAckMethodCodes] = useState<
-    Array<{ code: string; name: string }>
-  >([]);
   const [teams, setTeams] = useState<TeamOption[]>([]);
-  const [itemsWithLots, setItemsWithLots] = useState<InventoryItemForDropdown[]>([]);
+  const [itemsWithLots, setItemsWithLots] = useState<ItemForDropdown[]>([]);
   const [allWarehouses, setAllWarehouses] = useState<Warehouse[]>([]);
   const [allWarehouseStocks, setAllWarehouseStocks] = useState<
     Map<string, Map<string, number>>
@@ -273,7 +270,6 @@ export function CreateReliefDistributionModal({
   const [campaignId, setCampaignId] = useState(initialCampaignId ?? "");
   const [adminAreaId, setAdminAreaId] = useState("");
   const [teamId, setTeamId] = useState("");
-  const [ackMethodCode, setAckMethodCode] = useState("OTP");
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<DistributionLine[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -411,7 +407,7 @@ export function CreateReliefDistributionModal({
       const stocks = stockResponse.items ?? [];
 
       // Transform stocks to inventory items for dropdown
-      const itemMap = new Map<string, InventoryItemForDropdown>();
+      const itemMap = new Map<string, ItemForDropdown>();
       for (const stock of stocks) {
         if (!itemMap.has(stock.item.id)) {
           itemMap.set(stock.item.id, {
@@ -443,7 +439,6 @@ export function CreateReliefDistributionModal({
       const token = getAuthSession()?.accessToken ?? "";
       const options = await getDistributionOptions(token);
       setCampaigns(options.campaigns);
-      setAckMethodCodes(options.ackMethodCodes);
 
       // Load warehouses
       const warehouseList = await getWarehouses(token, {
@@ -558,7 +553,7 @@ export function CreateReliefDistributionModal({
     } else {
       // Load all items from inventory if no warehouse selected
       const token = getAuthSession()?.accessToken ?? "";
-      const items = await getInventoryItemsForDropdown(token);
+      const items = await getItemsForDropdown(token);
       setItemsWithLots(items);
     }
   };
@@ -695,7 +690,7 @@ export function CreateReliefDistributionModal({
           qty: l.qty,
           unitCode: l.unitCode,
         })),
-        ackMethodCode,
+        ackMethodCode: "MANUAL",
         note: note.trim() || undefined,
       };
 
@@ -1190,45 +1185,18 @@ export function CreateReliefDistributionModal({
                 )}
               </div>
 
-              {/* ACK Method & Note */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                    Phương thức xác nhận
-                  </label>
-                  <select
-                    value={ackMethodCode}
-                    onChange={(e) => setAckMethodCode(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-green-400 bg-white"
-                  >
-                    {ackMethodCodes.map((m) => (
-                      <option key={m.code} value={m.code}>
-                        {m.name}
-                      </option>
-                    ))}
-                    {!ackMethodCodes.some((m) => m.code === "OTP") && (
-                      <option value="OTP">OTP (Mã xác nhận SMS)</option>
-                    )}
-                    {!ackMethodCodes.some((m) => m.code === "SIGNATURE") && (
-                      <option value="SIGNATURE">Chữ ký</option>
-                    )}
-                    {!ackMethodCodes.some((m) => m.code === "MANUAL") && (
-                      <option value="MANUAL">Thủ công</option>
-                    )}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                    Ghi chú
-                  </label>
-                  <input
-                    type="text"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Ghi chú (tùy chọn)..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-green-400 bg-white"
-                  />
-                </div>
+              {/* Note */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                  Ghi chú
+                </label>
+                <input
+                  type="text"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Ghi chú (tùy chọn)..."
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-green-400 bg-white"
+                />
               </div>
             </>
           )}

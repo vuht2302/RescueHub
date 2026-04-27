@@ -18,13 +18,13 @@ import {
   getDistributionOptions,
   getReliefCampaign,
   getManagerTeams,
-  getInventoryItemsForDropdown,
+  getItemsForDropdown,
   type Distribution,
   type DistributionListItem,
   type DistributionPayload,
   type AckPayload,
   type ManagerTeam,
-  type InventoryItemForDropdown,
+  type ItemForDropdown,
 } from "../../../services/warehouseService";
 import { getAuthSession } from "../../../../auth/services/authStorage";
 
@@ -328,7 +328,7 @@ function CreateModal({
   const [teams, setTeams] = useState<
     Array<{ id: string; code: string; name: string; statusCode: string }>
   >([]);
-  const [items, setItems] = useState<InventoryItemForDropdown[]>([]);
+  const [items, setItems] = useState<ItemForDropdown[]>([]);
   const [campaignDetail, setCampaignDetail] = useState<{
     adminAreaId: string;
   } | null>(null);
@@ -365,7 +365,7 @@ function CreateModal({
           .filter((t) => t.statusCode === "AVAILABLE");
         setTeams(mappedTeams);
 
-        const itemList = await getInventoryItemsForDropdown(token);
+        const itemList = await getItemsForDropdown(token);
         setItems(itemList);
       } catch (e) {
         setError("Lỗi tải dữ liệu");

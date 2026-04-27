@@ -230,33 +230,6 @@ export interface ItemListResponse {
   items: ItemListItem[];
 }
 
-// Inventory response with nested data.items structure
-export interface InventoryItemResponse {
-  id: string;
-  warehouse: {
-    id: string;
-    code: string;
-    name: string;
-  };
-  item: {
-    id: string;
-    code: string;
-    name: string;
-    unitCode: string;
-  };
-  qtyOnHand: number;
-}
-
-export interface InventoryResponse {
-  data: {
-    items: InventoryItemResponse[];
-    page: number;
-    pageSize: number;
-    totalItems: number;
-    totalPages: number;
-  };
-}
-
 export interface ItemListItem {
   id: string;
   itemCode: string;
@@ -279,16 +252,8 @@ export async function getAllItems(token: string): Promise<ItemListItem[]> {
   return data.items ?? [];
 }
 
-// Get inventory items (available items from warehouses)
-export async function getInventoryItems(token: string): Promise<InventoryItemResponse[]> {
-  const response = await apiFetch<InventoryResponse>(`${BASE}/inventories`, {
-    headers: authHeaders(token),
-  });
-  return response.data?.items ?? [];
-}
-
-// Get items from inventory for dropdown (compatible format with ItemWithLots)
-export interface InventoryItemForDropdown {
+// Get items for dropdown (compatible format with ItemWithLots)
+export interface ItemForDropdown {
   id: string;
   itemCode: string;
   itemName: string;
@@ -303,21 +268,22 @@ export interface InventoryItemForDropdown {
   isActive: boolean;
 }
 
-export async function getInventoryItemsForDropdown(token: string): Promise<InventoryItemForDropdown[]> {
-  const response = await apiFetch<InventoryResponse>(`${BASE}/inventories`, {
+export async function getItemsForDropdown(
+  token: string,
+): Promise<ItemForDropdown[]> {
+  const data = await apiFetch<ItemListResponse>(`${BASE}/items`, {
     headers: authHeaders(token),
   });
-  const items = response.data?.items ?? [];
-  return items
-    .filter((i) => i.qtyOnHand > 0)
+  return (data.items ?? [])
+    .filter((i) => i.isActive)
     .map((i) => ({
-      id: i.item.id,
-      itemCode: i.item.code,
-      itemName: i.item.name,
-      unitCode: i.item.unitCode,
-      totalQtyAvailable: i.qtyOnHand,
+      id: i.id,
+      itemCode: i.itemCode,
+      itemName: i.itemName,
+      unitCode: i.unitCode,
+      totalQtyAvailable: 0,
       lots: [],
-      isActive: true,
+      isActive: i.isActive,
     }));
 }
 
@@ -1185,15 +1151,14 @@ export async function deleteReliefCampaign(
 
 // ─── MAN-11  Relief Request Approval ─────────────────────────────────────────
 export interface ApproveReliefRequestItem {
-  reliefRequestItemId: string;
-  supportTypeCode?: string;
+  reliefRequestItemId?: string; // Optional - for existing items
+  supportTypeCode?: string; // Required for new items
   itemId?: string;
   approvedQty: number;
   unitCode: string;
 }
 
 export interface ApproveReliefRequestPayload {
-  decisionCode: string;
   note?: string;
   items: ApproveReliefRequestItem[];
 }

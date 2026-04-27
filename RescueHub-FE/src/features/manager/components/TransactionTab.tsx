@@ -346,22 +346,6 @@ function CreateModal({
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 block mb-1">
-                ID Tham chiếu
-              </label>
-              <input
-                value={form.referenceId ?? ""}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    referenceId: e.target.value || null,
-                  }))
-                }
-                placeholder="UUID (nếu có)..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 block mb-1">

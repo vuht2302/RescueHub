@@ -4,14 +4,11 @@ import {
   Phone,
   AlertTriangle,
   CheckCircle2,
-  Image,
   AlertCircle,
   ChevronLeft,
   ChevronRight,
   ImageOff,
   User,
-  MapPin,
-  FileText,
 } from "lucide-react";
 import incidentPlaceholder from "../../../assets/incident-placeholder.png";
 

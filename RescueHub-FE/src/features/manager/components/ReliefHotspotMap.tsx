@@ -117,6 +117,11 @@ const buildInitialCampaignForm = (): CreateCampaignFormState => {
   };
 };
 
+const toDateTimeLocalValue = (date: Date): string => {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+};
+
 const getDistanceKm = (
   from: { lat: number; lng: number },
   to: { lat: number; lng: number },
@@ -427,6 +432,20 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       return;
     }
 
+    const now = new Date();
+    const startAt = new Date(campaignForm.startAt);
+    const endAt = new Date(campaignForm.endAt);
+
+    if (startAt < now) {
+      setCampaignError("Ngày bắt đầu không được trước thời điểm hiện tại.");
+      return;
+    }
+
+    if (endAt < startAt) {
+      setCampaignError("Ngày kết thúc không được sớm hơn ngày bắt đầu.");
+      return;
+    }
+
     const payload: CreateReliefCampaignPayload = {
       code: campaignForm.code.trim(),
       name: campaignForm.name.trim(),
@@ -463,7 +482,24 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     >,
   ) => {
     const { name, value } = e.target;
-    setCampaignForm((prev) => ({ ...prev, [name]: value }));
+    setCampaignForm((prev) => {
+      if (name === "startAt") {
+        const nextStart = value;
+        const nextEnd =
+          new Date(prev.endAt) < new Date(nextStart) ? nextStart : prev.endAt;
+        return { ...prev, startAt: nextStart, endAt: nextEnd };
+      }
+
+      if (name === "endAt") {
+        const nextEnd = value;
+        if (new Date(nextEnd) < new Date(prev.startAt)) {
+          return { ...prev, endAt: prev.startAt };
+        }
+        return { ...prev, endAt: nextEnd };
+      }
+
+      return { ...prev, [name]: value };
+    });
     setCampaignError(null);
   };
 
@@ -472,9 +508,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
       const isSelected = prev.selectedReliefPointIds.includes(pointId);
       return {
         ...prev,
-        selectedReliefPointIds: isSelected
-          ? prev.selectedReliefPointIds.filter((id) => id !== pointId)
-          : [...prev.selectedReliefPointIds, pointId],
+        selectedReliefPointIds: isSelected ? [] : [pointId],
       };
     });
   };
@@ -1767,6 +1801,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                     name="startAt"
                     value={campaignForm.startAt.slice(0, 16)}
                     onChange={handleCampaignFormChange}
+                    min={toDateTimeLocalValue(new Date())}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
                     disabled={isCreatingCampaign}
                   />
@@ -1780,6 +1815,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                     name="endAt"
                     value={campaignForm.endAt.slice(0, 16)}
                     onChange={handleCampaignFormChange}
+                    min={campaignForm.startAt.slice(0, 16)}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
                     disabled={isCreatingCampaign}
                   />
@@ -1808,7 +1844,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                     Chọn trạm cứu trợ <span className="text-red-500">*</span>
                   </label>
                   <span className="text-xs text-gray-500">
-                    {campaignForm.selectedReliefPointIds.length} đã chọn
+                    {campaignForm.selectedReliefPointIds.length} đã chọn / 1 trạm
                   </span>
                 </div>
                 <div className="border border-slate-200 rounded-lg overflow-hidden max-h-[250px] overflow-y-auto">

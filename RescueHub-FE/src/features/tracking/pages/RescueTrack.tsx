@@ -26,6 +26,7 @@ import {
   type PublicTrackingReliefResponse,
 } from "../../../shared/services/publicApi";
 import { getAuthSession } from "../../auth/services/authStorage";
+import { toastError, toastSuccess } from "../../../shared/utils/toast";
 
 const TRACKING_TOKEN_STORAGE_KEY = "rescuehub.public.trackingToken";
 const TRACKING_PHONE_STORAGE_KEY = "rescuehub.public.trackingPhone";
@@ -133,6 +134,7 @@ export const RescueTrack: React.FC = () => {
   const [reliefErrorMessage, setReliefErrorMessage] = useState("");
   const [isLoggedInUser, setIsLoggedInUser] = useState(false);
   const [isMeHistoryLoading, setIsMeHistoryLoading] = useState(false);
+  const [isRescueAcked, setIsRescueAcked] = useState(false);
 
   // Image modal state
   const [imageModal, setImageModal] = useState<{
@@ -279,9 +281,11 @@ export const RescueTrack: React.FC = () => {
         trackingToken,
       );
       setTrackingData(response);
+      setIsRescueAcked(!response.canAckRescue);
       setSearchParams({ code: normalizedCode });
     } catch (error) {
       setTrackingData(null);
+      setIsRescueAcked(false);
       setErrorMessage(
         error instanceof Error
           ? error.message
@@ -437,8 +441,13 @@ export const RescueTrack: React.FC = () => {
         trackingToken,
       );
 
+      toastSuccess("Xác nhận đã an toàn thành công.");
+      setIsRescueAcked(true);
       await fetchTrackingData(normalizedCode);
     } catch (error) {
+      toastError(
+        error instanceof Error ? error.message : "Không thể xác nhận cứu hộ",
+      );
       setErrorMessage(
         error instanceof Error ? error.message : "Khong the xac nhan cuu ho",
       );
@@ -881,8 +890,8 @@ export const RescueTrack: React.FC = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleAckRescue}
-            disabled={!trackingData?.canAckRescue || isAcking}
-            className="w-full bg-primary text-on-primary p-6 rounded-3xl font-bold flex flex-col items-center gap-2 border border-primary/20 disabled:opacity-60"
+            disabled={!trackingData?.canAckRescue || isAcking || isRescueAcked}
+            className={`w-full bg-primary text-on-primary p-6 rounded-3xl font-bold flex flex-col items-center gap-2 border border-primary/20 disabled:opacity-60 ${isRescueAcked ? "hidden" : ""}`}
           >
             {isAcking ? (
               <LoaderCircle className="animate-spin" size={24} />

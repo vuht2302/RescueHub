@@ -387,28 +387,6 @@ function CreateModal({
                 ))}
               </select>
 
-              {/* Dropdown chọn lô (nếu item đã chọn) */}
-              <select
-                value={newLine.lotId}
-                onChange={(e) =>
-                  setNewLine((p) => ({ ...p, lotId: e.target.value }))
-                }
-                disabled={loadingData || !newLine.itemId}
-                className="flex-1 min-w-[150px] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-              >
-                <option value="">
-                  {newLine.itemId ? "-- Chọn lô --" : "Chọn hàng hóa trước"}
-                </option>
-                {getLotsForItem(newLine.itemId).map((lot) => (
-                  <option key={lot.id} value={lot.id}>
-                    {lot.lotNo}
-                    {lot.expDate
-                      ? ` (HSD: ${new Date(lot.expDate).toLocaleDateString("vi-VN")})`
-                      : ""}
-                  </option>
-                ))}
-              </select>
-
               <input
                 type="number"
                 value={newLine.qty}
@@ -443,7 +421,6 @@ function CreateModal({
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="px-3 py-2 text-left">Hàng hóa</th>
-                      <th className="px-3 py-2 text-left">Lô</th>
                       <th className="px-3 py-2 text-right">SL</th>
                       <th className="px-3 py-2 text-left">ĐV</th>
                       <th className="px-3 py-2" />
@@ -463,25 +440,7 @@ function CreateModal({
                               {item?.itemCode || l.itemId.slice(-8)}
                             </div>
                           </td>
-                          <td className="px-3 py-2">
-                            {lot ? (
-                              <div>
-                                <div className="font-mono text-blue-700">
-                                  {lot.lotNo}
-                                </div>
-                                {lot.expDate && (
-                                  <div className="text-[10px] text-gray-500">
-                                    HSD:{" "}
-                                    {new Date(lot.expDate).toLocaleDateString(
-                                      "vi-VN",
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">—</span>
-                            )}
-                          </td>
+
                           <td className="px-3 py-2 text-right font-bold">
                             {l.qty}
                           </td>

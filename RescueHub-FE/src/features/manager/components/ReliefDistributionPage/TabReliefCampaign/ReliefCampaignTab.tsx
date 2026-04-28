@@ -68,14 +68,19 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
             : {}),
         },
       );
+      const visibleCampaigns = data.filter(
+        (campaign) =>
+          normalizeCampaignStatusCode(campaign.status?.code) !== "CANCELLED",
+      );
+
       setCampaigns(
         isCompletedFilter
-          ? data.filter(
+          ? visibleCampaigns.filter(
               (campaign) =>
                 normalizeCampaignStatusCode(campaign.status?.code) ===
                 "COMPLETED",
             )
-          : data,
+          : visibleCampaigns,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lỗi tải chiến dịch");
@@ -199,6 +204,8 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
                   campaign.status?.code,
                 );
                 const isCompletedCampaign = normalizedStatusCode === "COMPLETED";
+                const isCancelledCampaign = normalizedStatusCode === "CANCELLED";
+                const hideActions = isCompletedCampaign || isCancelledCampaign;
                 return (
                 <tr
                   key={campaign.id}
@@ -241,7 +248,7 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
                     />
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {!isCompletedCampaign && (
+                    {!hideActions && (
                     <div className="flex items-center justify-center gap-2">
                       <button
                         onClick={(e) => {

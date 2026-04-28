@@ -16,6 +16,7 @@ import {
   updateCatalogItem,
   deleteCatalogItem,
 } from "@/src/shared/services/catalog.service";
+import { toastError, toastSuccess } from "@/src/shared/utils/toast";
 
 const tabs = [
   {
@@ -123,13 +124,23 @@ const CatalogManagement = () => {
   }, [fetchData, activeTab]);
 
   const handleAdd = async (data: any) => {
-    await createCatalogItem(activeTab, data);
-    await fetchData();
+    try {
+      await createCatalogItem(activeTab, data);
+      toastSuccess("Tạo danh mục thành công.");
+      await fetchData();
+    } catch (err: any) {
+      toastError(err?.message || "Lỗi tạo danh mục");
+    }
   };
 
   const handleEdit = async (data: any) => {
-    await updateCatalogItem(activeTab, data.id, data);
-    await fetchData();
+    try {
+      await updateCatalogItem(activeTab, data.id, data);
+      toastSuccess("Cập nhật danh mục thành công.");
+      await fetchData();
+    } catch (err: any) {
+      toastError(err?.message || "Lỗi cập nhật danh mục");
+    }
   };
 
   const handleDelete = async () => {
@@ -137,10 +148,11 @@ const CatalogManagement = () => {
     setDeleting(true);
     try {
       await deleteCatalogItem(activeTab, deleteTarget.id);
+      toastSuccess("Xóa danh mục thành công.");
       setDeleteTarget(null);
       await fetchData();
     } catch (err: any) {
-      alert(err.message || "Lỗi xóa danh mục");
+      toastError(err?.message || "Lỗi xóa danh mục");
     } finally {
       setDeleting(false);
     }

@@ -46,6 +46,7 @@ import {
   AddressAutocomplete,
   type AddressSuggestion,
 } from "../../../shared/components/AddressAutocomplete";
+import { toastError, toastSuccess } from "../../../shared/utils/toast";
 
 interface ReliefHotspotMapProps {
   className?: string;
@@ -355,12 +356,14 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     setIsCreating(true);
     try {
       await createManagerReliefPoint(authSession.accessToken, payload);
+      toastSuccess("Tạo điểm cứu trợ thành công.");
       await fetchReliefPoints();
       setViewMode("relief-points");
       setIsCreateModalOpen(false);
       setCreateForm(buildInitialCreateForm());
       setSelectedAddressSuggestion(null);
     } catch (err) {
+      toastError(err instanceof Error ? err.message : "Không thể tạo điểm cứu trợ.");
       setCreateError(
         err instanceof Error ? err.message : "Không thể tạo điểm cứu trợ.",
       );
@@ -391,10 +394,12 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
         authSession.accessToken,
         selectedReliefPoint.id,
       );
+      toastSuccess("Xóa điểm cứu trợ thành công.");
       setSelectedReliefPoint(null);
       setIsDeleteConfirmOpen(false);
       await fetchReliefPoints();
     } catch (err) {
+      toastError(err instanceof Error ? err.message : "Không thể xóa điểm cứu trợ.");
       setDeleteError(
         err instanceof Error ? err.message : "Không thể xóa điểm cứu trợ.",
       );
@@ -443,11 +448,13 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     setIsCreatingCampaign(true);
     try {
       await createReliefCampaign(payload, authSession.accessToken);
+      toastSuccess("Tạo chiến dịch cứu trợ thành công.");
       await fetchHotspots();
       setIsCreateCampaignOpen(false);
       setCampaignForm(buildInitialCampaignForm());
       setSelectedHotspot(null);
     } catch (err) {
+      toastError(err instanceof Error ? err.message : "Không thể tạo chiến dịch.");
       setCampaignError(
         err instanceof Error ? err.message : "Không thể tạo chiến dịch.",
       );

@@ -20,6 +20,7 @@ import {
   type ItemPayload,
 } from "../services/warehouseService";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
+import { toastError, toastSuccess } from "../../../shared/utils/toast";
 
 const EMPTY: ItemPayload = {
   itemCode: "",
@@ -223,8 +224,10 @@ function FormModal({
       };
       if (item) await updateItem(item.id, payload, token);
       else await createItem(payload, token);
+      toastSuccess(item ? "Cập nhật hàng hóa thành công." : "Tạo hàng hóa thành công.");
       onSaved();
     } catch (e) {
+      toastError(e instanceof Error ? e.message : "Lỗi không xác định");
       setError(e instanceof Error ? e.message : "Lỗi không xác định");
     } finally {
       setLoading(false);
@@ -563,10 +566,11 @@ export const ItemTab: React.FC = () => {
     setDeleting(true);
     try {
       await deleteItem(deleteTarget.id, getAuthSession()?.accessToken ?? "");
+      toastSuccess("Xóa hàng hóa thành công.");
       setDeleteTarget(null);
       void load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Lỗi xóa");
+      toastError(e instanceof Error ? e.message : "Lỗi xóa");
     } finally {
       setDeleting(false);
     }

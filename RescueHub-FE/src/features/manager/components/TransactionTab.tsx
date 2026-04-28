@@ -21,6 +21,7 @@ import {
   type ItemWithLots,
 } from "../services/warehouseService";
 import { getAuthSession } from "../../../features/auth/services/authStorage";
+import { toastError, toastSuccess } from "../../../shared/utils/toast";
 
 // Chỉ cho phép 2 loại giao dịch: Nhập kho và Xuất kho
 const TYPE_OPTIONS = [
@@ -240,8 +241,10 @@ function CreateModal({
         { ...form, happenedAt: new Date(form.happenedAt).toISOString() },
         getAuthSession()?.accessToken ?? "",
       );
+      toastSuccess("Tạo giao dịch kho thành công.");
       onSaved();
     } catch (e) {
+      toastError(e instanceof Error ? e.message : "Lỗi tạo giao dịch");
       setError(e instanceof Error ? e.message : "Lỗi tạo giao dịch");
     } finally {
       setLoading(false);

@@ -27,6 +27,7 @@ import {
   type ItemForDropdown,
 } from "../../../services/warehouseService";
 import { getAuthSession } from "../../../../auth/services/authStorage";
+import { toastError, toastSuccess } from "../../../../shared/utils/toast";
 
 // ─── Detail Modal ──────────────────────────────────────────────────────────────
 function DetailModal({
@@ -202,8 +203,10 @@ function AckModal({
     setError(null);
     try {
       await ackDistribution(dist.id, form, getAuthSession()?.accessToken ?? "");
+      toastSuccess("Xác nhận ACK thành công.");
       onDone();
     } catch (e) {
+      toastError(e instanceof Error ? e.message : "Lỗi xác nhận");
       setError(e instanceof Error ? e.message : "Lỗi xác nhận");
     } finally {
       setLoading(false);
@@ -446,8 +449,10 @@ function CreateModal({
         payload,
         getAuthSession()?.accessToken ?? "",
       );
+      toastSuccess("Tạo phiếu phân phối thành công.");
       onSaved(dist);
     } catch (e) {
+      toastError(e instanceof Error ? e.message : "Lỗi tạo phiếu");
       setError(e instanceof Error ? e.message : "Lỗi tạo phiếu");
     } finally {
       setLoading(false);

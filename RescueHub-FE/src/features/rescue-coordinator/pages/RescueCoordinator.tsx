@@ -64,6 +64,24 @@ interface RescueTeam {
   currentLocation: string;
 }
 
+const isUnknownAddress = (value?: string | null): boolean => {
+  if (!value) return true;
+  const normalized = value.trim().toUpperCase();
+  return normalized === "" || normalized === "UNKNOWN" || normalized === "UNKNOW";
+};
+
+const formatLocationText = (
+  addressText?: string | null,
+  lat?: number,
+  lng?: number,
+): string | null => {
+  if (!isUnknownAddress(addressText)) return addressText!.trim();
+  if (typeof lat === "number" && typeof lng === "number") {
+    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
+  return null;
+};
+
 const RescueCoordinatorPage: React.FC = () => {
   const { activeMenu, setActiveMenu } = useCoordinator();
   const [searchQuery, setSearchQuery] = useState("");
@@ -168,7 +186,12 @@ const RescueCoordinatorPage: React.FC = () => {
       incidentCode: incident.incidentCode,
       reportedAt: incident.reportedAt,
       title: `Sự cố ${incident.incidentCode}`,
-      location: incident.location?.addressText ?? "Chưa có vị trí",
+      location:
+        formatLocationText(
+          incident.location?.addressText,
+          incident.location?.lat,
+          incident.location?.lng,
+        ) ?? "Chưa có vị trí",
       requesterPhone: "Chưa cập nhật",
       requesterName: "Chưa cập nhật",
       signalChannel: "app",
@@ -659,10 +682,13 @@ const RescueCoordinatorPage: React.FC = () => {
                     )}
                     {filteredRequests.map((request) => {
                       const cached = detailCache[request.id];
+                      const cachedLocationText = formatLocationText(
+                        cached?.location?.addressText,
+                        cached?.location?.lat,
+                        cached?.location?.lng,
+                      );
                       const locationText =
-                        request.location ||
-                        cached?.location?.addressText ||
-                        null;
+                        request.location || cachedLocationText || null;
                       const isSelected = selectedRequest?.id === request.id;
                       const hasTeams =
                         request.handlingTeams &&

@@ -96,6 +96,24 @@ function formatTime(isoDate: string) {
   });
 }
 
+function isUnknownAddress(value?: string | null) {
+  if (!value) return true;
+  const normalized = value.trim().toUpperCase();
+  return normalized === "" || normalized === "UNKNOWN" || normalized === "UNKNOW";
+}
+
+function formatLocationText(
+  addressText?: string | null,
+  lat?: number,
+  lng?: number,
+) {
+  if (!isUnknownAddress(addressText)) return addressText!.trim();
+  if (typeof lat === "number" && typeof lng === "number") {
+    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
+  return "Chưa có địa chỉ";
+}
+
 // Mission status helpers
 const getMissionStatusColor = (missionStatusCode: string): string => {
   const colors: Record<string, string> = {
@@ -235,6 +253,11 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
 }) => {
   const priority = getPriorityConfig(detail.severity?.code);
   const hasLocation = detail.location?.lat && detail.location?.lng;
+  const locationText = formatLocationText(
+    detail.location?.addressText,
+    detail.location?.lat,
+    detail.location?.lng,
+  );
   const hasHandlingTeams = handlingTeams && handlingTeams.length > 0;
   const isInProgress = requestStatus === "in-progress";
   const isFinalized = requestStatus === "completed" || requestStatus === "rescued";
@@ -317,7 +340,7 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
           <MapPin size={14} className="text-gray-500 mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm text-gray-700">
-              {detail.location?.addressText ?? "Chưa có địa chỉ"}
+              {locationText}
             </p>
             {detail.location?.landmark && (
               <p className="text-xs text-gray-500">

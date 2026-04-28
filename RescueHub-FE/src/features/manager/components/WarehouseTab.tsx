@@ -68,9 +68,7 @@ function Badge({ active }: { active: boolean }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-        active
-          ? "bg-emerald-100 text-emerald-700"
-          : "bg-gray-100 text-gray-500"
+        active ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
       }`}
     >
       <span
@@ -223,7 +221,10 @@ function FormModal({ wh, onClose, onSaved }: FormModalProps) {
           <h2 className="text-lg font-bold text-gray-900">
             {wh ? "Chỉnh sửa kho" : "Tạo kho mới"}
           </h2>
-          <button onClick={onClose} className="rounded-lg p-2 hover:bg-gray-100">
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 hover:bg-gray-100"
+          >
             <X size={18} />
           </button>
         </div>
@@ -367,7 +368,10 @@ export const WarehouseTab: React.FC = () => {
 
     setDeleting(true);
     try {
-      await deleteWarehouse(deleteTarget.id, getAuthSession()?.accessToken ?? "");
+      await deleteWarehouse(
+        deleteTarget.id,
+        getAuthSession()?.accessToken ?? "",
+      );
       setDeleteTarget(null);
       void load();
     } catch (e) {
@@ -430,7 +434,6 @@ export const WarehouseTab: React.FC = () => {
                 "Trạng thái",
                 "Địa chỉ",
                 "Khu vực",
-                "Quản lý",
                 "Khu",
                 "Tồn",
                 "Ngày tạo",
@@ -448,7 +451,10 @@ export const WarehouseTab: React.FC = () => {
           <tbody className="divide-y divide-gray-50">
             {loading ? (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-sm text-gray-400">
+                <td
+                  colSpan={10}
+                  className="py-12 text-center text-sm text-gray-400"
+                >
                   Đang tải...
                 </td>
               </tr>
@@ -482,9 +488,7 @@ export const WarehouseTab: React.FC = () => {
                   <td className="whitespace-nowrap px-4 py-3 text-gray-600">
                     {warehouse.adminArea?.name || "—"}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                    {warehouse.manager?.displayName || "—"}
-                  </td>
+
                   <td className="px-4 py-3 text-center">
                     <span className="font-semibold text-gray-800">
                       {warehouse.zoneCount}

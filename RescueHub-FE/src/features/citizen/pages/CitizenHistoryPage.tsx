@@ -117,6 +117,7 @@ const STATUS_LABEL_MAP: Record<string, string> = {
   RESOLVED: "Đã xử lý",
   REJECTED: "Từ chối",
   CANCELLED: "Đã hủy",
+  RESCUED: "Đã được cứu",
 };
 
 const INCIDENT_TYPE_LABEL_MAP: Record<string, string> = {

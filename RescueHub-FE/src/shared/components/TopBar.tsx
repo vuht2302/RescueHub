@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { LogOut, Settings, UserCircle } from "lucide-react";
+import { LogOut, UserPlus, UserCircle } from "lucide-react";
 import { LoginModal } from "../../features/auth/components/LoginModal";
 import { SignupModal } from "../../features/auth/components/SignupModal";
 import {
@@ -137,7 +137,7 @@ export const TopBar: React.FC = () => {
                 className="p-2 text-gray-300 hover:text-white hover:bg-blue-900/50 rounded-full transition-colors"
                 title="Đăng kí"
               >
-                <Settings size={24} />
+                <UserPlus size={24} />
               </button>
             </div>
           ) : !isCitizenRoute && isHomeRoute ? (

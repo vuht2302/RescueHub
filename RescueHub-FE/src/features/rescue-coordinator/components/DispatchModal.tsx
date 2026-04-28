@@ -44,6 +44,7 @@ interface DispatchModalProps {
   location: string;
   victimCount: number;
   priorityCode?: string;
+  excludedTeamIds?: string[];
   onDispatch: (teamId: string) => void;
 }
 
@@ -69,6 +70,7 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
   location,
   victimCount,
   priorityCode,
+  excludedTeamIds = [],
   onDispatch,
 }) => {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -104,8 +106,10 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
         const apiTeams = await getDispatchTeams(session.accessToken);
 
         // Map API teams to UI teams interface and filter AVAILABLE ones
+        const excludedTeamIdSet = new Set(excludedTeamIds);
         const mappedTeams: Team[] = apiTeams
           .filter((team: ApiTeam) => team.status?.code === "AVAILABLE")
+          .filter((team: ApiTeam) => !excludedTeamIdSet.has(team.id))
           .map((team: ApiTeam) => {
             const mockDist = (getCharCode(team.id, 0) % 10) + 2; // 2-11 km
             const mockEta = mockDist * 5; // 5 mins per km
@@ -145,7 +149,17 @@ const DispatchModal: React.FC<DispatchModalProps> = ({
     };
 
     fetchTeams();
-  }, [isOpen]);
+  }, [isOpen, excludedTeamIds]);
+
+  useEffect(() => {
+    if (!selectedTeamId) return;
+    const isSelectedTeamExcluded = excludedTeamIds.includes(selectedTeamId);
+    if (isSelectedTeamExcluded) {
+      setSelectedTeamId(null);
+      setVehicles([]);
+      setSelectedVehicleId("");
+    }
+  }, [excludedTeamIds, selectedTeamId]);
 
   const selectedTeam = teams.find((t) => t.id === selectedTeamId);
   const hasAvailableVehicle = vehicles.some(

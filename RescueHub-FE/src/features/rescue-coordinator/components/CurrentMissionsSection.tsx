@@ -34,6 +34,7 @@ interface DispatchContext {
   incidentId: string;
   incidentCode: string;
   location: string;
+  excludedTeamIds?: string[];
 }
 
 export function CurrentMissionsSection() {
@@ -53,6 +54,8 @@ export function CurrentMissionsSection() {
   const [showDispatchModal, setShowDispatchModal] = useState(false);
   const [dispatchContext, setDispatchContext] =
     useState<DispatchContext | null>(null);
+  const [confirmAbortRequest, setConfirmAbortRequest] =
+    useState<MissionAbortRequestItem | null>(null);
 
   const fetchIncidentsWithTeams = async () => {
     setIsLoading(true);
@@ -260,10 +263,14 @@ export function CurrentMissionsSection() {
 
       const matchedMission = findMissionByIncidentId(abortRequest.incident.id);
       if (decisionCode === "APPROVE") {
+        const excludedTeamIds = abortRequest.mission.primaryTeam?.teamId
+          ? [abortRequest.mission.primaryTeam.teamId]
+          : [];
         setDispatchContext({
           incidentId: abortRequest.incident.id,
           incidentCode: abortRequest.incident.code,
           location: matchedMission?.location ?? "Chua co vi tri",
+          excludedTeamIds,
         });
         if (matchedMission) {
           setSelectedMission(matchedMission);
@@ -412,10 +419,7 @@ export function CurrentMissionsSection() {
                           <div className="flex items-center gap-2 mt-3">
                             <button
                               onClick={() =>
-                                void handleAbortDecision(
-                                  abortRequest,
-                                  "APPROVE",
-                                )
+                                setConfirmAbortRequest(abortRequest)
                               }
                               disabled={isDeciding}
                               className="flex-1 text-xs px-2 py-1.5 rounded bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
@@ -562,6 +566,7 @@ export function CurrentMissionsSection() {
           requestId={dispatchContext.incidentId}
           requestTitle={`Su co ${dispatchContext.incidentCode}`}
           location={dispatchContext.location}
+          excludedTeamIds={dispatchContext.excludedTeamIds}
           victimCount={0}
           onDispatch={() => {
             setShowDispatchModal(false);
@@ -569,6 +574,54 @@ export function CurrentMissionsSection() {
             void refreshAllData();
           }}
         />
+      )}
+
+      {confirmAbortRequest && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-2xl">
+            <h3 className="text-base font-bold text-gray-900">
+              Xác nhận duyệt huỷ nhiệm vụ
+            </h3>
+            <p className="mt-2 text-sm text-gray-700">
+              Bạn có chắc chắn duyệt huỷ nhiệm vụ{" "}
+              <span className="font-semibold">
+                {confirmAbortRequest.mission.code}
+              </span>{" "}
+              của đội{" "}
+              <span className="font-semibold">
+                {confirmAbortRequest.mission.primaryTeam?.teamName ??
+                  "Chua co doi"}
+              </span>{" "}
+              không?
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Sau khi xác nhận, hệ thống sẽ mở modal mới để gán team mới
+            </p>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmAbortRequest(null)}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Quay lại
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const request = confirmAbortRequest;
+                  setConfirmAbortRequest(null);
+                  if (request) {
+                    await handleAbortDecision(request, "APPROVE");
+                  }
+                }}
+                className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                Xác nhận huỷ
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

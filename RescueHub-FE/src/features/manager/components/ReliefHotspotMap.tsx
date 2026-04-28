@@ -34,7 +34,6 @@ import {
   getManagerReliefPoints,
   type CreateReliefPointPayload,
   type ReliefPointItem,
-  type ReliefPointStatusOption,
 } from "../services/reliefPointService";
 import {
   getWarehouses,
@@ -98,7 +97,7 @@ const buildInitialCreateForm = (): CreateReliefPointFormState => {
     code: "",
     name: "",
     addressText: "",
-    statusCode: "Đang mở",
+    statusCode: "OPEN",
   };
 };
 
@@ -221,9 +220,6 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
   );
   const [selectedAddressSuggestion, setSelectedAddressSuggestion] =
     useState<AddressSuggestion | null>(null);
-  const [statusOptions, setStatusOptions] = useState<ReliefPointStatusOption[]>(
-    [],
-  );
   const [isCreateCampaignOpen, setIsCreateCampaignOpen] = useState(false);
   const [campaignForm, setCampaignForm] = useState<CreateCampaignFormState>(
     () => buildInitialCampaignForm(),
@@ -272,8 +268,6 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
     setIsLoadingCreateOptions(true);
     try {
       const options = await getReliefPointFormOptions(authSession.accessToken);
-      setStatusOptions(options.statusCodes);
-
       setCreateForm((prev) => ({
         ...prev,
         statusCode: prev.statusCode || options.statusCodes[0]?.code || "OPEN",
@@ -1638,20 +1632,7 @@ const ReliefHotspotMap: React.FC<ReliefHotspotMapProps> = ({
                   className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   disabled={isCreating}
                 />
-                <select
-                  name="statusCode"
-                  value={createForm.statusCode}
-                  onChange={handleCreateFormChange}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm md:col-span-2"
-                  disabled={isCreating}
-                >
-                  {statusOptions.map((status) => (
-                    <option key={status.code} value={status.code}>
-                      {getStatusNameVi(status.code)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+</div>
 
               <div className="mt-3">
                 <AddressAutocomplete

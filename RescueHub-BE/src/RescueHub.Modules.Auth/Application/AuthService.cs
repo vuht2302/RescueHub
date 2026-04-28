@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
@@ -11,8 +12,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using RescueHub.Persistence;
 using RescueHub.Persistence.Entities.Scaffolded;
-using Twilio;
-using Twilio.Rest.Verify.V2.Service;
 
 namespace RescueHub.Modules.Auth.Application;
 
@@ -23,7 +22,7 @@ public sealed class AuthService(
     ILogger<AuthService> logger) : IAuthService
 {
     private static readonly ConcurrentDictionary<string, LocalOtpEntry> LocalOtpStore = new();
-    private const string DefaultTwilioFixedPhone = "+84968675585";
+    private readonly HttpClient _httpClient = new();
 
     private sealed record LocalOtpEntry(string OtpCode, DateTime ExpiredAtUtc);
 
@@ -132,15 +131,15 @@ public sealed class AuthService(
 
         await SaveOtpAsync(normalizedPhone, normalizedPurpose, otpCode, expiredAt);
 
-        if (IsTwilioVerifyEnabled())
+        if (IsTelegramBotEnabled())
         {
-            var sent = await SendOtpViaTwilioVerifyAsync(normalizedPhone, normalizedPurpose);
+            var sent = await SendOtpViaTelegramAsync(normalizedPhone, otpCode);
             if (sent)
             {
                 return new
                 {
                     expiredAt,
-                    channel = "SMS"
+                    channel = "TELEGRAM"
                 };
             }
         }
@@ -157,9 +156,7 @@ public sealed class AuthService(
         var normalizedPurpose = request.Purpose.Trim().ToUpperInvariant();
         var normalizedPhone = NormalizePhoneForOtp(request.Phone);
 
-        var valid = IsTwilioVerifyEnabled()
-            ? await ValidateOtpByTwilioVerifyAsync(normalizedPhone, normalizedPurpose, request.OtpCode)
-            : await ValidateOtpAsync(normalizedPhone, normalizedPurpose, request.OtpCode);
+        var valid = await ValidateOtpAsync(normalizedPhone, normalizedPurpose, request.OtpCode);
 
         if (!valid)
         {
@@ -688,120 +685,47 @@ public sealed class AuthService(
         return Regex.Replace(input, "[^0-9]", string.Empty);
     }
 
-    private bool IsTwilioVerifyEnabled()
-        => !string.IsNullOrWhiteSpace(configuration["Twilio:Verify:AccountSid"])
-            && !string.IsNullOrWhiteSpace(configuration["Twilio:Verify:AuthToken"])
-            && !string.IsNullOrWhiteSpace(configuration["Twilio:Verify:ServiceSid"]);
+    private bool IsTelegramBotEnabled()
+        => !string.IsNullOrWhiteSpace(configuration["Telegram:BotToken"])
+            && !string.IsNullOrWhiteSpace(configuration["Telegram:ChatId"]);
 
-    private async Task<bool> SendOtpViaTwilioVerifyAsync(string inputPhone, string purpose)
+    private async Task<bool> SendOtpViaTelegramAsync(string phone, string otpCode)
     {
         try
         {
-            TwilioClient.Init(
-                configuration["Twilio:Verify:AccountSid"],
-                configuration["Twilio:Verify:AuthToken"]);
+            var botToken = configuration["Telegram:BotToken"]?.Trim();
+            var chatId = configuration["Telegram:ChatId"]?.Trim();
 
-            var verification = await VerificationResource.CreateAsync(
-                to: ResolveTwilioDestinationPhone(),
-                channel: "sms",
-                pathServiceSid: configuration["Twilio:Verify:ServiceSid"]);
-
-            logger.LogInformation(
-                "Twilio OTP request sent for purpose {Purpose}. Input phone {InputPhone}. Twilio SID: {Sid}",
-                purpose,
-                inputPhone,
-                verification.Sid);
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Cannot send OTP by Twilio Verify. Fallback to local OTP mode.");
-            return false;
-        }
-    }
-
-    private async Task<bool> ValidateOtpByTwilioVerifyAsync(string phone, string purpose, string otpCode)
-    {
-        var hasRequested = await HasCachedOtpRequestAsync(phone, purpose);
-        if (!hasRequested)
-        {
-            return false;
-        }
-
-        try
-        {
-            TwilioClient.Init(
-                configuration["Twilio:Verify:AccountSid"],
-                configuration["Twilio:Verify:AuthToken"]);
-
-            var check = await VerificationCheckResource.CreateAsync(
-                to: ResolveTwilioDestinationPhone(),
-                code: otpCode,
-                pathServiceSid: configuration["Twilio:Verify:ServiceSid"]);
-
-            var approved = string.Equals(check.Status, "approved", StringComparison.OrdinalIgnoreCase);
-            if (approved)
+            if (string.IsNullOrWhiteSpace(botToken) || string.IsNullOrWhiteSpace(chatId))
             {
-                await RemoveCachedOtpRequestAsync(phone, purpose);
+                logger.LogWarning("Telegram configuration is incomplete. Cannot send OTP via Telegram.");
+                return false;
             }
 
-            return approved;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Cannot verify OTP by Twilio Verify.");
-            return false;
-        }
-    }
+            var url = $"https://api.telegram.org/bot{botToken}/sendMessage";
+            var message = $"OTP của bạn: {otpCode}";
 
-    private async Task<bool> HasCachedOtpRequestAsync(string phone, string purpose)
-    {
-        var key = BuildOtpCacheKey(phone, purpose);
+            var payload = new { chat_id = chatId, text = message };
+            var content = new StringContent(
+                JsonSerializer.Serialize(payload),
+                Encoding.UTF8,
+                "application/json");
 
-        try
-        {
-            var cachedOtp = await distributedCache.GetStringAsync(key);
-            if (!string.IsNullOrWhiteSpace(cachedOtp))
+            var response = await _httpClient.PostAsync(url, content);
+            if (response.IsSuccessStatusCode)
             {
+                logger.LogInformation("OTP sent via Telegram for phone {Phone}", phone);
                 return true;
             }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            logger.LogError("Failed to send OTP via Telegram. Status: {Status}, Response: {Response}", response.StatusCode, errorContent);
+            return false;
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Redis unavailable when checking OTP request marker. Falling back to local memory cache.");
-        }
-
-        if (!LocalOtpStore.TryGetValue(key, out var entry))
-        {
+            logger.LogError(ex, "Cannot send OTP via Telegram. Fallback to local OTP mode.");
             return false;
         }
-
-        if (entry.ExpiredAtUtc <= DateTime.UtcNow)
-        {
-            LocalOtpStore.TryRemove(key, out _);
-            return false;
-        }
-
-        return true;
     }
-
-    private async Task RemoveCachedOtpRequestAsync(string phone, string purpose)
-    {
-        var key = BuildOtpCacheKey(phone, purpose);
-
-        try
-        {
-            await distributedCache.RemoveAsync(key);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Redis unavailable when removing OTP request marker.");
-        }
-
-        LocalOtpStore.TryRemove(key, out _);
-    }
-
-    private string ResolveTwilioDestinationPhone()
-        => configuration["Twilio:Verify:FixedDestinationPhone"]?.Trim() ?? DefaultTwilioFixedPhone;
 }

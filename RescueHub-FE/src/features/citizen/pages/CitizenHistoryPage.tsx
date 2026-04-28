@@ -22,6 +22,7 @@ import {
   type PublicTrackingMyHistoryItem,
 } from "../../../shared/services/publicApi";
 import { getAuthSession } from "../../auth/services/authStorage";
+import { toastError, toastSuccess } from "../../../shared/utils/toast";
 
 const TRACKING_TOKEN_STORAGE_KEY = "rescuehub.public.trackingToken";
 const TRACKING_PHONE_STORAGE_KEY = "rescuehub.public.trackingPhone";
@@ -460,9 +461,13 @@ export const CitizenHistoryPage: React.FC = () => {
       );
 
       setAckSuccess(true);
+      toastSuccess("Xác nhận đã nhận cứu trợ thành công.");
       setAckNote("");
       setRefreshTick((prev) => prev + 1);
     } catch (error) {
+      toastError(
+        error instanceof Error ? error.message : "Không thể xác nhận cứu trợ",
+      );
       setAckError(
         error instanceof Error ? error.message : "Không thể xác nhận cứu trợ",
       );
@@ -523,9 +528,15 @@ export const CitizenHistoryPage: React.FC = () => {
       );
 
       setNotReceivedSuccess(true);
+      toastSuccess("Đã xác nhận chưa nhận cứu trợ.");
       setNotReceivedNote("");
       setRefreshTick((prev) => prev + 1);
     } catch (error) {
+      toastError(
+        error instanceof Error
+          ? error.message
+          : "Không thể xác nhận chưa nhận cứu trợ",
+      );
       setNotReceivedError(
         error instanceof Error
           ? error.message

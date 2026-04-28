@@ -21,6 +21,7 @@ import {
   AddressAutocomplete,
   type AddressSuggestion,
 } from "../../../shared/components/AddressAutocomplete";
+import { toastError, toastSuccess } from "../../../shared/utils/toast";
 
 const EMPTY_FORM: WarehousePayload = {
   warehouseCode: "",
@@ -196,12 +197,15 @@ function FormModal({ wh, onClose, onSaved }: FormModalProps) {
 
       if (wh) {
         await updateWarehouse(wh.id, payload, token);
+        toastSuccess("Cập nhật kho thành công.");
       } else {
         await createWarehouse(payload, token);
+        toastSuccess("Tạo kho mới thành công.");
       }
 
       onSaved();
     } catch (e) {
+      toastError(e instanceof Error ? e.message : "Lỗi không xác định");
       setError(e instanceof Error ? e.message : "Lỗi không xác định");
     } finally {
       setLoading(false);
@@ -372,10 +376,11 @@ export const WarehouseTab: React.FC = () => {
         deleteTarget.id,
         getAuthSession()?.accessToken ?? "",
       );
+      toastSuccess("Xóa kho thành công.");
       setDeleteTarget(null);
       void load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Lỗi xóa");
+      toastError(e instanceof Error ? e.message : "Lỗi xóa kho");
     } finally {
       setDeleting(false);
     }

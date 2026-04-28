@@ -16,6 +16,7 @@ import {
   deleteUser,
 } from "@/src/shared/services/adminUser.service";
 import { getRoles } from "@/src/shared/services/role.service";
+import { toastError, toastSuccess } from "@/src/shared/utils/toast";
 
 // helper
 const getUserRoleText = (roles: any[]) => {
@@ -123,9 +124,10 @@ const UserManagement = () => {
         isActive: data.status === "active",
         roleCodes: [data.role],
       });
+      toastSuccess("Tạo người dùng thành công.");
       await fetchData();
     } catch (err: any) {
-      alert(err.message);
+      toastError(err?.message || "Lỗi tạo người dùng");
     }
   };
 
@@ -140,9 +142,10 @@ const UserManagement = () => {
         isActive: data.status === "active",
         roleCodes: [data.role],
       });
+      toastSuccess("Cập nhật người dùng thành công.");
       await fetchData();
     } catch (err: any) {
-      alert(err.message);
+      toastError(err?.message || "Lỗi cập nhật người dùng");
     }
   };
 
@@ -152,10 +155,11 @@ const UserManagement = () => {
     setDeleting(true);
     try {
       await deleteUser(deleteTarget.id);
+      toastSuccess("Xóa người dùng thành công.");
       setDeleteTarget(null);
       await fetchData();
     } catch (err: any) {
-      alert(err.message || "Lỗi xóa người dùng");
+      toastError(err?.message || "Lỗi xóa người dùng");
     } finally {
       setDeleting(false);
     }

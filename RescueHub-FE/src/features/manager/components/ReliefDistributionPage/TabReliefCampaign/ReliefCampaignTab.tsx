@@ -27,6 +27,7 @@ import {
 } from "../../../services/warehouseService";
 import { getAuthSession } from "../../../../auth/services/authStorage";
 import { StatusBadge, CAMPAIGN_STATUS } from "../../../constants/statusConfig";
+import { toastError, toastSuccess } from "../../../../shared/utils/toast";
 
 interface ReliefCampaignTabProps {
   onSelectCampaign?: (campaign: ReliefCampaign) => void;
@@ -116,9 +117,11 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
         campaignToDelete.id,
         getAuthSession()?.accessToken ?? "",
       );
+      toastSuccess("Xóa chiến dịch thành công.");
       setCampaigns((prev) => prev.filter((c) => c.id !== campaignToDelete.id));
       setCampaignToDelete(null);
     } catch (e) {
+      toastError(e instanceof Error ? e.message : "Lỗi xóa chiến dịch");
       setDeleteError(e instanceof Error ? e.message : "Lỗi xóa chiến dịch");
     } finally {
       setIsDeleting(false);

@@ -27,7 +27,7 @@ import {
 } from "../../../services/warehouseService";
 import { getAuthSession } from "../../../../auth/services/authStorage";
 import { StatusBadge, CAMPAIGN_STATUS } from "../../../constants/statusConfig";
-import { toastError, toastSuccess } from "../../../../shared/utils/toast";
+import { toastError, toastSuccess } from "@/src/shared/utils/toast";
 
 interface ReliefCampaignTabProps {
   onSelectCampaign?: (campaign: ReliefCampaign) => void;

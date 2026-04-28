@@ -5,6 +5,16 @@ import { AlertCircle, MapPin, RefreshCw } from "lucide-react";
 import { getAuthSession } from "../../auth/services/authStorage";
 import { getIncidents, IncidentItem } from "../services/incidentServices";
 
+const normalizeStatusCode = (code?: string) =>
+  String(code ?? "")
+    .trim()
+    .toUpperCase();
+
+const isResolvedIncident = (statusCode?: string) => {
+  const code = normalizeStatusCode(statusCode);
+  return ["RESCUED", "COMPLETED", "CLOSED", "RESOLVED"].includes(code);
+};
+
 export const MissionMapSection: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<vietmapgl.Map | null>(null);
@@ -30,7 +40,9 @@ export const MissionMapSection: React.FC = () => {
         throw new Error("Không có token xác thực.");
       }
       const data = await getIncidents(authSession.accessToken);
-      setIncidents(data);
+      setIncidents(
+        data.filter((incident) => !isResolvedIncident(incident.status?.code)),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi khi tải sự cố");
     } finally {
@@ -42,6 +54,12 @@ export const MissionMapSection: React.FC = () => {
   useEffect(() => {
     void fetchIncidents();
   }, [fetchIncidents]);
+
+  useEffect(() => {
+    if (!selectedIncident) return;
+    if (incidents.some((incident) => incident.id === selectedIncident.id)) return;
+    setSelectedIncident(null);
+  }, [incidents, selectedIncident]);
 
   // Initialize Map
   useEffect(() => {
@@ -115,7 +133,7 @@ export const MissionMapSection: React.FC = () => {
   }, [incidents, selectedIncident]);
 
   const getStatusLabel = (code: string) => {
-    switch (code) {
+    switch (normalizeStatusCode(code)) {
       case "NEW":
       case "PENDING":
         return "Chờ xác minh";
@@ -128,15 +146,20 @@ export const MissionMapSection: React.FC = () => {
       case "IN_PROGRESS":
       case "RESCUING":
         return "Đang xử lý";
+      case "RESCUED":
+        return "Đã cứu hộ";
       case "COMPLETED":
         return "Hoàn thành";
+      case "CLOSED":
+      case "RESOLVED":
+        return "Đã khắc phục";
       default:
         return "Không xác định";
     }
   };
 
   const getStatusColor = (code: string) => {
-    switch (code) {
+    switch (normalizeStatusCode(code)) {
       case "NEW":
       case "PENDING":
         return "bg-gray-100 text-gray-700";
@@ -149,6 +172,11 @@ export const MissionMapSection: React.FC = () => {
       case "IN_PROGRESS":
       case "RESCUING":
         return "bg-yellow-100 text-yellow-800";
+      case "COMPLETED":
+      case "RESCUED":
+      case "CLOSED":
+      case "RESOLVED":
+        return "bg-emerald-100 text-emerald-800";
       default:
         return "bg-gray-100 text-gray-700";
     }

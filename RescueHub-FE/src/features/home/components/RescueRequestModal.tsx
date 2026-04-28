@@ -20,6 +20,7 @@ type AddressSuggestion = {
 };
 
 const PHONE_REGEX = /^\d{10}$/;
+const MAX_UPLOAD_FILES = 4;
 
 interface RescueRequestModalProps {
   isOpen: boolean;
@@ -159,7 +160,16 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
       file.type.startsWith("image/"),
     );
 
-    setSelectedFiles((prev) => [...prev, ...accepted]);
+    setSelectedFiles((prev) => {
+      const availableSlots = Math.max(0, MAX_UPLOAD_FILES - prev.length);
+      const nextFiles = [...prev, ...accepted.slice(0, availableSlots)];
+
+      if (accepted.length > availableSlots) {
+        toast.warning(`Chỉ được tải lên tối đa ${MAX_UPLOAD_FILES} ảnh.`);
+      }
+
+      return nextFiles;
+    });
     event.target.value = "";
   };
 
@@ -455,10 +465,11 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-2 bg-surface-container-high hover:bg-surface-container-highest px-3 py-2 rounded-lg text-sm font-semibold"
+                disabled={selectedFiles.length >= MAX_UPLOAD_FILES}
+                className="inline-flex items-center gap-2 bg-surface-container-high hover:bg-surface-container-highest disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm font-semibold"
               >
                 <Camera size={16} />
-                Tải ảnh lên
+                Tải ảnh lên ({selectedFiles.length}/{MAX_UPLOAD_FILES})
               </button>
             </div>
 

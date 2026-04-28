@@ -627,7 +627,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                                 >
                                   Yêu cầu hỗ trợ
                                 </button>
-                                <button
+                                {/* <button
                                   type="button"
                                   onClick={(event) => {
                                     event.stopPropagation();
@@ -637,7 +637,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                                   className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold text-red-700 hover:bg-red-50"
                                 >
                                   Yêu cầu hủy
-                                </button>
+                                </button> */}
                                 {onViewMission && (
                                   <button
                                     type="button"

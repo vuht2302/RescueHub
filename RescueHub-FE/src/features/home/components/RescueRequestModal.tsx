@@ -170,8 +170,7 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
   const canSubmit =
     incidentTypeCode.trim().length > 0 &&
     reporterName.trim().length > 0 &&
-    PHONE_REGEX.test(reporterPhone.trim()) &&
-    description.trim().length > 0;
+    PHONE_REGEX.test(reporterPhone.trim());
 
   useEffect(() => {
     if (!isOpen) return;
@@ -253,7 +252,7 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
 
     if (!canSubmit) {
       setSubmitError(
-        "Vui lòng nhập đầy đủ loại sự cố, họ tên, số điện thoại và mô tả.",
+        "Vui lòng nhập đầy đủ loại sự cố, họ tên và số điện thoại.",
       );
       return;
     }
@@ -278,7 +277,7 @@ export const RescueRequestModal: React.FC<RescueRequestModalProps> = ({
         incidentTypeCode: incidentTypeCode.trim(),
         reporterName: reporterName.trim(),
         reporterPhone: normalizedReporterPhone,
-        description: description.trim(),
+        description: description.trim() || undefined,
         victimCountEstimate,
         injuredCountEstimate,
         vulnerableCountEstimate,

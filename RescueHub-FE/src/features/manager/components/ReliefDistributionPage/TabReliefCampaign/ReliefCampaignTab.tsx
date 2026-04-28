@@ -4,7 +4,6 @@ import {
   Calendar,
   MapPin,
   RefreshCw,
-  Plus,
   X,
   Map,
   Truck,
@@ -21,9 +20,6 @@ import {
   deleteReliefCampaign,
   type ReliefCampaign,
   type ReliefCampaignDetail,
-  type ReliefRequestSummary,
-  type ReliefRequestDetail,
-  type ReliefPointDetail,
 } from "../../../services/warehouseService";
 import { getAuthSession } from "../../../../auth/services/authStorage";
 import { StatusBadge, CAMPAIGN_STATUS } from "../../../constants/statusConfig";
@@ -206,77 +202,79 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
                 const normalizedStatusCode = normalizeCampaignStatusCode(
                   campaign.status?.code,
                 );
-                const isCompletedCampaign = normalizedStatusCode === "COMPLETED";
-                const isCancelledCampaign = normalizedStatusCode === "CANCELLED";
+                const isCompletedCampaign =
+                  normalizedStatusCode === "COMPLETED";
+                const isCancelledCampaign =
+                  normalizedStatusCode === "CANCELLED";
                 const hideActions = isCompletedCampaign || isCancelledCampaign;
                 return (
-                <tr
-                  key={campaign.id}
-                  onClick={() => handleCampaignClick(campaign)}
-                  className={`cursor-pointer transition-colors hover:bg-blue-50 ${
-                    selectedCampaign?.id === campaign.id ? "bg-blue-50" : ""
-                  }`}
-                >
-                  <td className="px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-blue-700 truncate">
-                        {campaign.name}
-                      </p>
-                      <p className="text-[11px] text-gray-400 font-mono">
-                        {campaign.code}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="flex items-center gap-1 text-sm text-gray-600">
-                      <MapPin size={12} />
-                      {campaign.adminArea?.name || "—"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="flex items-center gap-1 text-sm text-gray-600">
-                      <Calendar size={12} />
-                      {formatDate(campaign.startAt)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded text-xs font-semibold">
-                      {campaign.reliefPointCount} trạm
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge
-                      code={normalizedStatusCode}
-                      statusMap={CAMPAIGN_STATUS}
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {!hideActions && (
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCreateDistribution?.(campaign.id);
-                        }}
-                        className="flex items-center gap-1 px-2 py-1 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg text-xs font-semibold transition-colors"
-                      >
-                        <Truck size={12} />
-                        Tạo phân phối
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCampaignToDelete(campaign);
-                        }}
-                        className="flex items-center gap-1 px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition-colors"
-                      >
-                        <Trash2 size={12} />
-                        Xóa
-                      </button>
-                    </div>
-                    )}
-                  </td>
-                </tr>
+                  <tr
+                    key={campaign.id}
+                    onClick={() => handleCampaignClick(campaign)}
+                    className={`cursor-pointer transition-colors hover:bg-blue-50 ${
+                      selectedCampaign?.id === campaign.id ? "bg-blue-50" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-blue-700 truncate">
+                          {campaign.name}
+                        </p>
+                        <p className="text-[11px] text-gray-400 font-mono">
+                          {campaign.code}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-1 text-sm text-gray-600">
+                        <MapPin size={12} />
+                        {campaign.adminArea?.name || "—"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-1 text-sm text-gray-600">
+                        <Calendar size={12} />
+                        {formatDate(campaign.startAt)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded text-xs font-semibold">
+                        {campaign.reliefPointCount} trạm
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge
+                        code={normalizedStatusCode}
+                        statusMap={CAMPAIGN_STATUS}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {!hideActions && (
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onCreateDistribution?.(campaign.id);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg text-xs font-semibold transition-colors"
+                          >
+                            <Truck size={12} />
+                            Tạo phân phối
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCampaignToDelete(campaign);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition-colors"
+                          >
+                            <Trash2 size={12} />
+                            Xóa
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>

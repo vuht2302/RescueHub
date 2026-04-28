@@ -10,6 +10,24 @@ const normalizeStatusCode = (code?: string) =>
     .trim()
     .toUpperCase();
 
+const SUPPORTED_INCIDENT_STATUS_CODES = new Set([
+  "NEW",
+  "PENDING",
+  "VERIFIED",
+  "ASSESSED",
+  "ASSIGNED",
+  "DISPATCHED",
+  "IN_PROGRESS",
+  "RESCUING",
+  "RESCUED",
+  "COMPLETED",
+  "CLOSED",
+  "RESOLVED",
+]);
+
+const isSupportedIncidentStatus = (statusCode?: string) =>
+  SUPPORTED_INCIDENT_STATUS_CODES.has(normalizeStatusCode(statusCode));
+
 const isResolvedIncident = (statusCode?: string) => {
   const code = normalizeStatusCode(statusCode);
   return ["RESCUED", "COMPLETED", "CLOSED", "RESOLVED"].includes(code);
@@ -30,6 +48,11 @@ export const MissionMapSection: React.FC = () => {
   const vietmapApiKey = (import.meta.env.VITE_VIETMAP_API_KEY ?? "").trim();
   const hasVietmapKey = vietmapApiKey.length > 0;
   const canUseVietmap = hasVietmapKey;
+  const visibleIncidents = incidents.filter(
+    (incident) =>
+      isSupportedIncidentStatus(incident.status?.code) &&
+      !isResolvedIncident(incident.status?.code),
+  );
 
   const fetchIncidents = useCallback(async () => {
     setIsLoading(true);
@@ -41,7 +64,11 @@ export const MissionMapSection: React.FC = () => {
       }
       const data = await getIncidents(authSession.accessToken);
       setIncidents(
-        data.filter((incident) => !isResolvedIncident(incident.status?.code)),
+        data.filter(
+          (incident) =>
+            isSupportedIncidentStatus(incident.status?.code) &&
+            !isResolvedIncident(incident.status?.code),
+        ),
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi khi tải sự cố");
@@ -57,9 +84,12 @@ export const MissionMapSection: React.FC = () => {
 
   useEffect(() => {
     if (!selectedIncident) return;
-    if (incidents.some((incident) => incident.id === selectedIncident.id)) return;
+    if (
+      visibleIncidents.some((incident) => incident.id === selectedIncident.id)
+    )
+      return;
     setSelectedIncident(null);
-  }, [incidents, selectedIncident]);
+  }, [visibleIncidents, selectedIncident]);
 
   // Initialize Map
   useEffect(() => {
@@ -91,7 +121,7 @@ export const MissionMapSection: React.FC = () => {
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    incidents.forEach((incident) => {
+    visibleIncidents.forEach((incident) => {
       if (!incident.location?.lat || !incident.location?.lng) return;
 
       const isSelected = selectedIncident?.id === incident.id;
@@ -130,7 +160,7 @@ export const MissionMapSection: React.FC = () => {
         essential: true,
       });
     }
-  }, [incidents, selectedIncident]);
+  }, [visibleIncidents, selectedIncident]);
 
   const getStatusLabel = (code: string) => {
     switch (normalizeStatusCode(code)) {
@@ -241,7 +271,7 @@ export const MissionMapSection: React.FC = () => {
               Làm mới
             </button>
             <span className="text-xs font-bold text-blue-950 bg-blue-100 px-2 py-0.5 rounded-full">
-              {incidents.length}
+              {visibleIncidents.length}
             </span>
           </div>
         </div>
@@ -259,7 +289,7 @@ export const MissionMapSection: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3 flex-1 overflow-y-auto pr-1">
-            {incidents.map((incident) => {
+            {visibleIncidents.map((incident) => {
               const isSelected = selectedIncident?.id === incident.id;
               return (
                 <div
@@ -308,7 +338,7 @@ export const MissionMapSection: React.FC = () => {
               );
             })}
 
-            {incidents.length === 0 && !error && (
+            {visibleIncidents.length === 0 && !error && (
               <p className="text-sm text-center text-on-surface-variant mt-10">
                 Không có sự cố nào để hiển thị.
               </p>

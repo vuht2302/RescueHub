@@ -716,16 +716,16 @@ export function CreateReliefDistributionModal({
     <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-green-600 to-emerald-600 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b  flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-              <Truck size={20} className="text-white" />
+              <Truck size={20} className="text-black" />
             </div>
             <div>
-              <p className="text-xs text-green-100 font-semibold uppercase">
+              <p className="text-xs text-black-200 font-semibold uppercase">
                 Tạo phiếu phân phối
               </p>
-              <h2 className="text-lg font-bold text-white">
+              <h2 className="text-lg font-bold text-black">
                 Phiếu phân phối cứu trợ
               </h2>
             </div>
@@ -747,8 +747,8 @@ export function CreateReliefDistributionModal({
           ) : (
             <>
               {/* Campaign Info (readonly display) */}
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
-                <h3 className="text-sm font-bold text-green-800 mb-3 flex items-center gap-2">
+              <div className=" rounded-xl p-4 border border-black-200">
+                <h3 className="text-sm font-bold text-black-800 mb-3 flex items-center gap-2">
                   <MapPin size={16} />
                   Thông tin chiến dịch
                 </h3>
@@ -776,8 +776,8 @@ export function CreateReliefDistributionModal({
 
               {/* Aggregated Items Summary from Relief Requests */}
               {(aggregatedItems.length > 0 || isLoadingAggregatedItems) && (
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
-                  <h3 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
+                <div className=" rounded-xl p-4 border border-black-200">
+                  <h3 className="text-sm font-bold text-black-800 mb-3 flex items-center gap-2">
                     <Package size={16} />
                     Tổng hợp vật phẩm cần thiết
                     <span className="ml-auto text-xs font-normal text-blue-600">
@@ -877,7 +877,7 @@ export function CreateReliefDistributionModal({
               {/* Warehouse Suggestions */}
               {warehouseSuggestions.length > 0 &&
                 aggregatedItems.length > 0 && (
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200">
+                  <div className=" rounded-xl p-4 border border-purple-200">
                     <h3 className="text-sm font-bold text-purple-800 mb-3 flex items-center gap-2">
                       <WarehouseIcon size={16} />
                       Gợi ý kho xuất hàng
@@ -1215,7 +1215,7 @@ export function CreateReliefDistributionModal({
             disabled={submitting || loading}
             className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-60"
             style={{
-              background: "linear-gradient(135deg, #059669, #10b981)",
+              background: "black",
             }}
           >
             {submitting ? (

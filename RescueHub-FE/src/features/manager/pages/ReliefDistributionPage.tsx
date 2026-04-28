@@ -279,7 +279,7 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                       <th className="px-4 py-3">Số hộ</th>
                       <th className="px-4 py-3">Địa chỉ</th>
                       <th className="px-4 py-3">Trạng thái</th>
-                      <th className="px-4 py-3 text-right">Thao tác</th>
+                      <th className="px-4 py-3 text-center">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -326,13 +326,13 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                             statusMap={REQUEST_STATUS}
                           />
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-center">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               void handleSelectRequest(req);
                             }}
-                            className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-semibold transition-colors"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-semibold transition-colors"
                           >
                             <FileText size={12} />
                             Chi tiết
@@ -415,11 +415,17 @@ export const ReliefDistributionPage: React.FC<{ className?: string }> = ({
                           </td>
                           <td className="px-4 py-3 text-center">
                             <div className="flex items-center justify-center gap-1">
-                              {(dist.status?.code === "CANCELLED" || dist.status?.code === "CANCEL") && (
+                              {(dist.status?.code === "CANCELLED" ||
+                                dist.status?.code === "CANCEL") && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    console.log("Edit clicked for dist:", dist.id, "Status:", dist.status?.code);
+                                    console.log(
+                                      "Edit clicked for dist:",
+                                      dist.id,
+                                      "Status:",
+                                      dist.status?.code,
+                                    );
                                     setEditDistId(dist.id);
                                   }}
                                   className="p-1.5 rounded-lg hover:bg-orange-100 text-orange-600"
@@ -1194,7 +1200,10 @@ function EditCancelledDistModal({
   useEffect(() => {
     void (async () => {
       try {
-        const data = await getDistribution(distId, getAuthSession()?.accessToken ?? "");
+        const data = await getDistribution(
+          distId,
+          getAuthSession()?.accessToken ?? "",
+        );
         setDist(data);
         if (data.recipient?.id) {
           setSelectedTeamId(data.recipient.id);
@@ -1211,9 +1220,12 @@ function EditCancelledDistModal({
   useEffect(() => {
     void (async () => {
       try {
-        const teamItems = await getManagerTeams(getAuthSession()?.accessToken ?? "", {
-          statusCode: "AVAILABLE",
-        });
+        const teamItems = await getManagerTeams(
+          getAuthSession()?.accessToken ?? "",
+          {
+            statusCode: "AVAILABLE",
+          },
+        );
         setTeams(teamItems);
       } catch (e) {
         console.error("Error loading teams:", e);
@@ -1232,10 +1244,16 @@ function EditCancelledDistModal({
     setError(null);
     try {
       // Call update API to change team - backend will reset status to PENDING for cancelled distributions
-      await updateDistribution(distId, {
-        teamId: selectedTeamId,
-      }, getAuthSession()?.accessToken ?? "");
-      toast.success("Đã cập nhật phiếu phân phối và chuyển sang trạng thái Chờ nhận!");
+      await updateDistribution(
+        distId,
+        {
+          teamId: selectedTeamId,
+        },
+        getAuthSession()?.accessToken ?? "",
+      );
+      toast.success(
+        "Đã cập nhật phiếu phân phối và chuyển sang trạng thái Chờ nhận!",
+      );
       onSuccess();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lỗi cập nhật");
@@ -1257,10 +1275,17 @@ function EditCancelledDistModal({
         {/* Header */}
         <div className="px-6 py-4 border-b flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-orange-600">Sửa phiếu đã hủy</h2>
-            <p className="text-xs text-gray-400 font-mono">{dist?.code || "..."}</p>
+            <h2 className="text-lg font-bold text-orange-600">
+              Sửa phiếu đã hủy
+            </h2>
+            <p className="text-xs text-gray-400 font-mono">
+              {dist?.code || "..."}
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100">
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-gray-100"
+          >
             <X size={18} />
           </button>
         </div>
@@ -1283,7 +1308,9 @@ function EditCancelledDistModal({
               <div className="bg-gray-50 rounded-lg p-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Trạng thái hiện tại:</span>
-                  <span className="font-semibold text-red-600">{dist?.status?.code || "CANCELLED"}</span>
+                  <span className="font-semibold text-red-600">
+                    {dist?.status?.code || "CANCELLED"}
+                  </span>
                 </div>
               </div>
 
@@ -1295,11 +1322,14 @@ function EditCancelledDistModal({
                 {loadingTeams ? (
                   <div className="flex items-center justify-center py-3">
                     <div className="w-5 h-5 border-2 border-blue-300 border-t-blue-800 rounded-full animate-spin" />
-                    <span className="ml-2 text-sm text-gray-500">Đang tải đội cứu trợ...</span>
+                    <span className="ml-2 text-sm text-gray-500">
+                      Đang tải đội cứu trợ...
+                    </span>
                   </div>
                 ) : teamOptions.length === 0 ? (
                   <div className="text-sm text-orange-600 py-2">
-                    Không có đội cứu trợ nào đang rảnh. Vui lòng tạo hoặc giải phóng đội cứu trợ.
+                    Không có đội cứu trợ nào đang rảnh. Vui lòng tạo hoặc giải
+                    phóng đội cứu trợ.
                   </div>
                 ) : (
                   <select
@@ -1319,7 +1349,9 @@ function EditCancelledDistModal({
 
               {/* Info text */}
               <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
-                Sau khi lưu, phiếu sẽ được chuyển sang trạng thái <strong>Chờ nhận (PENDING)</strong> để đội cứu trợ có thể xác nhận.
+                Sau khi lưu, phiếu sẽ được chuyển sang trạng thái{" "}
+                <strong>Chờ nhận (PENDING)</strong> để đội cứu trợ có thể xác
+                nhận.
               </div>
             </>
           )}

@@ -33,6 +33,11 @@ interface ReliefCampaignTabProps {
   onCreateDistribution?: (campaignId: string, reliefPointId?: string) => void;
 }
 
+const normalizeCampaignStatusCode = (statusCode?: string | null): string => {
+  const code = String(statusCode ?? "").toUpperCase();
+  return code === "CLOSED" ? "COMPLETED" : code;
+};
+
 export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
   onSelectCampaign,
   onCreateDistribution,
@@ -53,14 +58,25 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
     setIsLoading(true);
     setError(null);
     try {
+      const isCompletedFilter = statusFilter === "COMPLETED";
       const data = await getReliefCampaigns(
         getAuthSession()?.accessToken ?? "",
         {
           ...(search ? { keyword: search } : {}),
-          ...(statusFilter ? { statusCode: statusFilter } : {}),
+          ...(!isCompletedFilter && statusFilter
+            ? { statusCode: statusFilter }
+            : {}),
         },
       );
-      setCampaigns(data);
+      setCampaigns(
+        isCompletedFilter
+          ? data.filter(
+              (campaign) =>
+                normalizeCampaignStatusCode(campaign.status?.code) ===
+                "COMPLETED",
+            )
+          : data,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lỗi tải chiến dịch");
     } finally {
@@ -174,11 +190,16 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
                 <th className="px-4 py-3">Ngày bắt đầu</th>
                 <th className="px-4 py-3">Trạm</th>
                 <th className="px-4 py-3">Trạng thái</th>
-                <th className="px-4 py-3 text-right">Thao tác</th>
+                <th className="px-4 py-3 text-center">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {campaigns.map((campaign) => (
+              {campaigns.map((campaign) => {
+                const normalizedStatusCode = normalizeCampaignStatusCode(
+                  campaign.status?.code,
+                );
+                const isCompletedCampaign = normalizedStatusCode === "COMPLETED";
+                return (
                 <tr
                   key={campaign.id}
                   onClick={() => handleCampaignClick(campaign)}
@@ -215,16 +236,17 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge
-                      code={campaign.status?.code ?? ""}
+                      code={normalizedStatusCode}
                       statusMap={CAMPAIGN_STATUS}
                     />
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  <td className="px-4 py-3 text-center">
+                    {!isCompletedCampaign && (
+                    <div className="flex items-center justify-center gap-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onCreateDistribution(campaign.id);
+                          onCreateDistribution?.(campaign.id);
                         }}
                         className="flex items-center gap-1 px-2 py-1 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg text-xs font-semibold transition-colors"
                       >
@@ -242,9 +264,11 @@ export const ReliefCampaignTab: React.FC<ReliefCampaignTabProps> = ({
                         Xóa
                       </button>
                     </div>
+                    )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}

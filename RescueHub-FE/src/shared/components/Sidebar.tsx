@@ -231,7 +231,7 @@ export const Sidebar: React.FC = () => {
                   className={isActive ? "text-blue-600" : item.color}
                 />
                 <span
-                  className={`text-sm font-semibold flex-1 text-left ${
+                  className={`text-sm font-semibold flex-1 text-left whitespace-nowrap overflow-hidden text-ellipsis ${
                     isActive
                       ? "text-blue-950"
                       : "text-gray-700 hover:text-gray-900"
